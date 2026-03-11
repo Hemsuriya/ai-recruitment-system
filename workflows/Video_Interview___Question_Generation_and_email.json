@@ -13,10 +13,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -448,
-        144
+        -440,
+        160
       ],
-      "id": "9a9f58b3-b821-4ea0-8bef-d9580b54d987",
+      "id": "c595ec29-4f97-4fa7-824f-732232b0d0c2",
       "name": "Round 2 Trigger",
       "webhookId": "1a95ac36-f4a5-4ea0-a4ed-b0389b795102"
     },
@@ -27,10 +27,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -224,
-        144
+        -220,
+        160
       ],
-      "id": "83bd6f7e-e856-4455-92ea-ca0f8b7d326b",
+      "id": "5e0e943b-e65b-4cd1-a792-9e81e1db4b63",
       "name": "Process Round 2 Form"
     },
     {
@@ -43,14 +43,14 @@
       "typeVersion": 2.6,
       "position": [
         0,
-        224
+        240
       ],
-      "id": "211084df-8b7a-4f90-a63f-94ad99b000c8",
+      "id": "1913fb84-30ee-4716-924b-181e22fd16be",
       "name": "Get Round 1 Job Requirements",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "COMU7aL1kJR7Jmx8",
+          "name": "n8n db"
         }
       }
     },
@@ -61,10 +61,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        528,
-        128
+        540,
+        140
       ],
-      "id": "76731dbe-541f-49b6-8090-010f5157d4ab",
+      "id": "09218e82-893b-4f5e-b393-6d58de6cf16e",
       "name": "Prepare Candidate Loop"
     },
     {
@@ -76,10 +76,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        304,
-        128
+        320,
+        140
       ],
-      "id": "0970b5d7-fa20-4dee-bbb9-9a8e99add147",
+      "id": "4f6732d9-6472-4a68-9508-a212420c01e8",
       "name": "Merge Candidates and JD"
     },
     {
@@ -90,10 +90,10 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        752,
-        128
+        760,
+        140
       ],
-      "id": "f1a52193-fa83-4d42-8ab1-b9bad40ebf72",
+      "id": "d61e2040-9aff-4c60-8ea8-9d320cc5d9d7",
       "name": "Split Candidates for Processing"
     },
     {
@@ -104,9 +104,9 @@
       "typeVersion": 2,
       "position": [
         960,
-        128
+        140
       ],
-      "id": "5090b79d-558f-4642-8384-403992fdd609",
+      "id": "1fe04d12-3393-4b80-a836-3459fde498ba",
       "name": "Extract Individual Candidate"
     },
     {
@@ -116,10 +116,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1184,
-        128
+        1200,
+        140
       ],
-      "id": "9f676a2f-6b34-462d-a475-15b5d8f411ed",
+      "id": "eff812f3-0334-4296-accd-38cbba79b291",
       "name": "Generate Personalized Question Prompt"
     },
     {
@@ -133,10 +133,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 2,
       "position": [
-        1408,
-        128
+        1420,
+        140
       ],
-      "id": "48fd8145-10dd-4e8e-b26d-d174f65f1905",
+      "id": "0b708c3b-bdc4-45a6-879c-8e92ba5218af",
       "name": "AI Generate Questions"
     },
     {
@@ -148,13 +148,13 @@
       "typeVersion": 1,
       "position": [
         1280,
-        368
+        380
       ],
-      "id": "60577b2f-ba0f-44fd-8e12-2d8a9331a36a",
+      "id": "cd9249a6-e073-48bd-b97c-41c7a5887712",
       "name": "Groq Chat Model",
       "credentials": {
         "groqApi": {
-          "id": "zy8tywBKHidhyh4t",
+          "id": "rOd6m7YG43wEg4fN",
           "name": "Groq account"
         }
       }
@@ -167,9 +167,9 @@
       "typeVersion": 2,
       "position": [
         1760,
-        128
+        140
       ],
-      "id": "e53f4169-2cf2-4cd7-b29c-b37529839ab6",
+      "id": "18a74c4d-58bb-4322-8c56-c201e66546c9",
       "name": "Parse Generated Questions"
     },
     {
@@ -412,15 +412,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1968,
-        128
+        1980,
+        140
       ],
-      "id": "1e75f4a0-b9cd-4255-99f9-c407f6122e92",
+      "id": "b77b0ee5-1fd0-4931-ad35-eec179682db1",
       "name": "Insert Video Interview Candidate",
       "credentials": {
         "postgres": {
-          "id": "oWYyagdraBah9Hpf",
-          "name": "Postgres account 3"
+          "id": "NOjxspV7ffUcpL7z",
+          "name": "VIdeo Interview"
         }
       }
     },
@@ -575,14 +575,14 @@
       "typeVersion": 2.6,
       "position": [
         2560,
-        128
+        140
       ],
-      "id": "7918e854-ed3d-4605-806f-edfa342facf1",
+      "id": "258c42ab-937e-4ba2-8a8e-09b316fe1eec",
       "name": "Insert Video Questions",
       "credentials": {
         "postgres": {
-          "id": "oWYyagdraBah9Hpf",
-          "name": "Postgres account 3"
+          "id": "NOjxspV7ffUcpL7z",
+          "name": "VIdeo Interview"
         }
       }
     },
@@ -776,15 +776,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        2144,
-        128
+        2160,
+        140
       ],
-      "id": "fa262d8d-9db0-4f95-85fe-1930e06c3995",
+      "id": "ade9bbdd-23fe-46b5-9bcc-973c22a133a3",
       "name": "Insert Video Job Requirements",
       "credentials": {
         "postgres": {
-          "id": "oWYyagdraBah9Hpf",
-          "name": "Postgres account 3"
+          "id": "NOjxspV7ffUcpL7z",
+          "name": "VIdeo Interview"
         }
       }
     },
@@ -795,10 +795,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2768,
-        128
+        2780,
+        140
       ],
-      "id": "0cd92c85-aee7-4564-b32d-bc7fdd7cc0de",
+      "id": "cd6dcde7-4ae1-467a-aca8-4c9e667c5e89",
       "name": "Prepare Video Interview Email"
     },
     {
@@ -808,10 +808,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3184,
-        128
+        3200,
+        140
       ],
-      "id": "82ab0f34-87b1-4583-aacd-4fe5e66b4c41",
+      "id": "eb323214-1af5-4964-bd25-8bdc179650ab",
       "name": "Create Round 2 Summary"
     },
     {
@@ -825,10 +825,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        3408,
-        128
+        3420,
+        140
       ],
-      "id": "641024ad-3ef5-4940-9d20-7bccae28a019",
+      "id": "695120b5-3d1a-4bcf-84a9-88437ff47051",
       "name": "Send Success Response"
     },
     {
@@ -843,12 +843,12 @@
         0,
         0
       ],
-      "id": "9d9dc1dd-b987-4935-a63f-36a5bcd52d36",
+      "id": "3a0bc0f2-00a1-4ba7-9c11-55b04390c9e6",
       "name": "Get Passed Candidates with Resumes",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "COMU7aL1kJR7Jmx8",
+          "name": "n8n db"
         }
       }
     },
@@ -859,10 +859,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2368,
-        128
+        2380,
+        140
       ],
-      "id": "c79d87ae-462b-439c-b53e-80c02ad9c490",
+      "id": "fa596758-bbd7-4b10-b3f6-37a668094b4e",
       "name": "Prepare Questions for Insert"
     },
     {
@@ -877,15 +877,15 @@
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
       "position": [
-        2976,
-        128
+        2980,
+        140
       ],
-      "id": "75a772b2-40b8-49a2-9167-0a450ca494c1",
+      "id": "a6112d5b-5146-46ca-8513-dcad5c241567",
       "name": "Send a message",
       "webhookId": "190618bc-6dc2-45f3-86ab-ded1f17e42f4",
       "credentials": {
         "microsoftOutlookOAuth2Api": {
-          "id": "5KoJGJBrr48AFbD1",
+          "id": "yyj3FNBoZxJz7o6P",
           "name": "Microsoft Outlook account"
         }
       }
@@ -898,17 +898,12 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        1408,
-        432
+        1420,
+        440
       ],
-      "id": "9828fb55-955d-42d3-8e83-add10c7cb442",
+      "id": "1a4a5677-6b51-450e-85b6-da8a40a08289",
       "name": "Ollama Chat Model",
-      "credentials": {
-        "ollamaApi": {
-          "id": "oaDknwqQec1ZdiHM",
-          "name": "Ollama account"
-        }
-      }
+      "disabled": true
     }
   ],
   "pinData": {},
@@ -1126,22 +1121,16 @@
           }
         ]
       ]
-    },
-    "Ollama Chat Model": {
-      "ai_languageModel": [
-        []
-      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "fbdfa734-ad79-4538-9860-013b42a4ce67",
+  "versionId": "74af777e-d0a8-4dd7-820d-fc7869aca96c",
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "40aada8a4ba279910b0f7a1293e0252f9879b72101632b6cd87e8e36d4b1d18e"
+    "instanceId": "2c0d37ded7638974854982d7521d3fec2c5ff95635449ac2ac60236de6cfe094"
   },
-  "id": "YUIcGB1Ki6spMbox",
+  "id": "bzdlPZ8wjaRl9cHq",
   "tags": []
 }

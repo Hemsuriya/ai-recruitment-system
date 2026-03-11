@@ -1,5 +1,5 @@
 {
-  "name": "AICandidateScreening V1.2",
+  "name": "aicandidatescreeningv1.2",
   "nodes": [
     {
       "parameters": {
@@ -8,39 +8,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3184,
-        688
+        -2460,
+        1560
       ],
-      "id": "5032819e-9c1f-40fa-87ea-5a0972b09228",
+      "id": "32d1d714-6cfc-413c-9096-8b6d8fb39523",
       "name": "Resume Search Config"
-    },
-    {
-      "parameters": {
-        "url": "={{$json[\"@microsoft.graph.downloadUrl\"]}}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "microsoftSharePointOAuth2Api",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
-          }
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -2560,
-        688
-      ],
-      "id": "aad7edc9-c43b-4a03-87b5-5d546d3b8577",
-      "name": "HTTP Request3",
-      "credentials": {
-        "microsoftSharePointOAuth2Api": {
-          "id": "QsghzBaCSuU5TEgr",
-          "name": "Microsoft SharePoint account"
-        }
-      }
     },
     {
       "parameters": {
@@ -50,10 +22,10 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        -2384,
-        688
+        -1660,
+        1560
       ],
-      "id": "8c4492d2-0aa8-43ef-9f7f-0ead2fd41a40",
+      "id": "144b3f83-e203-43df-aee9-0b813a151743",
       "name": "Extract from File"
     },
     {
@@ -68,10 +40,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 2,
       "position": [
-        -2016,
-        688
+        -1300,
+        1560
       ],
-      "id": "aa5d8ac9-163a-4039-96ea-44bc7ecd2085",
+      "id": "640d1754-63fe-4831-b987-28cb94c7f3a7",
       "name": "AI Agent"
     },
     {
@@ -81,10 +53,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2192,
-        688
+        -1480,
+        1560
       ],
-      "id": "19afd9e4-e053-4cfb-9227-861b58d30f7f",
+      "id": "30ce5f86-0f2d-403c-834a-879be53ed4d3",
       "name": "AI Resume Matcher"
     },
     {
@@ -94,10 +66,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1664,
-        688
+        -940,
+        1560
       ],
-      "id": "59ce25f8-f530-4b40-9cfd-c1d5e71d7ae2",
+      "id": "890f6cf9-6443-410a-bfa0-6ca6c5d4e84c",
       "name": "Code2"
     },
     {
@@ -107,10 +79,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1008,
-        688
+        -280,
+        1560
       ],
-      "id": "882edb4b-3632-40e9-830c-015ad9bb7c4c",
+      "id": "6407c770-ff15-4c04-b3ff-cdc8caa92524",
       "name": "Process Selections & Generate MCQ"
     },
     {
@@ -124,10 +96,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 2,
       "position": [
-        -704,
-        688
+        20,
+        1560
       ],
-      "id": "b8b0394e-1a70-45a1-9243-318051150c70",
+      "id": "1049738c-8d1b-4692-8ce5-d1af4c88c653",
       "name": "MCQ Generation Agent"
     },
     {
@@ -137,10 +109,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -240,
-        688
+        480,
+        1560
       ],
-      "id": "d5752631-f8fb-424e-8529-87e0e6172771",
+      "id": "f0702a1c-bfda-4acc-b50f-9d3f24293954",
       "name": "Parse MCQ & Prepare Emails"
     },
     {
@@ -151,10 +123,10 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        -16,
-        688
+        720,
+        1560
       ],
-      "id": "0fd11e43-5475-47ce-bf8f-19b67fa77983",
+      "id": "ac8f6712-abb3-42b8-907a-bec4ef35cb90",
       "name": "Split Out"
     },
     {
@@ -164,10 +136,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        432,
-        688
+        1160,
+        1560
       ],
-      "id": "1c2b8f99-68ee-4016-8b11-3d9c56e7faf7",
+      "id": "b076c8b6-46ce-4caf-8cb9-9481dc22eefe",
       "name": "Store Assessment Data"
     },
     {
@@ -178,10 +150,10 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        736,
-        288
+        1460,
+        1160
       ],
-      "id": "35f490c9-4845-401f-80d0-5feb548c7ded",
+      "id": "59877881-3d05-43e6-b35d-ce8b2bc9b601",
       "name": "Split Candidates"
     },
     {
@@ -461,15 +433,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        944,
-        288
+        1680,
+        1160
       ],
-      "id": "6140cb40-5c57-494b-8d9d-808a1ee69557",
+      "id": "85438c33-f6a3-445c-97a0-a81f150897e8",
       "name": "Insert Candidates",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -481,10 +453,10 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        640,
-        480
+        1360,
+        1360
       ],
-      "id": "c2a95319-87e7-4833-a54b-d33daa2fd9ca",
+      "id": "ae0eee7c-392b-4ac0-82fa-58525e030cfb",
       "name": "Split Job Requirements"
     },
     {
@@ -616,15 +588,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        848,
-        480
+        1580,
+        1360
       ],
-      "id": "1bee1b47-ecaf-41a2-b35f-01cd9235e4a3",
+      "id": "ee38023b-cbac-4659-b339-342ed76c4509",
       "name": "Insert Job Requirements",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -636,10 +608,10 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        640,
-        688
+        1360,
+        1560
       ],
-      "id": "311be3ff-8804-40a3-8253-4050d4f48ef3",
+      "id": "e22af269-39b9-4ff6-a9e0-fe3f0a996ed7",
       "name": "Split Questions"
     },
     {
@@ -765,15 +737,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        848,
-        688
+        1580,
+        1560
       ],
-      "id": "7bbd95b6-d148-461c-a73a-eb0a9ac23cc3",
+      "id": "65d2e1b1-7428-42c8-ac58-0da736e43cb6",
       "name": "Insert Questions",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -784,10 +756,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1456,
-        688
+        -740,
+        1560
       ],
-      "id": "c93fccd4-023b-45fa-aaec-a0d47c3c9798",
+      "id": "a4e9d52b-3d1d-48df-aac0-0b7a87738105",
       "name": "Prepare HR Review Data"
     },
     {
@@ -1000,10 +972,10 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.2,
       "position": [
-        -3408,
-        688
+        -2680,
+        1560
       ],
-      "id": "bbd96681-e112-4dac-aa9f-00df66125ed8",
+      "id": "e923f983-c503-4d08-83b8-a8234696e313",
       "name": "Job Description",
       "webhookId": "d95ab821-f76a-4d6a-a699-08976109c800"
     },
@@ -1020,10 +992,10 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 1,
       "position": [
-        -1264,
-        688
+        -540,
+        1560
       ],
-      "id": "6841940a-a11f-4246-878e-5b0adc743a0f",
+      "id": "938076aa-8020-4dc6-a3dc-0f42eaa26c63",
       "name": "Candidate Selection Form",
       "webhookId": "2ded4e36-223d-4769-9639-b71fd3b9855a"
     },
@@ -1034,10 +1006,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2960,
-        688
+        -2240,
+        1560
       ],
-      "id": "9279cdf7-b8d3-4baa-bc89-b64767381523",
+      "id": "951b6c86-beaf-42cf-a2e0-14a2cb1dae6a",
       "name": "Process Survey Questions"
     },
     {
@@ -1048,10 +1020,10 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        640,
-        880
+        1360,
+        1760
       ],
-      "id": "23fbd6f6-6ae4-46c4-b4bd-2b9bcca7087f",
+      "id": "dd8f88e4-deb3-46c7-af3d-12ecad29411d",
       "name": "Split Survey Questions"
     },
     {
@@ -1198,15 +1170,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        864,
-        880
+        1600,
+        1760
       ],
-      "id": "792f93d4-efbe-4644-a668-81775533283b",
+      "id": "637e0fcf-f6ce-4b11-ae99-886112e1bc51",
       "name": "Insert Survey Questions",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1222,15 +1194,15 @@
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
       "position": [
-        224,
-        688
+        960,
+        1560
       ],
-      "id": "073be7a3-de77-4ecf-bc62-78f34a3a1103",
+      "id": "dd0964c8-65c7-46f6-a785-92897dbfcea3",
       "name": "Send a message",
       "webhookId": "f7041949-0d39-4752-ad34-bb7e9760b190",
       "credentials": {
         "microsoftOutlookOAuth2Api": {
-          "id": "5KoJGJBrr48AFbD1",
+          "id": "yyj3FNBoZxJz7o6P",
           "name": "Microsoft Outlook account"
         }
       }
@@ -1243,14 +1215,14 @@
       "type": "n8n-nodes-base.microsoftOneDrive",
       "typeVersion": 1,
       "position": [
-        -2752,
-        688
+        -2040,
+        1560
       ],
-      "id": "2a45eb36-1360-4fca-9332-8a5c52ce62c0",
+      "id": "8f6a42a0-9c42-4baa-b020-8c125f03555c",
       "name": "Get items in a folder",
       "credentials": {
         "microsoftOneDriveOAuth2Api": {
-          "id": "tkawYgpWG6dT4PKA",
+          "id": "2svF5z7XskA3Nzkt",
           "name": "Microsoft Drive account"
         }
       }
@@ -1285,10 +1257,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -3408,
-        1248
+        -2680,
+        2120
       ],
-      "id": "b8b2af3f-df40-4aa0-bfdb-6a220079842c",
+      "id": "7ad5f643-1269-45b0-b22c-14c657e538e4",
       "name": "Job Templates API",
       "webhookId": "62e9d11e-cd73-4990-8961-8df39fea2712"
     },
@@ -1299,10 +1271,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3200,
-        1248
+        -2480,
+        2120
       ],
-      "id": "79dc81fe-773b-4447-b433-6bd16b748dcb",
+      "id": "f84a0a2c-4b88-4d93-889d-8e8e249f963c",
       "name": "Template Request Handler"
     },
     {
@@ -1316,15 +1288,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -3008,
-        1248
+        -2280,
+        2120
       ],
-      "id": "9fc1fe43-7d50-4a6f-9772-caced1224aed",
+      "id": "0de075fc-bfc6-48cf-b435-ce6a1fb4e2af",
       "name": "Execute Template Query",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1335,10 +1307,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2800,
-        1248
+        -2080,
+        2120
       ],
-      "id": "cf1f4339-5b6e-40cf-8ce4-40db8389cd19",
+      "id": "cec6476a-8c9f-49a1-9278-b6f0b9b82f2f",
       "name": "Format Template Response"
     },
     {
@@ -1372,10 +1344,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -2176,
-        1424
+        -1460,
+        2300
       ],
-      "id": "87cdf5e5-f85f-4de0-9e2c-974a41ce233e",
+      "id": "b75eee62-2abd-4739-a6df-e5f83dc230c3",
       "name": "Assessment Data API",
       "webhookId": "5d801529-c6f5-4188-aecf-22fe952760cd"
     },
@@ -1386,10 +1358,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1984,
-        1424
+        -1260,
+        2300
       ],
-      "id": "f1ad6200-d0b3-4864-81a4-e28e25a457a5",
+      "id": "55a9062b-5d77-4b2c-8af3-3e29a8b80c6c",
       "name": "Serve Assessment Data"
     },
     {
@@ -1403,15 +1375,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1760,
-        1264
+        -1040,
+        2140
       ],
-      "id": "488253c3-ca82-4b76-993a-599590e275ae",
+      "id": "58382f0f-9919-4b05-b782-7adadf1ea56f",
       "name": "Get Candidate",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1426,15 +1398,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1760,
-        1424
+        -1040,
+        2300
       ],
-      "id": "dd1cdabb-72eb-4aa8-962f-8153ffa43442",
+      "id": "beafec5c-b9f7-4887-9045-2b6d9c99775e",
       "name": "Get Job Requirements",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1449,15 +1421,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1760,
-        1584
+        -1040,
+        2460
       ],
-      "id": "e66f4ea6-5583-4104-a7b4-c6a4b812e175",
+      "id": "2cbf33c1-dec7-4553-b607-971617094a3b",
       "name": "Get Questions",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1468,10 +1440,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1328,
-        1440
+        -600,
+        2320
       ],
-      "id": "6422468f-717d-4417-9e73-113588126d0d",
+      "id": "d7b4a724-9245-4f73-824d-af72f01a0a93",
       "name": "Combine Assessment Results"
     },
     {
@@ -1481,10 +1453,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -1520,
-        1424
+        -800,
+        2300
       ],
-      "id": "e92c5b03-dd11-4264-a800-21177bf2899d",
+      "id": "e2e82399-2c6b-449c-a8b2-67ba56c01514",
       "name": "Merge"
     },
     {
@@ -1517,10 +1489,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -2096,
-        2336
+        -1380,
+        3200
       ],
-      "id": "220aff89-d4c5-4071-ab41-53c7fad209e5",
+      "id": "ef2b487e-5a20-4245-9866-ac8fd2cd0d6b",
       "name": "Assessment Info API",
       "webhookId": "2779feee-2185-4fe1-8473-5101682f4d38"
     },
@@ -1531,10 +1503,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1904,
-        2336
+        -1180,
+        3200
       ],
-      "id": "97c865fd-04d2-42bd-ae92-551a23d24e43",
+      "id": "0c8a85a3-80af-440b-8d06-6ee368b39fe5",
       "name": "Pre-Verification Data Handler"
     },
     {
@@ -1548,15 +1520,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1696,
-        2224
+        -980,
+        3100
       ],
-      "id": "83e2907b-c188-49ba-a05e-fcf5f1a36509",
+      "id": "be07e072-c445-46da-a2a3-340bc1818514",
       "name": "Get Candidate Info Only",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1571,15 +1543,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1696,
-        2416
+        -980,
+        3280
       ],
-      "id": "a855c302-9223-4619-a1db-bd4000871392",
+      "id": "c6c1ce57-5891-4d08-8777-288a3534f65c",
       "name": "Get Job Requirements Only",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1590,10 +1562,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -1456,
-        2336
+        -740,
+        3200
       ],
-      "id": "ae5fde85-1140-4b60-8b2d-a9a2c3acee7d",
+      "id": "0a5e791f-9c52-474d-94fe-00aaa440c8b3",
       "name": "Merge Pre-Verification Data"
     },
     {
@@ -1603,10 +1575,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1280,
-        2336
+        -560,
+        3200
       ],
-      "id": "c5f72036-fb00-47b2-b56e-3be24a4d98a4",
+      "id": "058c406c-e5aa-42ea-b0db-61042f23f33a",
       "name": "Build Pre-Verification Response"
     },
     {
@@ -1620,15 +1592,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1760,
-        1792
+        -1040,
+        2660
       ],
-      "id": "3aa395a2-99a9-421d-9352-17770ec017d6",
+      "id": "0c6c4b37-7131-45d7-9622-c19f06f6e0ee",
       "name": "Get Survey Questions1",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1641,10 +1613,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -544,
-        1616
+        180,
+        2480
       ],
-      "id": "553f5b5e-d766-4a70-934c-450a300d6bf7",
+      "id": "a91608a3-73f7-4919-a551-455cb32bb2cf",
       "name": "Assessment Results Webhook",
       "webhookId": "b9b2df9b-e0a1-48e7-af23-e1eb5f6bdad7"
     },
@@ -1655,10 +1627,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -368,
-        1616
+        360,
+        2480
       ],
-      "id": "98ee5472-2ce5-451d-9a75-396c4df8bfb3",
+      "id": "6b968307-7e32-44df-b12f-11e7c4d3d0f9",
       "name": "Score Calculator"
     },
     {
@@ -1672,15 +1644,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -128,
-        1392
+        600,
+        2260
       ],
-      "id": "a767fcb8-a070-4db8-af64-1ab534b2c7f6",
+      "id": "0e9993da-b8b3-41eb-b065-09525dbeaa54",
       "name": "Get Real Candidate Data",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1695,15 +1667,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -128,
-        1536
+        600,
+        2400
       ],
-      "id": "41368a80-9eb4-429e-ba50-0f786a545420",
+      "id": "ab3cf9ac-867e-4a77-bf99-9459d38d9578",
       "name": "Get Correct Answers",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1718,15 +1690,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -128,
-        1696
+        600,
+        2560
       ],
-      "id": "e4b62abe-291b-4f0d-9050-266f3b1e0e8a",
+      "id": "d18c8455-14d2-41fe-9563-510857700502",
       "name": "Get Job Requirements1",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -1737,10 +1709,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        192,
-        1552
+        920,
+        2420
       ],
-      "id": "5a783844-11b4-4dce-9fb5-1b21fc67e920",
+      "id": "58ed7220-5bb4-4fd3-9aea-57a1140b273b",
       "name": "Merge1"
     },
     {
@@ -1750,10 +1722,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        368,
-        1568
+        1100,
+        2440
       ],
-      "id": "79c74f39-aeac-44fc-ba37-0d63a578e955",
+      "id": "8c0af19b-620b-465e-85e2-3f766e0cd2b3",
       "name": "Final Score Processor"
     },
     {
@@ -1912,15 +1884,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        784,
-        2096
+        1520,
+        2960
       ],
-      "id": "a1c29146-d80a-4121-88be-130ff375c5cd",
+      "id": "3370099e-7925-468b-addb-3e105baa046c",
       "name": "Postgres",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "COMU7aL1kJR7Jmx8",
+          "name": "n8n db"
         }
       }
     },
@@ -1931,10 +1903,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        528,
-        1840
+        1260,
+        2720
       ],
-      "id": "729fa5bb-caca-4753-b9a4-2974c5fb9588",
+      "id": "d6f0d6d9-d9b9-4ff2-8872-03e4fb71f6f4",
       "name": "Code"
     },
     {
@@ -1944,10 +1916,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        544,
-        1296
+        1280,
+        2160
       ],
-      "id": "9156a839-78ca-4eda-b7c4-ceac910fa499",
+      "id": "cd4c58a7-c6a3-46d1-9af5-9da1d1cae097",
       "name": "Store Aadhaar Verification"
     },
     {
@@ -2116,15 +2088,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        992,
-        1296
+        1720,
+        2160
       ],
-      "id": "3fc8076f-a27e-4094-9f2e-289b496b9d02",
+      "id": "02a6f421-9f83-4fbd-80c8-6d56daf93372",
       "name": "Postgres1",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "COMU7aL1kJR7Jmx8",
+          "name": "n8n db"
         }
       }
     },
@@ -2230,15 +2202,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1024,
-        1952
+        1760,
+        2820
       ],
-      "id": "f0d36310-bc67-4cd6-a2a3-e09a336f8975",
+      "id": "8c21d193-6ee7-41b0-b4b0-fd92648f030e",
       "name": "Insert Audit Log",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2249,10 +2221,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        768,
-        1296
+        1500,
+        2160
       ],
-      "id": "acdca74b-1f7d-4b5d-a2d6-b439900adec8",
+      "id": "3fed6c4d-104d-41f7-9997-758bab997e59",
       "name": "Verification Record"
     },
     {
@@ -2262,10 +2234,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        800,
-        1776
+        1520,
+        2640
       ],
-      "id": "58694657-6a9f-4ff9-9b20-c81c7db5e0a4",
+      "id": "4ced30a6-9c3a-42e8-8897-8735ea3979e0",
       "name": "Extract Audit Data"
     },
     {
@@ -2279,15 +2251,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -128,
-        1872
+        600,
+        2740
       ],
-      "id": "7fb84506-0390-4ad8-9aa7-99ac0bc19983",
+      "id": "9ee8972d-c4ba-402f-b49b-cd2213b6814b",
       "name": "Get Survey Questions",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2298,10 +2270,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1008,
-        1488
+        1740,
+        2360
       ],
-      "id": "5ca425f5-ab13-45ab-90df-4926aeea10ef",
+      "id": "801ccf9b-3d3d-4e91-b4d1-6e8bd22d614f",
       "name": "Prepare Survey Responses"
     },
     {
@@ -2384,15 +2356,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1232,
-        1488
+        1960,
+        2360
       ],
-      "id": "0951b386-b5f5-44e9-82f2-ae596a621cba",
+      "id": "1d6c9640-efab-464b-87cc-96c3677c592d",
       "name": "Insert Survey Responses",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2407,15 +2379,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1696,
-        2624
+        -980,
+        3500
       ],
-      "id": "d8b7bfdc-9a88-4608-bfd2-2dec43b61a30",
+      "id": "fd7fbb5f-c9d4-4d79-8436-d0c4d98769d8",
       "name": "Get Survey Questions Pre-Verificatio",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2449,10 +2421,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -736,
-        2528
+        -20,
+        3400
       ],
-      "id": "24fc6502-be6a-4e67-97fd-b00e51a150b2",
+      "id": "72fca64d-67a1-4aba-b06a-56ea40024833",
       "name": "Assessment Status Update API",
       "webhookId": "160f7363-a816-4c5f-b4e2-43c1eb741c0d"
     },
@@ -2463,10 +2435,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -512,
-        2528
+        220,
+        3400
       ],
-      "id": "6bf9941a-330a-4ab6-91e9-206299aba54a",
+      "id": "57c090e9-956a-4b43-bb09-203871578674",
       "name": "Process Status Update"
     },
     {
@@ -2480,15 +2452,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -320,
-        2336
+        400,
+        3200
       ],
-      "id": "e05b5072-cd48-403c-9f68-150e5db3a4c7",
+      "id": "8f66f95b-9dc6-4103-8cd4-0ef78a9739a6",
       "name": "Get Current Candidate Status",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2503,15 +2475,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -320,
-        2528
+        400,
+        3400
       ],
-      "id": "d056f59c-63ed-401a-ab82-95e617a885ac",
+      "id": "6e336aad-be7c-4921-a470-a51f6a522eb1",
       "name": "Update Candidate Status1",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2522,10 +2494,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -80,
-        2528
+        640,
+        3400
       ],
-      "id": "7f1db26e-ac53-45b6-8cff-cdc0b67b10bd",
+      "id": "e75c1af5-0962-4c62-a544-a163ea41abde",
       "name": "Merge2"
     },
     {
@@ -2630,15 +2602,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -320,
-        2720
+        400,
+        3600
       ],
-      "id": "12fecd3a-abab-4dbd-a42e-cfbe4c9fe40b",
+      "id": "06f70972-6abb-4bad-8c45-b3ca8e36ed57",
       "name": "Insert Status Audit Log",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2649,10 +2621,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        144,
-        2528
+        880,
+        3400
       ],
-      "id": "5ff46e7b-3e15-46a3-8367-ce992567ab0d",
+      "id": "5b2261e4-ec2d-4e39-93a7-66028ec2069b",
       "name": "Format Status Response"
     },
     {
@@ -2667,15 +2639,15 @@
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
       "position": [
-        1040,
-        1712
+        1760,
+        2580
       ],
-      "id": "360b8794-251d-43e9-a84d-a369bef7df97",
+      "id": "875885d0-b5ce-4d69-8c50-c44e8488b0f9",
       "name": "Send a message1",
       "webhookId": "709f6311-fcdc-4a48-912f-a8790dac1c32",
       "credentials": {
         "microsoftOutlookOAuth2Api": {
-          "id": "5KoJGJBrr48AFbD1",
+          "id": "yyj3FNBoZxJz7o6P",
           "name": "Microsoft Outlook account"
         }
       }
@@ -2711,10 +2683,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -1808,
-        -656
+        -1080,
+        220
       ],
-      "id": "67f924b9-d66f-4e85-bc55-1aef26db7beb",
+      "id": "41061d04-4170-487b-8e7d-50f4c76acc81",
       "name": "Survey Validation",
       "webhookId": "e01efdaa-dd3b-4caf-9526-dba77e4fae15"
     },
@@ -2725,10 +2697,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1584,
-        -656
+        -860,
+        220
       ],
-      "id": "51dd45c0-b683-487f-91f0-12f7794d8324",
+      "id": "87de6fc1-06f7-4b09-9576-d51915dd900c",
       "name": "Survey Validation Logic"
     },
     {
@@ -2742,15 +2714,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1344,
-        -816
+        -620,
+        60
       ],
-      "id": "7a507cf8-0697-4963-84f1-4e8dbaf254c5",
+      "id": "ea69a47d-3c4a-4c47-8436-adbdedb3d69c",
       "name": "Get Survey Questions for Validation",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2765,15 +2737,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1344,
-        -592
+        -620,
+        280
       ],
-      "id": "7a2cd88e-e3ae-4df3-94b4-14c2b2cb11fb",
+      "id": "6721918e-8b66-41d1-a1b3-ccae56200a4c",
       "name": "Get Candidate for Validation",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2782,10 +2754,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -1120,
-        -736
+        -400,
+        140
       ],
-      "id": "d4ee7527-6b8b-4797-9c13-64bf4fde42cf",
+      "id": "a9596916-5eb6-4f24-806b-e81d79216ca9",
       "name": "Survey Validation Merge"
     },
     {
@@ -2795,10 +2767,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -896,
-        -736
+        -180,
+        140
       ],
-      "id": "e30bac75-c485-4185-b38c-f1437d95adba",
+      "id": "b1f8763a-2035-4638-ac94-65f05bd33388",
       "name": "PROCESS SURVEY VALIDATION"
     },
     {
@@ -2912,15 +2884,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -512,
-        -864
+        220,
+        0
       ],
-      "id": "ff1780b2-2747-41ee-85ca-a206ede65dfd",
+      "id": "06e1ae5a-3621-40f3-ad09-738d37d6d09e",
       "name": "Insert Validation Results",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -2931,10 +2903,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -720,
-        -864
+        0,
+        0
       ],
-      "id": "98d41823-6a5c-4e0a-aadb-a0ea649c4baa",
+      "id": "83283dee-8ffd-499a-a3f2-11284a3411a0",
       "name": "Extract Validation Record"
     },
     {
@@ -2944,10 +2916,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -688,
-        -640
+        40,
+        240
       ],
-      "id": "4dfc6666-a15b-4f88-a942-4e975f9e3043",
+      "id": "24c34149-6e9f-45c7-81ec-4ed442a36098",
       "name": "Extract Candidate Update Record"
     },
     {
@@ -3174,15 +3146,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -496,
-        -640
+        240,
+        240
       ],
-      "id": "7784cc1b-7d4d-433e-b01f-5606a84791e3",
+      "id": "1a13daec-a11c-4576-bfd2-411ec92dba67",
       "name": "Update Candidate Status",
       "credentials": {
         "postgres": {
-          "id": "gHM50gmd1d9Uv1wd",
-          "name": "Postgres account"
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
         }
       }
     },
@@ -3191,10 +3163,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -288,
-        -752
+        440,
+        120
       ],
-      "id": "ff000544-b17d-40da-99f7-a3608714d603",
+      "id": "96572a62-d9f8-4887-9178-acdf370fda3d",
       "name": "Survey Validation Final Merge"
     },
     {
@@ -3204,50 +3176,52 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -112,
-        -752
+        620,
+        120
       ],
-      "id": "38e73a1e-a1fd-4288-a203-3eed4bc5bae3",
+      "id": "2b869924-d547-4fcf-82cc-90563b541a86",
       "name": "Send validation result back to frontend"
     },
     {
       "parameters": {
-        "model": "llama-3.3-70b-versatile",
-        "options": {}
+        "model": "llama-3.1-8b-instant",
+        "options": {
+          "temperature": 0.7
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
       "typeVersion": 1,
       "position": [
-        -832,
-        960
+        -120,
+        1840
       ],
-      "id": "6097d92b-4c50-40a7-94ae-0a11c5a04224",
+      "id": "49509784-e55e-45ce-a82c-dd903c2ea59f",
       "name": "Groq Chat Model1",
       "credentials": {
         "groqApi": {
-          "id": "zy8tywBKHidhyh4t",
+          "id": "rOd6m7YG43wEg4fN",
           "name": "Groq account"
         }
       }
     },
     {
       "parameters": {
-        "model": "llama-3.3-70b-versatile",
+        "model": "llama-3.1-8b-instant",
         "options": {
-          "temperature": 0
+          "temperature": 0.7
         }
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
       "typeVersion": 1,
       "position": [
-        -2096,
-        912
+        -1380,
+        1780
       ],
-      "id": "043229ef-e773-47e3-a978-edf2c69286b6",
+      "id": "60b29adf-6596-4053-b959-98d52a2eaa78",
       "name": "Groq Chat Model",
       "credentials": {
         "groqApi": {
-          "id": "zy8tywBKHidhyh4t",
+          "id": "rOd6m7YG43wEg4fN",
           "name": "Groq account"
         }
       }
@@ -3259,10 +3233,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        560,
-        288
+        1280,
+        1160
       ],
-      "id": "fe4b7ac2-de43-4aff-9278-0f6240ac8d7e",
+      "id": "2b6eaec8-415b-4b65-b50a-c575bf761b23",
       "name": "Add resume text to candidate table"
     },
     {
@@ -3292,14 +3266,14 @@
             },
             {
               "fieldLabel": "Experience",
-              "fieldType": "checkbox",
+              "fieldType": "dropdown",
               "fieldOptions": {
                 "values": [
                   {
                     "option": "0-1 years"
                   },
                   {
-                    "option": "=1-2 years"
+                    "option": "1-2 years"
                   },
                   {
                     "option": "2-3 years"
@@ -3474,10 +3448,10 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.2,
       "position": [
-        -3344,
-        496
+        -2620,
+        1360
       ],
-      "id": "2bf42695-5035-4791-9f33-356743cb257a",
+      "id": "2fd6afb8-a52a-4dc0-85d5-0fc464c3ad5f",
       "name": "Job Description1",
       "webhookId": "ea6c0b26-19a6-4ba5-a687-8b78ea1c1590"
     },
@@ -3491,17 +3465,12 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        -2016,
-        1040
+        -1300,
+        1920
       ],
-      "id": "ab9214e7-ab97-479d-8a59-7b923df9ca8d",
+      "id": "22e95596-990c-49f5-8f92-63bbcd664d6c",
       "name": "Ollama Chat Model",
-      "credentials": {
-        "ollamaApi": {
-          "id": "oaDknwqQec1ZdiHM",
-          "name": "Ollama account"
-        }
-      }
+      "disabled": true
     },
     {
       "parameters": {
@@ -3513,17 +3482,51 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        -704,
-        1040
+        20,
+        1920
       ],
-      "id": "bb9eab6f-03d4-486b-8217-dbb09e7fc202",
+      "id": "767bfa7c-4ef3-4aff-9448-3981c6638da1",
       "name": "Ollama Chat Model1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "={{$json[\"@microsoft.graph.downloadUrl\"]}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftSharePointOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1840,
+        1560
+      ],
+      "id": "2302bb33-b8a9-4583-b37a-6e2feb9ab6b0",
+      "name": "HTTP Request3",
       "credentials": {
-        "ollamaApi": {
-          "id": "oaDknwqQec1ZdiHM",
-          "name": "Ollama account"
+        "microsoftSharePointOAuth2Api": {
+          "id": "aiOwKMCPoBQnW0YF",
+          "name": "Microsoft SharePoint account"
         }
       }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        1318.6376136880117
+      ],
+      "id": "bcfa096c-5602-4a73-8abc-f63a2cda4b99",
+      "name": "Sticky Note"
     }
   ],
   "pinData": {},
@@ -3533,17 +3536,6 @@
         [
           {
             "node": "Process Survey Questions",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "HTTP Request3": {
-      "main": [
-        [
-          {
-            "node": "Extract from File",
             "type": "main",
             "index": 0
           }
@@ -3706,11 +3698,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "Job Description": {
-      "main": [
-        []
       ]
     },
     "Candidate Selection Form": {
@@ -4403,27 +4390,26 @@
         ]
       ]
     },
-    "Ollama Chat Model": {
-      "ai_languageModel": [
-        []
-      ]
-    },
-    "Ollama Chat Model1": {
-      "ai_languageModel": [
-        []
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
   "active": true,
   "settings": {
-    "executionOrder": "v1",
-    "callerPolicy": "workflowsFromSameOwner"
+    "executionOrder": "v1"
   },
-  "versionId": "c8bf1864-d8fa-4f8c-b553-2c1073d2465b",
+  "versionId": "a623d758-7721-4485-ae98-c38ceb1a23b2",
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "40aada8a4ba279910b0f7a1293e0252f9879b72101632b6cd87e8e36d4b1d18e"
+    "instanceId": "2c0d37ded7638974854982d7521d3fec2c5ff95635449ac2ac60236de6cfe094"
   },
-  "id": "MWxuN4ohEmRqUhoU",
+  "id": "XKkUdqYZafmVSGUP",
   "tags": []
 }

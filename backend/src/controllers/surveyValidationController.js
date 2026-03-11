@@ -1,19 +1,29 @@
 const validationService = require("../services/surveyValidationService");
 
 exports.validateSurvey = async (req, res) => {
-
   try {
-
     const { screening_id } = req.body;
+
+    if (!screening_id) {
+      return res.status(400).json({
+        success: false,
+        message: "screening_id is required"
+      });
+    }
 
     const result = await validationService.validateSurvey(screening_id);
 
-    res.json(result);
+    res.json({
+      success: true,
+      data: result
+    });
 
   } catch (error) {
-
-    res.status(500).json({ error: error.message });
-
+    console.error("Error validating survey:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to validate survey",
+      error: error.message
+    });
   }
-
 };

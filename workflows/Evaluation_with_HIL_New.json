@@ -12,15 +12,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -320,
-        288
+        -2080,
+        160
       ],
-      "id": "08d43837-25a6-404f-9dca-225ffec8e989",
+      "id": "17c20b7b-249d-4937-bffd-fc7816068e8d",
       "name": "Fetch Complete Interview Data",
       "credentials": {
         "postgres": {
-          "id": "oWYyagdraBah9Hpf",
-          "name": "Postgres account 3"
+          "id": "NOjxspV7ffUcpL7z",
+          "name": "VIdeo Interview"
         }
       }
     },
@@ -31,10 +31,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -80,
-        288
+        -1840,
+        160
       ],
-      "id": "f5222391-c545-4283-9f70-4353f00c5af8",
+      "id": "4bc62004-75ae-45c0-af1f-d0e9e46f418b",
       "name": "Build Evaluation Prompt"
     },
     {
@@ -49,10 +49,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 2,
       "position": [
-        144,
-        288
+        -1620,
+        160
       ],
-      "id": "a51be19b-6a38-4099-b5d1-6aa3ef727bed",
+      "id": "665725c6-2779-49e6-96a1-62e5fe615972",
       "name": "AI Evaluator"
     },
     {
@@ -65,14 +65,14 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
       "typeVersion": 1,
       "position": [
-        0,
-        544
+        -1760,
+        400
       ],
-      "id": "254d47d2-412f-4afa-b2a0-6385a039ddcc",
+      "id": "d5479720-4f43-4b04-b2af-033ebaf20886",
       "name": "Groq Chat Model",
       "credentials": {
         "groqApi": {
-          "id": "zy8tywBKHidhyh4t",
+          "id": "rOd6m7YG43wEg4fN",
           "name": "Groq account"
         }
       }
@@ -85,10 +85,10 @@
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.2,
       "position": [
-        320,
-        560
+        -1440,
+        420
       ],
-      "id": "4471e47b-4ea8-4b7d-a80e-937577c908a0",
+      "id": "dc941b76-ed71-4e74-bc31-71b251c11734",
       "name": "Structured Output Parser"
     },
     {
@@ -98,10 +98,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        496,
-        288
+        -1260,
+        160
       ],
-      "id": "c5a4b902-fa09-4765-8196-d3d0a612a0ea",
+      "id": "25687adc-fe01-4fb6-b1a4-d6fe6c5dbdc2",
       "name": "Calculate Security Score"
     },
     {
@@ -269,15 +269,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        928,
-        288
+        -840,
+        160
       ],
-      "id": "d8d4929f-6b38-4be8-88b9-30963ea1a420",
+      "id": "41c48828-560c-44f0-b6eb-653c05ebb0a6",
       "name": "Store Evaluation Results",
       "credentials": {
         "postgres": {
-          "id": "oWYyagdraBah9Hpf",
-          "name": "Postgres account 3"
+          "id": "NOjxspV7ffUcpL7z",
+          "name": "VIdeo Interview"
         }
       }
     },
@@ -288,10 +288,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        720,
-        288
+        -1040,
+        160
       ],
-      "id": "ac6c18ec-e107-48c4-b22c-b4996f06269f",
+      "id": "bddc7caa-e76a-4fd0-920b-b6dc7b2f27df",
       "name": "Format for Database"
     },
     {
@@ -301,10 +301,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1968,
-        272
+        220,
+        140
       ],
-      "id": "35c5058f-9770-494a-9712-b1e13edddb32",
+      "id": "e7c63b22-7f92-4311-a92e-e6dce79bcb83",
       "name": "Generate Email Report"
     },
     {
@@ -314,10 +314,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2336,
-        272
+        580,
+        140
       ],
-      "id": "338d3794-928f-4cac-9e7b-cba1a9f713ab",
+      "id": "7a2e4145-5cda-4588-8bf7-7e3e398e25cf",
       "name": "Return Response"
     },
     {
@@ -333,10 +333,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -560,
-        288
+        -2320,
+        160
       ],
-      "id": "4f0f9fc4-fa94-4281-a1a4-2e840106c371",
+      "id": "7192afef-c114-4088-8107-170f2d9bf4e8",
       "name": "When Executed by Another Workflow"
     },
     {
@@ -351,15 +351,15 @@
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
       "position": [
-        2160,
-        272
+        400,
+        140
       ],
-      "id": "20a0179c-7bdc-4a75-8ea1-0ec7c5e1183f",
+      "id": "b340ac76-5f62-45c7-9653-a676a35acace",
       "name": "Send a message",
       "webhookId": "3a55a1a0-e28f-40c9-a77c-92a7bc57fb03",
       "credentials": {
         "microsoftOutlookOAuth2Api": {
-          "id": "5KoJGJBrr48AFbD1",
+          "id": "yyj3FNBoZxJz7o6P",
           "name": "Microsoft Outlook account"
         }
       }
@@ -392,10 +392,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1552,
-        288
+        -200,
+        160
       ],
-      "id": "965719e1-09d2-4f51-a799-a3c3ac7c33ed",
+      "id": "30e46a85-81de-40c6-ac35-fb5830bf70a1",
       "name": "If"
     },
     {
@@ -409,15 +409,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1760,
-        144
+        0,
+        0
       ],
-      "id": "b2cc2828-9b8d-42ce-bf39-24b866580e59",
+      "id": "8ac11b89-0453-4cf0-90c3-9933a03ffc33",
       "name": "Hire",
       "credentials": {
         "postgres": {
-          "id": "oWYyagdraBah9Hpf",
-          "name": "Postgres account 3"
+          "id": "NOjxspV7ffUcpL7z",
+          "name": "VIdeo Interview"
         }
       }
     },
@@ -432,15 +432,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1760,
-        384
+        0,
+        240
       ],
-      "id": "30ab5fbe-d106-4e00-bb0a-d3f87748dca3",
+      "id": "34053a73-91a1-4358-84f2-522e1abb69b2",
       "name": "Execute a SQL query",
       "credentials": {
         "postgres": {
-          "id": "oWYyagdraBah9Hpf",
-          "name": "Postgres account 3"
+          "id": "NOjxspV7ffUcpL7z",
+          "name": "VIdeo Interview"
         }
       }
     },
@@ -451,10 +451,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1344,
-        288
+        -420,
+        160
       ],
-      "id": "48ab067d-2871-41ed-9bbd-0a2411d3a390",
+      "id": "c75f5058-9705-49de-a7d2-78e886f4e9ed",
       "name": "Merge Approval Data"
     },
     {
@@ -475,15 +475,15 @@
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
       "position": [
-        1136,
-        288
+        -620,
+        160
       ],
-      "id": "1afcde28-22aa-495b-a0a9-eb6adf0a893f",
+      "id": "d8b1a051-d0d4-4f63-a21e-a21016d0d111",
       "name": "HIL",
       "webhookId": "583ca338-c4b0-48d6-a5b8-eef193b22f00",
       "credentials": {
         "microsoftOutlookOAuth2Api": {
-          "id": "5KoJGJBrr48AFbD1",
+          "id": "yyj3FNBoZxJz7o6P",
           "name": "Microsoft Outlook account"
         }
       }
@@ -496,17 +496,12 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        144,
-        624
+        -1600,
+        500
       ],
-      "id": "33246596-d878-4e19-8254-09fa0e101975",
+      "id": "dd4ed683-0fe9-4742-9b30-18a6e016cc73",
       "name": "Ollama Chat Model",
-      "credentials": {
-        "ollamaApi": {
-          "id": "oaDknwqQec1ZdiHM",
-          "name": "Ollama account"
-        }
-      }
+      "disabled": true
     }
   ],
   "pinData": {},
@@ -531,11 +526,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "Groq Chat Model": {
-      "ai_languageModel": [
-        []
       ]
     },
     "Structured Output Parser": {
@@ -690,6 +680,11 @@
     },
     "Ollama Chat Model": {
       "ai_languageModel": [
+        []
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
         [
           {
             "node": "AI Evaluator",
@@ -700,15 +695,14 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "62aa39a7-796f-47d4-94f4-86f998177f5d",
+  "versionId": "9366a3c4-1f05-4375-86c6-c44f35407f9e",
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "40aada8a4ba279910b0f7a1293e0252f9879b72101632b6cd87e8e36d4b1d18e"
+    "instanceId": "2c0d37ded7638974854982d7521d3fec2c5ff95635449ac2ac60236de6cfe094"
   },
-  "id": "L0iQ2a0elW4rkhLY",
+  "id": "YHyoX86tnB1Gxcx7",
   "tags": []
 }

@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const db = require("./config/db");
 
 const candidateRoutes = require("./routes/candidateRoutes");
@@ -8,21 +10,30 @@ const validationRoutes = require("./routes/validationRoutes");
 const assessmentRoutes = require("./routes/assessmentRoutes");
 const jobTemplateRoutes = require("./routes/jobTemplateRoutes");
 const hrCandidateRoutes = require("./routes/hrCandidateRoutes");
-const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// ─── Security middleware FIRST ───────────────────────────────
+app.use(helmet());
 
-// ─── Candidate-facing routes ────────────────────────────────
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+app.use(cors());
+app.use(express.json({ limit: "10mb" }));
+
+// ─── Candidate-facing routes ─────────────────────────────────
 app.use("/candidate", candidateRoutes);
 app.use("/survey", surveyRoutes);
 app.use("/validation", validationRoutes);
 app.use("/assessment", assessmentRoutes);
 
-// ─── HR Portal routes ────────────────────────────────────────
+// ─── HR Portal routes ─────────────────────────────────────────
 app.use("/api/job-templates", jobTemplateRoutes);
 app.use("/api/hr/candidates", hrCandidateRoutes);
 
@@ -57,14 +68,5 @@ app.use((err, req, res, next) => {
     message: err.message || "Internal server error",
   });
 });
-
-app.use(helmet());
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
-
-app.use(limiter);
 
 module.exports = app;

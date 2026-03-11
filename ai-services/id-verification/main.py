@@ -1,68 +1,67 @@
 # main.py
 import os
-import io
 import base64
 import tempfile
 import math
-from datetime import timedelta
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-
-# DeepFace
 from deepface import DeepFace
-
-# Redis
 import redis
-import json
 
-load_dotenv()  # loads .env if present
+load_dotenv()
 
-# Configuration (use environment variables or defaults)
+# ─── Configuration ────────────────────────────────────────────
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
-REDIS_TTL_SECONDS = int(os.getenv("REDIS_TTL_SECONDS", 60 * 60))  # 1 hour by default
+REDIS_TTL_SECONDS = int(os.getenv("REDIS_TTL_SECONDS", 3600))  # 1 hour
 REDIS_ENABLED = os.getenv("REDIS_ENABLED", "true").lower() in ("1", "true", "yes")
+MAX_IMAGE_BYTES = int(os.getenv("MAX_IMAGE_BYTES", 10 * 1024 * 1024))  # 10MB
 
-# Fallback directory for storing ID images if Redis not available
 FALLBACK_DIR = Path(os.getenv("FALLBACK_DIR", "./id_cache"))
 FALLBACK_DIR.mkdir(parents=True, exist_ok=True)
 
+# ─── App setup ────────────────────────────────────────────────
 app = FastAPI(title="ID Verification Service")
 
-# Allow your frontend origin(s) here. For dev, allow all.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # change to specific origin in prod
+    allow_origins=["*"],  # restrict in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize Redis client if enabled
+# ─── Redis setup ──────────────────────────────────────────────
 redis_client = None
 if REDIS_ENABLED:
     try:
-        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=False)
-        # quick ping
+        redis_client = redis.Redis(
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            db=REDIS_DB,
+            decode_responses=False,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+        )
         redis_client.ping()
-        print("✅ Connected to Redis at", REDIS_HOST, REDIS_PORT)
+        print(f"✅ Connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
     except Exception as e:
-        print("⚠️ Redis connection failed:", e)
+        print(f"⚠️ Redis connection failed: {e}")
         print("⚠️ Falling back to filesystem cache.")
         redis_client = None
 else:
     print("ℹ️ Redis disabled via REDIS_ENABLED=false — using filesystem fallback")
-    redis_client = None
 
 
+# ─── Pydantic models ─────────────────────────────────────────
 class UploadIDRequest(BaseModel):
     assessmentId: str
-    imageBase64: str  # image as base64 (no data:image/... prefix required but supported)
+    imageBase64: str
 
 
 class VerifySelfieRequest(BaseModel):
@@ -70,14 +69,35 @@ class VerifySelfieRequest(BaseModel):
     selfieBase64: str
 
 
+# ─── Helpers ─────────────────────────────────────────────────
 def _strip_data_prefix(b64str: str) -> str:
+    """Remove data:image/...;base64, prefix if present."""
     if b64str.startswith("data:"):
-        # data:image/jpeg;base64,.... -> remove prefix
         return b64str.split(",", 1)[1]
     return b64str
 
 
+def _decode_base64_image(b64str: str, field_name: str) -> bytes:
+    """Decode base64 string to bytes with validation."""
+    b64 = _strip_data_prefix(b64str)
+    try:
+        raw = base64.b64decode(b64)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid base64 for {field_name}: {e}")
+
+    if len(raw) == 0:
+        raise HTTPException(status_code=400, detail=f"{field_name} image is empty.")
+
+    if len(raw) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"{field_name} too large. Max allowed: {MAX_IMAGE_BYTES // (1024*1024)}MB."
+        )
+    return raw
+
+
 def _save_bytes_to_temp_file(b: bytes, suffix: str = ".jpg") -> str:
+    """Write bytes to a temp file and return the path."""
     fd, path = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
     with open(path, "wb") as f:
@@ -86,7 +106,7 @@ def _save_bytes_to_temp_file(b: bytes, suffix: str = ".jpg") -> str:
 
 
 def _compute_confidence(distance: float, threshold: float) -> float:
-    # same soft mapping as your original script
+    """Sigmoid-based confidence score mapping distance to 0-100%."""
     try:
         confidence = 100.0 / (1.0 + math.exp(10.0 * (distance - threshold)))
         return round(confidence, 2)
@@ -94,144 +114,141 @@ def _compute_confidence(distance: float, threshold: float) -> float:
         return None
 
 
-@app.post("/upload-id")
-async def upload_id(payload: UploadIDRequest):
-    """
-    Stores the ID image in Redis (or filesystem) keyed by assessmentId.
-    Accepts base64 image, returns success.
-    """
-    assessment_id = payload.assessmentId
-    if not assessment_id:
-        raise HTTPException(status_code=400, detail="assessmentId is required")
-
-    b64 = _strip_data_prefix(payload.imageBase64)
-    try:
-        raw = base64.b64decode(b64)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid base64 image: {e}")
-
-    # store in Redis if available
+def _store_id_image(assessment_id: str, raw: bytes) -> dict:
+    """Store ID image in Redis or filesystem fallback."""
     key = f"id_image:{assessment_id}"
 
     if redis_client:
         try:
-            print("\n===== 📥 REDIS: Saving ID Image =====")
-            print(f"Key: {key}")
-            print(f"Assessment ID: {assessment_id}")
-            print(f"Image byte length: {len(raw)}")
-            print(f"TTL: {REDIS_TTL_SECONDS}")
-
+            print(f"\n===== 📥 REDIS: Saving ID Image =====")
+            print(f"Key: {key} | Size: {len(raw)} bytes | TTL: {REDIS_TTL_SECONDS}s")
             redis_client.setex(key, REDIS_TTL_SECONDS, raw)
-
             ttl_check = redis_client.ttl(key)
-            print(f"✅ Successfully saved ID to Redis. TTL now = {ttl_check} seconds.")
-            print("======================================\n")
-
+            print(f"✅ Saved to Redis. TTL = {ttl_check}s\n")
             return {"success": True, "method": "redis", "ttl_seconds": REDIS_TTL_SECONDS}
-
         except Exception as e:
-            print(f"❌ Redis SET failed: {e}")
-            print("⚠️ Falling back to filesystem storage.")
-    
+            print(f"❌ Redis SET failed: {e} — falling back to filesystem.")
+
     # Filesystem fallback
     try:
         p = FALLBACK_DIR / f"{assessment_id}.jpg"
         with open(p, "wb") as f:
             f.write(raw)
+        print(f"✅ Saved to filesystem: {p}")
         return {"success": True, "method": "filesystem", "path": str(p)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to store ID image: {e}")
 
 
-@app.post("/verify-selfie")
-async def verify_selfie(payload: VerifySelfieRequest):
-    """
-    Receives selfie base64 and assessmentId. Retrieves ID image from cache (redis or filesystem),
-    runs DeepFace.verify and returns verification result.
-    """
-    assessment_id = payload.assessmentId
-    if not assessment_id:
-        raise HTTPException(status_code=400, detail="assessmentId is required")
-
-    selfie_b64 = _strip_data_prefix(payload.selfieBase64)
-    try:
-        selfie_raw = base64.b64decode(selfie_b64)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid selfie base64 image: {e}")
-
-    # Retrieve ID image bytes
+def _retrieve_id_image(assessment_id: str) -> bytes:
+    """Retrieve ID image from Redis or filesystem fallback. Raises 404 if not found."""
     key = f"id_image:{assessment_id}"
     id_raw = None
+
     if redis_client:
         try:
-            print("\n===== 🔍 REDIS: Fetching ID Image =====")
+            print(f"\n===== 🔍 REDIS: Fetching ID Image =====")
             print(f"Key: {key}")
-
             id_raw = redis_client.get(key)
-
             if id_raw:
-                print(f"✅ Found ID image in Redis. Byte length: {len(id_raw)}")
                 ttl_left = redis_client.ttl(key)
-                print(f"TTL remaining: {ttl_left} seconds")
+                print(f"✅ Found in Redis. Size: {len(id_raw)} bytes | TTL left: {ttl_left}s\n")
             else:
-                print("❌ Redis returned NULL — ID not found.")
-
-            print("========================================\n")
-
+                print("❌ Redis returned NULL — key not found.\n")
         except Exception as e:
             print(f"❌ Redis GET failed: {e}")
             id_raw = None
 
-
     if id_raw is None:
-        print("🔁 Redis returned no data — trying filesystem fallback...")
-
+        print("🔁 Trying filesystem fallback...")
         p = FALLBACK_DIR / f"{assessment_id}.jpg"
         if p.exists():
-            print(f"📁 Fallback file FOUND at {p}")
             with open(p, "rb") as f:
                 id_raw = f.read()
-            print(f"📁 Loaded fallback image. Byte length: {len(id_raw)}")
+            print(f"📁 Loaded from filesystem: {p} ({len(id_raw)} bytes)")
         else:
             print(f"❌ No fallback file found at {p}")
 
-
     if id_raw is None:
-        raise HTTPException(status_code=404, detail="ID image not found for this assessmentId. Upload ID first.")
+        raise HTTPException(
+            status_code=404,
+            detail="ID image not found for this assessmentId. Please upload ID first."
+        )
 
-    # Save both to temp files
+    return id_raw
+
+
+def _delete_id_image(assessment_id: str):
+    """Delete ID image from Redis or filesystem after verification."""
+    key = f"id_image:{assessment_id}"
+    try:
+        if redis_client:
+            redis_client.delete(key)
+            print(f"🗑️ Deleted Redis key: {key}")
+        else:
+            p = FALLBACK_DIR / f"{assessment_id}.jpg"
+            if p.exists():
+                p.unlink()
+                print(f"🗑️ Deleted fallback file: {p}")
+    except Exception as e:
+        print(f"⚠️ Cleanup failed (non-critical): {e}")
+
+
+# ─── Routes ──────────────────────────────────────────────────
+@app.post("/upload-id")
+async def upload_id(payload: UploadIDRequest):
+    """
+    Store a candidate's ID image keyed by assessmentId.
+    Accepts base64-encoded image (with or without data URI prefix).
+    """
+    if not payload.assessmentId or not payload.assessmentId.strip():
+        raise HTTPException(status_code=400, detail="assessmentId is required")
+
+    raw = _decode_base64_image(payload.imageBase64, "ID image")
+    return _store_id_image(payload.assessmentId.strip(), raw)
+
+
+@app.post("/verify-selfie")
+async def verify_selfie(payload: VerifySelfieRequest):
+    """
+    Verify a candidate selfie against their stored ID image using DeepFace.
+    Deletes the stored ID image after verification.
+    """
+    if not payload.assessmentId or not payload.assessmentId.strip():
+        raise HTTPException(status_code=400, detail="assessmentId is required")
+
+    assessment_id = payload.assessmentId.strip()
+    selfie_raw = _decode_base64_image(payload.selfieBase64, "Selfie image")
+
+    # Retrieve stored ID image (raises 404 if missing)
+    id_raw = _retrieve_id_image(assessment_id)
+
+    # Write both images to temp files for DeepFace
     id_path = _save_bytes_to_temp_file(id_raw, suffix=".jpg")
     selfie_path = _save_bytes_to_temp_file(selfie_raw, suffix=".jpg")
 
     try:
-        # Run DeepFace verification
-        # model_name and detector_backend can be tuned as needed
+        print(f"🔍 Running DeepFace verification for assessmentId: {assessment_id}")
         result = DeepFace.verify(
             img1_path=id_path,
             img2_path=selfie_path,
             model_name="Facenet",
             detector_backend="opencv",
-            distance_metric="cosine"
+            distance_metric="cosine",
+            enforce_detection=True,
         )
 
         distance = result.get("distance")
         threshold = result.get("threshold")
         verified = result.get("verified", False)
-        model = result.get("model", "unknown")
+        model = result.get("model", "Facenet")
 
-        confidence = None
-        inverted_confidence = None
-        if distance is not None and threshold is not None:
-            confidence = _compute_confidence(distance, threshold)
-            if confidence is not None:
-                if verified:
-                    # confidence is "same person" certainty
-                    pass
-                else:
-                    # invert for "different person" case - how sure we are they are different
-                    inverted_confidence = round(100.0 - confidence, 2)
+        confidence = _compute_confidence(distance, threshold) if distance is not None and threshold is not None else None
+        inverted_confidence = round(100.0 - confidence, 2) if confidence is not None and not verified else None
 
-        response_payload = {
+        print(f"{'✅ VERIFIED' if verified else '❌ NOT VERIFIED'} | distance={distance:.4f} | threshold={threshold:.4f} | confidence={confidence}%")
+
+        return {
             "success": True,
             "model": model,
             "verified": verified,
@@ -239,40 +256,40 @@ async def verify_selfie(payload: VerifySelfieRequest):
             "threshold": threshold,
             "confidence_same_person_percent": confidence if verified else None,
             "confidence_different_person_percent": inverted_confidence if not verified else None,
-            "raw_result": result
+            "raw_result": result,
         }
 
-        # (Optional) remove the ID image from cache after verification to avoid reuse
-        try:
-            if redis_client:
-                print(f"🗑️ Deleting Redis key after verification: {key}")
-                redis_client.delete(key)
-            else:
-                # remove fallback file
-                p = FALLBACK_DIR / f"{assessment_id}.jpg"
-                if p.exists():
-                    p.unlink()
-        except Exception:
-            pass
-
-        return response_payload
-
     except Exception as e:
-        print("⚠️ DeepFace error:", e)
+        print(f"⚠️ DeepFace error for {assessment_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Face verification error: {e}")
 
     finally:
-        # remove temp files
-        try:
-            os.remove(id_path)
-        except Exception:
-            pass
-        try:
-            os.remove(selfie_path)
-        except Exception:
-            pass
+        # Always clean up temp files
+        for path in [id_path, selfie_path]:
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
+        # Always delete stored ID image after attempt (success or failure)
+        _delete_id_image(assessment_id)
 
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "redis_connected": bool(redis_client)}
+    """Health check — returns Redis connectivity status."""
+    redis_ok = False
+    if redis_client:
+        try:
+            redis_client.ping()
+            redis_ok = True
+        except Exception:
+            redis_ok = False
+
+    return {
+        "ok": True,
+        "service": "ID Verification Service",
+        "redis_connected": redis_ok,
+        "redis_enabled": REDIS_ENABLED,
+        "fallback_dir": str(FALLBACK_DIR),
+    }

@@ -15,7 +15,7 @@
         0,
         0
       ],
-      "id": "3230ef57-6864-406a-a602-fac8a975ff8f",
+      "id": "8e64e7e6-8749-459d-b2fd-9ef73bd9d1c3",
       "name": "Schedule Trigger"
     },
     {
@@ -26,10 +26,10 @@
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        208,
+        220,
         0
       ],
-      "id": "e8e46fc5-d585-4d3c-a158-4a2caa9a77a1",
+      "id": "389a7f8a-f953-4d1d-9c0a-d2db00a76f11",
       "name": "Execute Command"
     }
   ],
@@ -51,10 +51,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "9c97c577-c409-4f9d-a2eb-2971f0ab39f9",
+  "versionId": "4f8930d4-1ef6-4705-978e-0777ce789876",
   "meta": {
-    "instanceId": "40aada8a4ba279910b0f7a1293e0252f9879b72101632b6cd87e8e36d4b1d18e"
+    "instanceId": "2c0d37ded7638974854982d7521d3fec2c5ff95635449ac2ac60236de6cfe094"
   },
-  "id": "8mcLue8nu4R5d3FA",
+  "id": "SmjuPLhfQgIHlhEr",
   "tags": []
 }
