@@ -1,0 +1,13 @@
+-- ============================================================
+-- Migration 001: Shared Functions
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$;

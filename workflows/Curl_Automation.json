@@ -1,0 +1,60 @@
+{
+  "name": "Curl Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3230ef57-6864-406a-a602-fac8a975ff8f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "executeOnce": false,
+        "command": "curl -X POST http://localhost:5678/webhook/start-round2-video-interview -H \"Content-Type: application/json\" -d \"{\\\"jobPositionId\\\":\\\"test\\\"}\"\n"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "e8e46fc5-d585-4d3c-a158-4a2caa9a77a1",
+      "name": "Execute Command"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9c97c577-c409-4f9d-a2eb-2971f0ab39f9",
+  "meta": {
+    "instanceId": "40aada8a4ba279910b0f7a1293e0252f9879b72101632b6cd87e8e36d4b1d18e"
+  },
+  "id": "8mcLue8nu4R5d3FA",
+  "tags": []
+}

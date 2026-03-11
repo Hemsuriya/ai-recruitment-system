@@ -1,0 +1,714 @@
+{
+  "name": "Evaluation with HIL New",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    c.video_assessment_id,\n    c.name AS candidate_name,\n    c.email AS candidate_email,\n    c.job_title,\n    c.experience_level,\n    r.full_transcript,\n    r.security_report AS client_security_report,\n    r.video_duration,\n    r.video_url,\n    j.required_skills,\n    j.optional_skills,\n    j.salary_budget,\n    j.difficulty,\n    \n    -- NEW: Add Python video analysis data\n    a.emotion_analysis,\n    a.attention_metrics,\n    a.face_detection,\n    a.violations_summary,\n    a.processing_time_seconds,\n    a.frames_processed,\n    \n    json_agg(\n        json_build_object(\n            'question_id', q.question_id,\n            'question_text', q.question_text,\n            'category', q.category,\n            'difficulty', q.difficulty,\n            'time_limit', q.time_limit,\n            'evaluation_criteria', q.evaluation_criteria,\n            'key_points', q.key_points\n        ) ORDER BY q.question_id\n    ) AS questions\nFROM video_interview_candidates c\nINNER JOIN video_interview_responses r \n    ON c.video_assessment_id = r.video_assessment_id\nINNER JOIN video_job_requirements j \n    ON c.video_assessment_id = j.video_assessment_id\nLEFT JOIN video_interview_questions q \n    ON c.video_assessment_id = q.video_assessment_id\n-- NEW: Join with Python analysis results\nLEFT JOIN video_analysis_results a\n    ON c.video_assessment_id = a.video_assessment_id\nWHERE c.video_assessment_id = $1\n  AND c.status = 'completed'\n  AND c.videos_uploaded = true\nGROUP BY \n    c.video_assessment_id, c.name, c.email, c.job_title, c.experience_level,\n    r.full_transcript, r.security_report, r.video_duration, r.video_url,\n    j.required_skills, j.optional_skills, j.salary_budget, j.difficulty,\n    a.emotion_analysis, a.attention_metrics, a.face_detection, \n    a.violations_summary, a.processing_time_seconds, a.frames_processed",
+        "options": {
+          "queryReplacement": "=={{ $json.video_assessment_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -320,
+        288
+      ],
+      "id": "08d43837-25a6-404f-9dca-225ffec8e989",
+      "name": "Fetch Complete Interview Data",
+      "credentials": {
+        "postgres": {
+          "id": "oWYyagdraBah9Hpf",
+          "name": "Postgres account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n \n// Extract data\n\nconst candidate = {\n\n    name: data.candidate_name,\n\n    job_title: data.job_title,\n\n    experience: data.experience_level\n\n};\n \nconst job = {\n\n    required_skills: data.required_skills,\n\n    optional_skills: data.optional_skills,\n\n    difficulty: data.difficulty\n\n};\n \nconst transcript = data.full_transcript;\n\nconst questions = data.questions;\n \n// Build questions and answers section\n\nlet qaSection = '';\n\nquestions.forEach((q, index) => {\n\n    const questionKey = `question_${q.question_id}`;\n\n    const answer = transcript[questionKey]?.answer || 'NOT ANSWERED';\n\n    const wordCount = transcript[questionKey]?.wordCount || 0;\n\n    // Handle evaluation_criteria - it's stored as JSONB object { criteria: [...] }\n\n    let criteriaList = [];\n\n    if (q.evaluation_criteria) {\n\n        if (Array.isArray(q.evaluation_criteria)) {\n\n            criteriaList = q.evaluation_criteria;\n\n        } else if (q.evaluation_criteria.criteria && Array.isArray(q.evaluation_criteria.criteria)) {\n\n            criteriaList = q.evaluation_criteria.criteria;\n\n        } else if (typeof q.evaluation_criteria === 'object') {\n\n            // Try to extract array from object values\n\n            criteriaList = Object.values(q.evaluation_criteria).flat().filter(c => c);\n\n        }\n\n    }\n\n    // Handle key_points - same structure as evaluation_criteria\n\n    let keyPointsList = [];\n\n    if (q.key_points) {\n\n        if (Array.isArray(q.key_points)) {\n\n            keyPointsList = q.key_points;\n\n        } else if (q.key_points.points && Array.isArray(q.key_points.points)) {\n\n            keyPointsList = q.key_points.points;\n\n        } else if (typeof q.key_points === 'object') {\n\n            keyPointsList = Object.values(q.key_points).flat().filter(p => p);\n\n        }\n\n    }\n\n    qaSection += `\n\n=== QUESTION ${q.question_id} ===\n\nCategory: ${q.category}\n\nDifficulty: ${q.difficulty}\n\nTime Limit: ${q.time_limit} seconds\n \nQuestion: ${q.question_text}\n \nEvaluation Criteria:\n\n${criteriaList.length > 0 ? criteriaList.map(c => `- ${c}`).join('\\n') : '- Technical accuracy\\n- Clarity of explanation\\n- Depth of knowledge'}\n \nKey Points Expected:\n\n${keyPointsList.length > 0 ? keyPointsList.map(p => `- ${p}`).join('\\n') : '- Not specified'}\n \nCandidate's Answer (${wordCount} words):\n\n\"${answer}\"\n \n---\n\n`;\n\n});\n \n// Build AI prompt\n\nconst prompt = `You are an expert technical interviewer evaluating a candidate.\n \nCANDIDATE PROFILE:\n\n- Name: ${candidate.name}\n\n- Position Applied: ${candidate.job_title}\n\n- Experience Level: ${candidate.experience}\n \nJOB REQUIREMENTS:\n\n- Required Skills: ${job.required_skills}\n\n- Optional Skills: ${job.optional_skills}\n\n- Difficulty Level: ${job.difficulty}\n \nINTERVIEW QUESTIONS & ANSWERS:\n\n${qaSection}\n \nEVALUATION TASK:\n\nAnalyze each answer and provide scores. Consider:\n\n1. Technical accuracy and depth\n\n2. Clarity of communication\n\n3. Relevance to the question\n\n4. Demonstrated experience level\n \nFor answers that are incomplete or very short (< 5 words), give low scores (0-3).\n \nReturn your evaluation in this EXACT JSON format (ONLY JSON, no markdown):\n\n{\n\n  \"question_scores\": [\n\n    {\n\n      \"question_id\": 1,\n\n      \"score\": 8,\n\n      \"feedback\": \"Detailed feedback here\"\n\n    }\n\n  ],\n\n  \"strengths\": [\"strength 1\", \"strength 2\"],\n\n  \"weaknesses\": [\"weakness 1\", \"weakness 2\"],\n\n  \"overall_feedback\": \"Overall assessment paragraph\",\n\n  \"interview_score\": 75\n\n}\n \nThe interview_score should be the average of all question scores (0-100 scale).`;\n \nreturn [{\n\n    json: {\n\n        prompt: prompt,\n\n        candidate_name: candidate.name,\n\n        candidate_email: data.candidate_email,\n\n        video_assessment_id: data.video_assessment_id,\n\n        // Old client-side report\n\n        client_security_report: data.client_security_report,\n\n        // NEW: Pass Python analysis data forward\n\n        violations_summary: data.violations_summary,\n\n        attention_metrics: data.attention_metrics,\n\n        face_detection: data.face_detection,\n\n        emotion_analysis: data.emotion_analysis,\n\n        questions: questions,\n\n        transcript: transcript\n\n    }\n\n}];\n "
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        288
+      ],
+      "id": "f5222391-c545-4283-9f70-4353f00c5af8",
+      "name": "Build Evaluation Prompt"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert technical interviewer. Analyze the candidate's answers and return ONLY valid JSON in the exact format requested. Do not include any explanatory text outside the JSON structure."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        144,
+        288
+      ],
+      "id": "a51be19b-6a38-4099-b5d1-6aa3ef727bed",
+      "name": "AI Evaluator"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        0,
+        544
+      ],
+      "id": "254d47d2-412f-4afa-b2a0-6385a039ddcc",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "zy8tywBKHidhyh4t",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"question_scores\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"question_id\": {\"type\": \"number\"},\n          \"score\": {\"type\": \"number\"},\n          \"feedback\": {\"type\": \"string\"}\n        }\n      }\n    },\n    \"strengths\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"}\n    },\n    \"weaknesses\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"}\n    },\n    \"overall_feedback\": {\"type\": \"string\"},\n    \"interview_score\": {\"type\": \"number\"}\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        560
+      ],
+      "id": "4471e47b-4ea8-4b7d-a80e-937577c908a0",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiOutput = $input.first().json.output;\nconst data = $('Build Evaluation Prompt').first().json;\n\n// Get BOTH security reports\nconst clientSecurityReport = data.client_security_report || {}; // From JavaScript\nconst pythonAnalysis = {\n    violations_summary: data.violations_summary || {},\n    attention_metrics: data.attention_metrics || {},\n    face_detection: data.face_detection || {},\n    emotion_analysis: data.emotion_analysis || {}\n};\n\nconsole.log('📊 Security Analysis Sources:');\nconsole.log('Client-side violations:', clientSecurityReport.violations?.length || 0);\nconsole.log('Python violations:', pythonAnalysis.violations_summary.total_violations || 0);\n\n// ============================================\n// UPDATED SECURITY SCORING (STRICT RULE BASED)\n// ============================================\n\nlet securityScore = 100;\nlet deductions = [];\n\n// RULE-BASED CHEATING CONDITIONS\nconst metrics = clientSecurityReport.metrics || {};\nconst multipleFaces = pythonAnalysis.face_detection?.multiple_faces_flag_count || 0;\n\nconst cheatingDetected =\n    (metrics.tabSwitches > 0) ||\n    (metrics.keystrokeCount > 3) ||\n    (metrics.multipleMonitors === true) ||\n    (metrics.keystrokeExceeded === true) ||\n    (multipleFaces > 1);\n\nif (cheatingDetected) {\n    securityScore = 0;\n    deductions.push(\"CHEATING DETECTED: Security score set to 0 due to suspicious activity.\");\n} else {\n\n    // ============================================\n    // ORIGINAL SECURITY SCORING LOGIC (UNCHANGED)\n    // ============================================\n\n    // 1. FACE DETECTION (from Python)\n    if (multipleFaces > 0) {\n        const penalty = multipleFaces * 10;\n        securityScore -= penalty;\n        deductions.push(`Multiple faces detected: -${penalty} (${multipleFaces} times)`);\n    }\n\n    // 2. ATTENTION METRICS (from Python)\n    const attentionRate = pythonAnalysis.attention_metrics?.attention_rate_percent || 100;\n    const lookAwayCount = pythonAnalysis.attention_metrics?.look_away_count || 0;\n\n    if (attentionRate < 70) {\n        securityScore -= 20;\n        deductions.push(`Low attention rate (${attentionRate.toFixed(1)}%): -20`);\n    } else if (attentionRate < 85) {\n        securityScore -= 10;\n        deductions.push(`Moderate attention rate (${attentionRate.toFixed(1)}%): -10`);\n    }\n\n    if (lookAwayCount > 15) {\n        securityScore -= 5;\n        deductions.push(`Excessive looking away (${lookAwayCount} times): -5`);\n    }\n\n    // 3. EMOTION ANALYSIS (from Python)\n    const emotions = pythonAnalysis.emotion_analysis?.emotion_distribution_percent || {};\n    const dominantEmotion = pythonAnalysis.emotion_analysis?.dominant_emotion || 'unknown';\n\n    if (emotions.fearful > 25 || emotions.angry > 20) {\n        securityScore -= 10;\n        deductions.push(`Suspicious emotional pattern: -10`);\n    }\n\n    // 4. CLIENT-SERVER mismatch detection\n    const clientViolations = clientSecurityReport.violations?.length || 0;\n    const pythonViolations = pythonAnalysis.violations_summary?.total_violations || 0;\n\n    if (clientViolations === 0 && pythonViolations > 5) {\n        securityScore -= 15;\n        deductions.push(`Possible tampering detected (client vs server mismatch): -15`);\n    }\n\n    // 5. TAB SWITCHING\n    const tabSwitches = metrics.tabSwitches || 0;\n    if (tabSwitches > 0) {\n        const penalty = tabSwitches * 5;\n        securityScore -= penalty;\n        deductions.push(`Tab switches: -${penalty} (${tabSwitches} times)`);\n    }\n\n    // Ensure bounds\n    securityScore = Math.max(0, Math.min(100, securityScore));\n}\n\n// Determine severity\nlet severity = 'low';\nif (securityScore < 50) severity = 'high';\nelse if (securityScore < 75) severity = 'medium';\n\n// ============================================\n// CALCULATE FINAL SCORE\n// ============================================\n\nconst interviewScore = aiOutput.interview_score || 0;\n\n// WHEN CHEATING → ignore security weight\nconst finalScore = securityScore === 0\n    ? Math.round(interviewScore)\n    : Math.round((interviewScore * 0.7) + (securityScore * 0.3));\n\n// Determine recommendation\nlet recommendation = 'reject';\nif (securityScore === 0) recommendation = 'reject';\nelse if (finalScore >= 70 && securityScore >= 60) recommendation = 'hire';\nelse if (finalScore >= 50) recommendation = 'maybe';\n\nconsole.log('📈 Final Scores:');\nconsole.log(`Interview: ${interviewScore}/100`);\nconsole.log(`Security: ${securityScore}/100`);\nconsole.log(`Final: ${finalScore}/100`);\nconsole.log(`Recommendation: ${recommendation}`);\n\n// ============================================\n// RETURN ENHANCED DATA\n// ============================================\n\nreturn [{\n    json: {\n        video_assessment_id: data.video_assessment_id,\n\n        interview_score: interviewScore,\n        security_score: securityScore,\n        final_score: finalScore,\n\n        question_scores: aiOutput.question_scores,\n\n        security_violations_count: pythonAnalysis.violations_summary?.total_violations || 0,\n        security_severity: severity,\n\n        security_details: {\n            python_analysis: pythonAnalysis,\n            client_report: clientSecurityReport,\n            deductions: deductions,\n            cheatingDetected,\n            multiple_faces_count: multipleFaces,\n            metrics\n        },\n\n        strengths: aiOutput.strengths,\n        weaknesses: aiOutput.weaknesses,\n        overall_feedback: aiOutput.overall_feedback,\n        recommendation: recommendation\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        288
+      ],
+      "id": "c5a4b902-fa09-4765-8196-d3d0a612a0ea",
+      "name": "Calculate Security Score"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "video_interview_evaluations",
+          "mode": "list",
+          "cachedResultName": "video_interview_evaluations"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "video_assessment_id",
+              "displayName": "video_assessment_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "interview_score",
+              "displayName": "interview_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "security_score",
+              "displayName": "security_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "final_score",
+              "displayName": "final_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_scores",
+              "displayName": "question_scores",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "security_violations_count",
+              "displayName": "security_violations_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "security_severity",
+              "displayName": "security_severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "security_details",
+              "displayName": "security_details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "strengths",
+              "displayName": "strengths",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "array",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "weaknesses",
+              "displayName": "weaknesses",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "array",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "overall_feedback",
+              "displayName": "overall_feedback",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommendation",
+              "displayName": "recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "evaluated_by",
+              "displayName": "evaluated_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "evaluated_at",
+              "displayName": "evaluated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        928,
+        288
+      ],
+      "id": "d8d4929f-6b38-4be8-88b9-30963ea1a420",
+      "name": "Store Evaluation Results",
+      "credentials": {
+        "postgres": {
+          "id": "oWYyagdraBah9Hpf",
+          "name": "Postgres account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nreturn [{\n  json: {\n    video_assessment_id: data.video_assessment_id,\n    interview_score: data.interview_score,\n    security_score: data.security_score,\n    final_score: data.final_score,\n\n    // Convert to JSON strings for JSONB columns\n    question_scores: JSON.stringify(data.question_scores),\n    security_details: JSON.stringify(data.security_details),\n\n    strengths: data.strengths,\n    weaknesses: data.weaknesses,\n\n    overall_feedback: data.overall_feedback,\n    recommendation: data.recommendation,\n    security_violations_count: data.security_violations_count,\n    security_severity: data.security_severity,\n\n    // NEW FIELDS FOR HUMAN OVERRIDE\n    final_decision: null,\n    decision_by: null,\n    decision_at: null\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        288
+      ],
+      "id": "ac6c18ec-e107-48c4-b22c-b4996f06269f",
+      "name": "Format for Database"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Store Evaluation Results').first().json;   // real evaluation details\nconst candidateData = $('Build Evaluation Prompt').first().json;\n\n// Format question scores as HTML list\nconst questionsList = data.question_scores.map(q =>\n  `<li><strong>Question ${q.question_id}:</strong> ${q.score}/10 - ${q.feedback}</li>`\n).join('');\n\n// Format arrays\nconst strengthsList = data.strengths.length > 0\n  ? data.strengths.map(s => `<li>${s}</li>`).join('')\n  : '<li><em>None identified</em></li>';\n\nconst weaknessesList = data.weaknesses.map(w => `<li>${w}</li>`).join('');\n\n// RETURN RESULT\nreturn [\n  {\n    json: {\n      html: `\n        <h2>Candidate Evaluation Report</h2>\n        <p><strong>Candidate:</strong> ${candidateData.candidate_name}</p>\n        <p><strong>Final Score:</strong> ${data.final_score}/100</p>\n\n        <h3>Question Scores</h3>\n        <ul>${questionsList}</ul>\n\n        <h3>Strengths</h3>\n        <ul>${strengthsList}</ul>\n\n        <h3>Weaknesses</h3>\n        <ul>${weaknessesList}</ul>\n      `\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        272
+      ],
+      "id": "35c5058f-9770-494a-9712-b1e13edddb32",
+      "name": "Generate Email Report"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n    json: {\n        success: true,\n        message: 'Evaluation completed and email sent',\n        video_assessment_id: $('Store Evaluation Results').first().json.video_assessment_id,\n        final_score: $('Store Evaluation Results').first().json.final_score,\n        recommendation: $('Store Evaluation Results').first().json.recommendation\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        272
+      ],
+      "id": "338d3794-928f-4cac-9e7b-cba1a9f713ab",
+      "name": "Return Response"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "video_assessment_id"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        288
+      ],
+      "id": "4f0f9fc4-fa94-4281-a1a4-2e840106c371",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "toRecipients": "aicandidatescreening@cbcinc.ai",
+        "subject": "Candidate Result",
+        "bodyContent": "={{ $json.html }}",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        272
+      ],
+      "id": "20a0179c-7bdc-4a75-8ea1-0ec7c5e1183f",
+      "name": "Send a message",
+      "webhookId": "3a55a1a0-e28f-40c9-a77c-92a7bc57fb03",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "5KoJGJBrr48AFbD1",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "83fdc4f1-a9a8-4fe5-89c0-19f9a2dc2ab3",
+              "leftValue": "={{ $json.response }}",
+              "rightValue": "Approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1552,
+        288
+      ],
+      "id": "965719e1-09d2-4f51-a799-a3c3ac7c33ed",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.video_interview_evaluations\nSET final_decision = 'hire',\n    decision_by = 'HR',\n    decision_at = NOW()\nWHERE video_assessment_id = $1;\n",
+        "options": {
+          "queryReplacement": "={{ $json.video_assessment_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1760,
+        144
+      ],
+      "id": "b2cc2828-9b8d-42ce-bf39-24b866580e59",
+      "name": "Hire",
+      "credentials": {
+        "postgres": {
+          "id": "oWYyagdraBah9Hpf",
+          "name": "Postgres account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.video_interview_evaluations\nSET final_decision = 'reject',\n    decision_by = 'HR',\n    decision_at = NOW()\nWHERE video_assessment_id = $1;",
+        "options": {
+          "queryReplacement": "={{ $json.video_assessment_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1760,
+        384
+      ],
+      "id": "30ab5fbe-d106-4e00-bb0a-d3f87748dca3",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "oWYyagdraBah9Hpf",
+          "name": "Postgres account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ...$('Store Evaluation Results').first().json,\n    ...$json,  // includes response from approval\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        288
+      ],
+      "id": "48ab067d-2871-41ed-9bbd-0a2411d3a390",
+      "name": "Merge Approval Data"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "toRecipients": "Aicandidatescreening@cbcinc.ai",
+        "subject": "=Final Review Required: {{$json.video_assessment_id}} Candidate Decision Approval",
+        "message": "=<div style=\"max-width: 700px; margin: auto; font-family: Arial, sans-serif; background: #ffffff; border-radius: 10px; padding: 25px; border: 1px solid #e8e8e8; box-shadow: 0 4px 12px rgba(0,0,0,0.08);\">\n  \n  <h2 style=\"text-align: center; margin-bottom: 20px; color: #333;\">\n    🎯 Candidate Decision Approval\n  </h2>\n\n  <p style=\"text-align:center; color:#555;\">\n    A new AI interview evaluation is ready for your review and final decision.\n  </p>\n\n  <hr style=\"border:none; border-top:1px solid #ddd; margin:20px 0;\">\n  \n  <h3 style=\"color:#444; margin-bottom:10px;\">👤 Candidate Details</h3>\n  <table style=\"width:100%; font-size:15px; color:#333;\">\n    <tr>\n      <td><strong>Name:</strong></td>\n      <td>{{ $json.candidate_name }}</td>\n    </tr>\n    <tr>\n      <td><strong>Email:</strong></td>\n      <td>{{ $json.candidate_email }}</td>\n    </tr>\n    <tr>\n      <td><strong>Assessment ID:</strong></td>\n      <td>{{ $json.video_assessment_id }}</td>\n    </tr>\n  </table>\n\n  <hr style=\"border:none; border-top:1px solid #ddd; margin:20px 0;\">\n  \n  <h3 style=\"color:#444; margin-bottom:10px;\">📊 Evaluation Summary</h3>\n  <table style=\"width:100%; font-size:16px;\">\n    <tr>\n      <td><strong>Interview Score:</strong></td>\n      <td><span style=\"background:#007bff; color:#fff; padding:4px 10px; border-radius:6px;\">{{ $json.interview_score }}/100</span></td>\n    </tr>\n    <tr>\n      <td><strong>Security Score:</strong></td>\n      <td><span style=\"background:#6f42c1; color:#fff; padding:4px 10px; border-radius:6px;\">{{ $json.security_score }}/100</span></td>\n    </tr>\n    <tr>\n      <td><strong>Final Score:</strong></td>\n      <td><span style=\"background:#28a745; color:#fff; padding:4px 10px; border-radius:6px;\">{{ $json.final_score }}/100</span></td>\n    </tr>\n    <tr>\n      <td><strong>AI Recommendation:</strong></td>\n      <td>\n        <span style=\"background:#dc3545; color:#fff; padding:4px 10px; border-radius:6px; text-transform:uppercase;\">\n          {{ $json.recommendation }}\n        </span>\n      </td>\n    </tr>\n  </table>\n\n  <hr style=\"border:none; border-top:1px solid #ddd; margin:25px 0;\">\n\n  <h3 style=\"color:#444; margin-bottom:10px;\">📝 Required Action</h3>\n  <p>Please review this evaluation and choose one option:</p>\n\n  <div style=\"text-align:center; margin-top:20px;\">\n    <a href=\"{{ $json.approve_url }}\" style=\"background:#28a745; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; font-weight:bold; margin-right:10px;\">Approve</a>\n\n    <a href=\"{{ $json.reject_url }}\" style=\"background:#dc3545; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; font-weight:bold;\">Decline</a>\n  </div>\n\n  <p style=\"text-align:center; margin-top:20px; color:#666;\">\n    Thank you,<br><strong>CBC AI System</strong>\n  </p>\n\n</div>\n",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Pass",
+            "disapproveLabel": "Fail"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        288
+      ],
+      "id": "1afcde28-22aa-495b-a0a9-eb6adf0a893f",
+      "name": "HIL",
+      "webhookId": "583ca338-c4b0-48d6-a5b8-eef193b22f00",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "5KoJGJBrr48AFbD1",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "llama3.1:8b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        144,
+        624
+      ],
+      "id": "33246596-d878-4e19-8254-09fa0e101975",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "oaDknwqQec1ZdiHM",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Fetch Complete Interview Data": {
+      "main": [
+        [
+          {
+            "node": "Build Evaluation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Evaluation Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Evaluator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Evaluator",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Evaluator": {
+      "main": [
+        [
+          {
+            "node": "Calculate Security Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Security Score": {
+      "main": [
+        [
+          {
+            "node": "Format for Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Database": {
+      "main": [
+        [
+          {
+            "node": "Store Evaluation Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Evaluation Results": {
+      "main": [
+        [
+          {
+            "node": "HIL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Email Report": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Fetch Complete Interview Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Hire",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hire": {
+      "main": [
+        [
+          {
+            "node": "Generate Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Generate Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Approval Data": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HIL": {
+      "main": [
+        [
+          {
+            "node": "Merge Approval Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Evaluator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "62aa39a7-796f-47d4-94f4-86f998177f5d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "40aada8a4ba279910b0f7a1293e0252f9879b72101632b6cd87e8e36d4b1d18e"
+  },
+  "id": "L0iQ2a0elW4rkhLY",
+  "tags": []
+}

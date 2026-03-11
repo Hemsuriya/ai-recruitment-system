@@ -1,0 +1,901 @@
+{
+  "name": "Video Upload and Mediapipe analysis v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-video-interview",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        240
+      ],
+      "id": "142e40eb-b835-4173-9886-8896b16f8294",
+      "name": "Upload Video Interview",
+      "webhookId": "7db487a7-a087-40cc-a6b5-2a9f50fc9b8e"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract data from webhook\nconst body = $input.first().json.body;\nconst files = $input.first().binary;\n \nconsole.log('📥 Received upload:', {\n  assessmentId: body.assessmentId,\n  candidateName: body.candidateName,\n  candidateEmail: body.candidateEmail,\n  duration: body.duration,\n  hasVideo: !!files?.video,\n  hasTranscript: !!body.transcript,\n  hasSecurityReport: !!body.securityReport\n});\n \n// Parse JSON strings\nconst transcript = JSON.parse(body.transcript || '{}');\nconst securityReport = JSON.parse(body.securityReport || '{}');\n \nreturn [{\n  json: {\n    assessmentId: body.assessmentId,\n    candidateName: body.candidateName,\n    candidateEmail: body.candidateEmail,\n    duration: parseInt(body.duration) || 0,\n    transcript: transcript,\n    securityReport: securityReport,\n    uploadedAt: new Date().toISOString()\n  },\n  binary: files\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        240
+      ],
+      "id": "3663a1ed-90ed-4580-b513-d45bfafaefd1",
+      "name": "Extract Upload Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const uploadData = $input.first().json;\n\nconst previousData = $('Extract Upload Data').first().json;\n \n// Get OneDrive file info - use the direct download URL from Microsoft Graph\n\nconst videoUrl = uploadData['@microsoft.graph.downloadUrl'] || \n\n                 uploadData.webUrl || \n\n                 uploadData.webViewLink || \n\n                 '';\n\nconst videoDriveId = uploadData.id;\n \nconsole.log('✅ Video uploaded to OneDrive:', {\n\n  driveId: videoDriveId,\n\n  downloadUrl: videoUrl ? 'Present' : 'Missing',\n\n  fileName: uploadData.name,\n\n  fileSize: uploadData.size\n\n});\n \nreturn [{\n\n  json: {\n\n    video_assessment_id: previousData.assessmentId,\n\n    candidate_name: previousData.candidateName,\n\n    candidate_email: previousData.candidateEmail,\n\n    video_url: videoUrl,\n\n    video_drive_id: videoDriveId,\n\n    video_duration: previousData.duration,\n\n    full_transcript: previousData.transcript,\n\n    security_report: previousData.securityReport,\n\n    uploaded_at: previousData.uploadedAt\n\n  }\n\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        240
+      ],
+      "id": "4c0cc5d3-f3a7-4e21-a1cc-66db63c11b2e",
+      "name": "Prepare Database Data"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "video_interview_responses",
+          "mode": "list",
+          "cachedResultName": "video_interview_responses"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "video_duration": "=",
+            "video_assessment_id": "=",
+            "candidate_name": "=",
+            "candidate_email": "=",
+            "video_url": "=",
+            "video_drive_id": "=",
+            "full_transcript": "="
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "video_assessment_id",
+              "displayName": "video_assessment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidate_name",
+              "displayName": "candidate_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidate_email",
+              "displayName": "candidate_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video_url",
+              "displayName": "video_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video_drive_id",
+              "displayName": "video_drive_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video_duration",
+              "displayName": "video_duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_transcript",
+              "displayName": "full_transcript",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "security_report",
+              "displayName": "security_report",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "uploaded_at",
+              "displayName": "uploaded_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "interview_completed_at",
+              "displayName": "interview_completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c6870e4f-8811-4301-968c-23bf94f72906",
+      "name": "Insert Interview Response",
+      "credentials": {
+        "postgres": {
+          "id": "oWYyagdraBah9Hpf",
+          "name": "Postgres account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "video_interview_candidates",
+          "mode": "list",
+          "cachedResultName": "video_interview_candidates"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "interview_started": true,
+            "interview_completed": true,
+            "videos_uploaded": true,
+            "status": "completed",
+            "updated_at": "={{ $now }}",
+            "match_score": 0,
+            "proctoring_flags": 0,
+            "video_assessment_id": "={{ $json.video_assessment_id }}"
+          },
+          "matchingColumns": [
+            "video_assessment_id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "video_assessment_id",
+              "displayName": "video_assessment_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "current_company",
+              "displayName": "current_company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "match_score",
+              "displayName": "match_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidate_skills",
+              "displayName": "candidate_skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "required_skills",
+              "displayName": "required_skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "experience_level",
+              "displayName": "experience_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "salary_expectation",
+              "displayName": "salary_expectation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expires_at",
+              "displayName": "expires_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "interview_started",
+              "displayName": "interview_started",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "interview_completed",
+              "displayName": "interview_completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "videos_uploaded",
+              "displayName": "videos_uploaded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "proctoring_flags",
+              "displayName": "proctoring_flags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        240
+      ],
+      "id": "9dbf1a25-c17b-4368-b29e-719a46195d7a",
+      "name": "Update Candidate Status",
+      "credentials": {
+        "postgres": {
+          "id": "oWYyagdraBah9Hpf",
+          "name": "Postgres account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5000/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"video_drive_id\": \"{{ $('Prepare Database Data').first().json.video_drive_id }}\",\n  \"video_url\": \"{{ $('Prepare Database Data').first().json.video_url }}\",\n  \"assessment_id\": \"{{ $('Prepare Database Data').first().json.video_assessment_id }}\",\n  \"candidate_name\": \"{{ $('Prepare Database Data').first().json.candidate_name }}\",\n  \"candidate_email\": \"{{ $('Prepare Database Data').first().json.candidate_name }}\"\n}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        240
+      ],
+      "id": "fbcb53de-9cda-43c7-bcc7-dccf9ee3c994",
+      "name": "Trigger Video Analysis"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the analysis response from HTTP Request\nconst analysisResponse = $input.first().json;\n \n// Check if analysis was successful\nif (!analysisResponse.success) {\n  throw new Error(`Video analysis failed: ${analysisResponse.error || 'Unknown error'}`);\n}\n \nconst report = analysisResponse.report;\n \n// Get video info from \"Upload a file\" node (OneDrive)\nconst uploadData = $('Upload a file').first().json;\nconst videoDriveId = uploadData.id;\nconst videoUrl = uploadData['@microsoft.graph.downloadUrl'] || uploadData.webUrl;\n \nreturn [{\n  json: {\n    video_assessment_id: analysisResponse.assessment_id,\n    candidate_name: analysisResponse.candidate_name,\n    candidate_email: report.candidate_email || analysisResponse.candidate_email || 'unknown',\n    video_drive_id: videoDriveId,\n    video_url: videoUrl,\n    // Status\n    analysis_status: 'completed',\n    analysis_completed_at: new Date().toISOString(),\n    // Analysis results (these will be stored as JSONB)\n    emotion_analysis: report.emotion_analysis,\n    attention_metrics: report.attention_metrics,\n    face_detection: report.face_detection,\n    violations_summary: report.violations_summary,\n    full_report: report,\n    // Metadata\n    processing_time_seconds: Math.round(report.session_info.duration_seconds),\n    frames_processed: report.session_info.frames_processed,\n    video_duration_seconds: Math.round(report.session_info.duration_seconds)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        240
+      ],
+      "id": "5591f03f-9610-4fce-bb00-a8a861cd8f48",
+      "name": "Trigger Video Analysis1"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "video_analysis_results",
+          "mode": "list",
+          "cachedResultName": "video_analysis_results"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "video_assessment_id",
+              "displayName": "video_assessment_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidate_name",
+              "displayName": "candidate_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidate_email",
+              "displayName": "candidate_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video_drive_id",
+              "displayName": "video_drive_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video_url",
+              "displayName": "video_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "analysis_status",
+              "displayName": "analysis_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "analysis_started_at",
+              "displayName": "analysis_started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "analysis_completed_at",
+              "displayName": "analysis_completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "emotion_analysis",
+              "displayName": "emotion_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "attention_metrics",
+              "displayName": "attention_metrics",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "face_detection",
+              "displayName": "face_detection",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "violations_summary",
+              "displayName": "violations_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_report",
+              "displayName": "full_report",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processing_time_seconds",
+              "displayName": "processing_time_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "frames_processed",
+              "displayName": "frames_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video_duration_seconds",
+              "displayName": "video_duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retry_count",
+              "displayName": "retry_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        688,
+        240
+      ],
+      "id": "f0aee579-6e71-41a3-8c98-cbc76662ff46",
+      "name": "Store Analysis Results",
+      "credentials": {
+        "postgres": {
+          "id": "oWYyagdraBah9Hpf",
+          "name": "Postgres account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fileName": "={{ $json.assessmentId }}_{{ $json.candidateName }}.webm",
+        "parentId": "01PQMN3I4GKVZNXNJS7BFIDTXMH7L5AYPJ",
+        "binaryData": true,
+        "binaryPropertyName": "video"
+      },
+      "type": "n8n-nodes-base.microsoftOneDrive",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        240
+      ],
+      "id": "3d1ea52b-1b22-4e33-8a93-e9d810f2e1b9",
+      "name": "Upload a file",
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "tkawYgpWG6dT4PKA",
+          "name": "Microsoft Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L0iQ2a0elW4rkhLY",
+          "mode": "list",
+          "cachedResultName": "Evaluation with HIL New"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "video_assessment_id": "={{ $('Prepare Database Data').first().json.video_assessment_id }}"
+          },
+          "matchingColumns": [
+            "video_assessment_id"
+          ],
+          "schema": [
+            {
+              "id": "video_assessment_id",
+              "displayName": "video_assessment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        240
+      ],
+      "id": "bc48b5b3-3036-4b2c-a93d-214e98dc3c24",
+      "name": "Call 'Evaluation with HIL New'"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Upload Video Interview": {
+      "main": [
+        [
+          {
+            "node": "Extract Upload Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Upload Data": {
+      "main": [
+        [
+          {
+            "node": "Upload a file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Database Data": {
+      "main": [
+        [
+          {
+            "node": "Insert Interview Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Candidate Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Candidate Status": {
+      "main": [
+        [
+          {
+            "node": "Trigger Video Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Video Analysis": {
+      "main": [
+        [
+          {
+            "node": "Trigger Video Analysis1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Video Analysis1": {
+      "main": [
+        [
+          {
+            "node": "Store Analysis Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Analysis Results": {
+      "main": [
+        [
+          {
+            "node": "Call 'Evaluation with HIL New'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload a file": {
+      "main": [
+        [
+          {
+            "node": "Prepare Database Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "27df15f4-98e1-4d8e-b3fb-a3e9c2ecd2fd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "40aada8a4ba279910b0f7a1293e0252f9879b72101632b6cd87e8e36d4b1d18e"
+  },
+  "id": "OCqfAJV0bFU7gWyB",
+  "tags": []
+}

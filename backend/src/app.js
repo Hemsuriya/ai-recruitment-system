@@ -1,0 +1,70 @@
+const express = require("express");
+const cors = require("cors");
+const db = require("./config/db");
+
+const candidateRoutes = require("./routes/candidateRoutes");
+const surveyRoutes = require("./routes/surveyRoutes");
+const validationRoutes = require("./routes/validationRoutes");
+const assessmentRoutes = require("./routes/assessmentRoutes");
+const jobTemplateRoutes = require("./routes/jobTemplateRoutes");
+const hrCandidateRoutes = require("./routes/hrCandidateRoutes");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+// ─── Candidate-facing routes ────────────────────────────────
+app.use("/candidate", candidateRoutes);
+app.use("/survey", surveyRoutes);
+app.use("/validation", validationRoutes);
+app.use("/assessment", assessmentRoutes);
+
+// ─── HR Portal routes ────────────────────────────────────────
+app.use("/api/job-templates", jobTemplateRoutes);
+app.use("/api/hr/candidates", hrCandidateRoutes);
+
+// ─── Health & diagnostics ────────────────────────────────────
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date() });
+});
+
+app.get("/db-test", async (req, res) => {
+  try {
+    const result = await db.query("SELECT NOW()");
+    res.json({ success: true, time: result.rows[0].now });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/", (req, res) => {
+  res.json({ message: "AI Candidate Screening API Running", version: "1.0.0" });
+});
+
+// ─── 404 handler ─────────────────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.method} ${req.path} not found` });
+});
+
+// ─── Global error handler ─────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(err.statusCode || 500).json({
+    success: false,
+    message: err.message || "Internal server error",
+  });
+});
+
+app.use(helmet());
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
+
+app.use(limiter);
+
+module.exports = app;
