@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const path = require("path");
 const db = require("./config/db");
 
 const candidateRoutes = require("./routes/candidateRoutes");
@@ -10,6 +11,7 @@ const validationRoutes = require("./routes/validationRoutes");
 const assessmentRoutes = require("./routes/assessmentRoutes");
 const jobTemplateRoutes = require("./routes/jobTemplateRoutes");
 const hrCandidateRoutes = require("./routes/hrCandidateRoutes");
+
 
 const app = express();
 
@@ -26,6 +28,8 @@ app.use(limiter);
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+// ------ Serve frontend static files ----------------------
+app.use(express.static(path.join(__dirname, "../frontend")));
 
 // ─── Candidate-facing routes ─────────────────────────────────
 app.use("/candidate", candidateRoutes);
@@ -36,6 +40,27 @@ app.use("/assessment", assessmentRoutes);
 // ─── HR Portal routes ─────────────────────────────────────────
 app.use("/api/job-templates", jobTemplateRoutes);
 app.use("/api/hr/candidates", hrCandidateRoutes);
+
+// ─── Frontend Pages ─────────────────────────────────────────
+
+// HR Portal
+app.get("/hr", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/hr/index.html"));
+});
+
+// MCQ Assessment
+app.get("/assessment-page", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../frontend/candidate/MCQ/assessment_html_page.html")
+  );
+});
+
+// Video Interview
+app.get("/video-interview", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../frontend/candidate/Video Interview/video-interview.html")
+  );
+});
 
 // ─── Health & diagnostics ────────────────────────────────────
 app.get("/health", (req, res) => {

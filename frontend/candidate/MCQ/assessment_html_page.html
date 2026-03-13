@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assessment Platform - Two Stage Process</title>
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <link rel="stylesheet" href="/candidate/MCQ/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Fitzybot Assessment Platform</h1>
+            <p id="assessment-title">Data Scientist Assessment</p>
+            <div class="stage-indicator-header">
+                <span id="current-stage-text">Preparing Assessment...</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Loading State -->
+            <div id="loading-state" class="loading">
+                <div class="spinner"></div>
+                <h3>Loading Two-Stage Assessment...</h3>
+                <p>Please wait while we prepare your assessment</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error-state" class="hidden">
+                <div class="error">
+                    <h3>⚠️ Assessment Error</h3>
+                    <p id="error-message">Unable to load assessment. Please check your link and try again.</p>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div id="instructions-state" class="hidden">
+                <div class="step-indicator">
+                    <div class="step active">Instructions</div>
+                    <div class="step">Identity Verification</div>
+                    <div class="step">Preference Screening</div>
+                    <div class="step">Technical Assessment</div>
+                </div>
+
+                <div id="candidate-info" class="candidate-info hidden">
+                    <h4>👤 Candidate Information</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div><strong>Name:</strong> <span id="candidate-name">Loading...</span></div>
+                        <div><strong>Email:</strong> <span id="candidate-email">Loading...</span></div>
+                        <div><strong>Company:</strong> <span id="candidate-company">Loading...</span></div>
+                    </div>
+                </div>
+
+                <div class="instructions">
+                    <h3>📋 Two-Stage Assessment Process</h3>
+                    <div class="two-stage-explanation">
+                        <div class="stage-explanation">
+                            <h4>🔍 Stage 1: Preference Screening</h4>
+                            <p>Answer questions about your preferences and requirements. <strong>You must pass this stage to proceed to technical assessment.</strong></p>
+                        </div>
+                        <div class="stage-explanation">
+                            <h4>💻 Stage 2: Technical Assessment</h4>
+                            <p>Complete technical questions relevant to the position. This stage is unlocked after passing preference screening.</p>
+                        </div>
+                    </div>
+                    
+                    <h4>General Instructions:</h4>
+                    <ul>
+                        <li><strong>Identity Verification:</strong> You'll need to verify your identity using Aadhaar card</li>
+                        <li><strong>Camera Required:</strong> Your camera will be active during technical assessment for security</li>
+                        <li><strong>Single Attempt:</strong> You can only take this assessment once</li>
+                        <li><strong>Time Limit:</strong> <span id="time-limit">No time limit for preferences, 30 minutes for technical questions</span></li>
+                        <li><strong>No External Help:</strong> Complete the assessment independently</li>
+                        <li><strong>Stay Focused:</strong> Avoid switching tabs during technical assessment</li>
+                    </ul>
+                </div>
+                
+                <div class="camera-preview">
+                    <video id="video" autoplay muted></video>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button id="start-verification-btn" class="btn btn-primary">Proceed to Identity Verification</button>
+                </div>
+            </div>
+
+            <!-- Aadhaar Verification State -->
+            <div id="aadhaar-verification-state" class="hidden">
+                <div class="step-indicator">
+                    <div class="step completed">Instructions</div>
+                    <div class="step active">Identity Verification</div>
+                    <div class="step">Preference Screening</div>
+                    <div class="step">Technical Assessment</div>
+                </div>
+
+                <div class="verification-container">
+                    <h2>🆔 Identity Verification</h2>
+                    <p style="margin-bottom: 30px; color: #495057;">Please upload a clear photo of your Aadhaar card to verify your identity</p>
+
+                    <!-- Verification Steps -->
+                    <div class="verification-step" id="capture-step">
+                        <h4>📸 Capture or Upload Aadhaar Card</h4>
+                        
+                        <!-- Camera Capture Option -->
+                        <div class="aadhaar-capture-area">
+                            <div id="camera-capture-section">
+                                <h5>Option 1: Take Photo</h5>
+                                <video id="aadhaar-video" autoplay muted style="display: none;"></video>
+                                <canvas id="aadhaar-canvas"></canvas>
+                                <div class="capture-controls">
+                                    <button id="start-camera-btn" class="btn btn-secondary">Start Camera</button>
+                                    <button id="capture-aadhaar-btn" class="btn btn-primary" style="display: none;">Capture Photo</button>
+                                    <button id="stop-camera-btn" class="btn btn-secondary" style="display: none;">Stop Camera</button>
+                                </div>
+                            </div>
+
+                            <!-- File Upload Option -->
+                            <div class="file-upload-area" id="file-upload-area">
+                                <h5>Option 2: Upload Image</h5>
+                                <p>📁 Click here or drag your Aadhaar card image</p>
+                                <input type="file" id="aadhaar-file" accept="image/*" style="display: none;">
+                            </div>
+                        </div>
+
+                        <!-- Attempts Counter -->
+                        <div class="attempts-counter">
+                            Attempts remaining: <span id="attempts-remaining">3</span>/3
+                        </div>
+                    </div>
+
+                    <!-- Preview Step -->
+                    <div class="verification-step hidden" id="preview-step">
+                        <h4>👀 Review Captured Image</h4>
+                        <div class="preview-container">
+                            <img id="preview-image" class="preview-image" alt="Aadhaar Preview">
+                        </div>
+                        <div class="capture-controls">
+                            <button id="retake-btn" class="btn btn-secondary">Retake Photo</button>
+                            <button id="verify-btn" class="btn btn-primary">Verify Identity</button>
+                        </div>
+                    </div>
+
+                    <!-- Processing Step -->
+                    <div class="ocr-processing hidden" id="processing-step">
+                        <div class="spinner" style="width: 30px; height: 30px;"></div>
+                        <h4>🔍 Processing Aadhaar Card...</h4>
+                        <p id="processing-status">Extracting information from your Aadhaar card</p>
+                    </div>
+
+                    <!-- Verification Result -->
+                    <div id="verification-result" class="verification-result hidden">
+                        <h4 id="result-title">Verification Status</h4>
+                        <p id="result-message">Processing...</p>
+                        <div id="extracted-info" class="hidden">
+                            <h5>Extracted Information:</h5>
+                            <p><strong>Aadhaar Number:</strong> <span id="extracted-aadhaar">****-****-****</span></p>
+                            <p><strong>Name:</strong> <span id="extracted-name">Processing...</span></p>
+                        </div>
+                        <button id="proceed-to-survey-btn" class="btn btn-primary hidden">Proceed to Preference Screening</button>
+                        <button id="retry-verification-btn" class="btn btn-secondary hidden">Try Again</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Survey Questions Section (Stage 1) -->
+            <div id="survey-section" class="hidden">
+                <div class="step-indicator">
+                    <div class="step completed">Instructions</div>
+                    <div class="step completed">Identity Verification</div>
+                    <div class="step active">Preference Screening</div>
+                    <div class="step">Technical Assessment</div>
+                </div>
+
+                <div class="survey-header">
+                    <h2 style="color: #0066cc; margin-bottom: 15px;">🎯 Stage 1: Preference Screening</h2>
+                    <p style="color: #495057; margin-bottom: 15px;">
+                        Please answer these questions about your preferences and requirements. 
+                        <strong>Some questions are qualifying - you must answer them correctly to proceed to technical assessment.</strong>
+                    </p>
+                    <div id="survey-stage-info" class="stage-info">
+                        <span>📋 <span id="survey-total-count">0</span> preference questions</span>
+                        <span>⭐ <span id="qualifying-count">0</span> qualifying questions</span>
+                    </div>
+                </div>
+
+                <div class="survey-progress">
+                    <div class="survey-progress-bar" id="survey-progress-bar" style="width: 0%"></div>
+                </div>
+
+                <div class="survey-question-container">
+                    <div class="survey-question-header">
+                        <div class="survey-question-number" id="survey-question-number">Question 1 of 1</div>
+                        <div class="survey-question-type" id="survey-question-type">Preference</div>
+                    </div>
+
+                    <div class="survey-question-text" id="survey-question-text">
+                        Loading preference question...
+                    </div>
+
+                    <div class="survey-options" id="survey-options-container">
+                        <!-- Survey options will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div class="survey-navigation">
+                    <button id="survey-prev-btn" class="btn btn-secondary" disabled>Previous</button>
+                    <span id="survey-question-info">Question 1 of 1</span>
+                    <button id="survey-next-btn" class="btn btn-primary">Next</button>
+                </div>
+            </div>
+
+            <!-- Survey Validation Loading -->
+            <div id="survey-validation-loading" class="hidden">
+                <div class="validation-loading">
+                    <div class="spinner"></div>
+                    <h3>🔍 Validating Your Preferences...</h3>
+                    <p>Please wait while we check your responses</p>
+                </div>
+            </div>
+
+            <!-- Survey Validation Result -->
+            <div id="survey-validation-result" class="hidden">
+                <div class="validation-result">
+                    <div id="validation-result-content">
+                        <!-- Content will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technical Assessment State (Stage 2) -->
+            <div id="assessment-state" class="hidden">
+                <div class="step-indicator">
+                    <div class="step completed">Instructions</div>
+                    <div class="step completed">Identity Verification</div>
+                    <div class="step completed">Preference Screening</div>
+                    <div class="step active">Technical Assessment</div>
+                </div>
+
+                <div class="technical-header">
+                    <h2 style="color: #28a745; margin-bottom: 15px;">💻 Stage 2: Technical Assessment</h2>
+                    <p style="color: #495057; margin-bottom: 15px;">
+                        Congratulations! You passed the preference screening. Now complete the technical questions below.
+                        <strong>Your camera is now active for proctoring.</strong>
+                    </p>
+                </div>
+
+                <div class="timer" id="timer">Time Remaining: 30:00</div>
+                
+                <div class="progress">
+                    <div class="progress-bar" id="progress-bar" style="width: 5%"></div>
+                </div>
+
+                <div class="question-container">
+                    <div class="question-header">
+                        <div class="question-number" id="question-number">Question 1 of 20</div>
+                        <div class="question-category" id="question-category">Technical Skills</div>
+                    </div>
+
+                    <div class="question-text" id="question-text">
+                        Loading technical question...
+                    </div>
+
+                    <div class="options" id="options-container">
+                        <!-- Options will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div class="navigation">
+                    <button id="prev-btn" class="btn btn-secondary" disabled>Previous</button>
+                    <span id="question-info">Question 1 of 20</span>
+                    <button id="next-btn" class="btn btn-primary">Next</button>
+                </div>
+            </div>
+
+            <!-- Submit Confirmation -->
+            <div id="submit-confirmation" class="hidden">
+                <div class="submit-confirmation">
+                    <h3>📝 Ready to Submit Final Assessment?</h3>
+                    <div class="submission-summary">
+                        <div class="summary-section">
+                            <h4>✅ Stage 1 Completed: Preference Screening</h4>
+                            <p>Answered <span id="survey-answered-count">0</span> out of <span id="survey-total-final">0</span> preference questions</p>
+                        </div>
+                        <div class="summary-section">
+                            <h4>📊 Stage 2: Technical Assessment</h4>
+                            <p>Answered <span id="mcq-answered-count">0</span> out of <span id="mcq-total-count">20</span> technical questions</p>
+                        </div>
+                    </div>
+                    <p class="warning-text"><strong>Warning:</strong> Once submitted, you cannot change your answers.</p>
+                    <div style="margin-top: 20px;">
+                        <button id="back-to-review" class="btn btn-secondary" style="margin-right: 10px;">Review Technical Answers</button>
+                        <button id="final-submit" class="btn btn-primary">Submit Complete Assessment</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Success State -->
+            <div id="success-state" class="hidden">
+                <div class="success-container">
+                    <h2 style="color: #28a745; margin-bottom: 20px;">🎉 Two-Stage Assessment Completed Successfully!</h2>
+                    <div class="completion-summary">
+                        <div class="stage-summary">
+                            <h4>✅ Stage 1: Preference Screening</h4>
+                            <p>Completed and validated successfully</p>
+                        </div>
+                        <div class="stage-summary">
+                            <h4>✅ Stage 2: Technical Assessment</h4>
+                            <p>All technical questions answered and submitted</p>
+                        </div>
+                    </div>
+                    <p style="font-size: 16px; color: #495057; line-height: 1.6; margin: 20px 0;">
+                        Thank you for completing both stages of our assessment process. Your responses have been recorded and 
+                        our team will review your results shortly. You will receive an email notification 
+                        with the next steps within 24-48 hours.
+                    </p>
+                    <div style="margin-top: 30px;">
+                        <button class="btn btn-secondary" onclick="window.close()">Close Window</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/candidate/MCQ/script.js"></script>
+</body>
+</html>
