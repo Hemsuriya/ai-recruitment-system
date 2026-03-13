@@ -16,7 +16,21 @@ const hrCandidateRoutes = require("./routes/hrCandidateRoutes");
 const app = express();
 
 // ─── Security middleware FIRST ───────────────────────────────
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        connectSrc: ["'self'", "http://localhost:5000"],
+        frameSrc: ["'self'", "http://localhost:5678"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      },
+    },
+  })
+);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,

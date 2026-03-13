@@ -1,5 +1,5 @@
 // ===== CONFIGURATION =====
-const API_BASE_URL = "http://localhost:3000/api";
+const API_BASE_URL = "http://localhost:5000/api";
 const FORM_URL = "http://localhost:5678/form/ea6c0b26-19a6-4ba5-a687-8b78ea1c1590";
 
 // ===== GLOBAL STATE =====
@@ -12,21 +12,23 @@ let jobTemplates = [];
 let selectedTemplate = null;
 
 // ===== LOGIN LOGIC =====
-function handleLogin(event) {
-  event.preventDefault();
-  const u = document.getElementById("loginUser").value;
-  const p = document.getElementById("loginPass").value;
-  if (u === "Admin" && p === "Admin") {
-    document.getElementById("loginError").style.display = "none";
-    document.getElementById("loginPage").style.display = "none";
-    document.getElementById("portalPage").classList.remove("hidden");
-    loadCandidates();
-    loadJobTemplates();
-    initFormIframe();
-  } else {
-    document.getElementById("loginError").style.display = "block";
-  }
-}
+document.addEventListener("DOMContentLoaded", function () {
+  document.getElementById("loginForm").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const u = document.getElementById("loginUser").value;
+    const p = document.getElementById("loginPass").value;
+    if (u === "Admin" && p === "Admin") {
+      document.getElementById("loginError").style.display = "none";
+      document.getElementById("loginPage").style.display = "none";
+      document.getElementById("portalPage").classList.remove("hidden");
+      loadCandidates();
+      loadJobTemplates();
+      initFormIframe();
+    } else {
+      document.getElementById("loginError").style.display = "block";
+    }
+  });
+});
 
 function logout() {
   location.reload();
@@ -66,7 +68,8 @@ async function loadJobTemplates() {
     if (!response.ok) {
       throw new Error('Failed to fetch templates');
     }
-    jobTemplates = await response.json();
+    const result = await response.json();
+    jobTemplates = result.data || [];
     renderTemplateSelector();
     console.log('Job templates loaded:', jobTemplates.length);
   } catch (error) {
@@ -360,7 +363,7 @@ function closeTemplateEditModal() {
 // ===== CANDIDATES API =====
 async function fetchCandidates() {
   try {
-    const response = await fetch(`${API_BASE_URL}/candidates`);
+    const response = await fetch(`${API_BASE_URL}/hr/candidates`);
     const result = await response.json();
     if (result.success) {
       candidates = result.data || [];
