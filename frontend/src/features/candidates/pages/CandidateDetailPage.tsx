@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, FileText, Brain, Video, ShieldCheck,
   User, BarChart2, CheckCircle, AlertCircle, MessageSquare,
-  ChevronDown, MapPin, Building2, Clock, Banknote, Plane,
+  ChevronDown,
 } from "lucide-react";
 import { useCandidateDetail } from "../hooks/useCandidateDetail";
 import VerdictBadge from "../components/VerdictBadge";
@@ -154,10 +154,40 @@ export default function CandidateDetailPage() {
             </div>
           </div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate("/candidates")}>
-          <ArrowLeft size={15} />
-          Back
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button className="btn-ghost" onClick={() => navigate("/candidates")} style={{ marginRight: 8 }}>
+            <ArrowLeft size={15} />
+            Back
+          </button>
+          <button
+            style={{
+              padding: "6px 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--score-high)",
+              background: "transparent",
+              border: "1px solid rgba(34,197,94,0.3)",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            Offer
+          </button>
+          <button
+            style={{
+              padding: "6px 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--score-low)",
+              background: "transparent",
+              border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            Reject
+          </button>
+        </div>
       </motion.div>
 
       <div style={{ padding: "24px 28px 64px", maxWidth: 1200 }}>
@@ -195,13 +225,15 @@ export default function CandidateDetailPage() {
           <Section title="Candidate Profile" icon={User}>
             <div style={{ marginBottom: 14 }}>
               <InfoRow label="Email"           value={c.email}    />
-              <InfoRow label="Location"        value={c.location} icon={MapPin} />
-              <InfoRow label="Current Company" value={c.company}  icon={Building2} />
+              <InfoRow label="Phone"           value="+1 (555) 234-5678" />
+              <InfoRow label="Location"        value={c.location} />
+              <InfoRow label="Current Company" value={c.company}  />
               <InfoRow label="Experience"      value={c.experience} />
               <InfoRow label="Level"           value={c.level} />
-              <InfoRow label="Salary Expectation" value={c.salary} icon={Banknote} />
-              <InfoRow label="Notice Period"   value={c.notice}   icon={Clock} />
-              <InfoRow label="Visa Status"     value={c.visa}     icon={Plane} />
+              <InfoRow label="Salary Expectation" value={c.salary} />
+              <InfoRow label="Notice Period"   value={c.notice}   />
+              <InfoRow label="Visa Status"     value={c.visa}     />
+              <InfoRow label="Job ID"          value={`JOB-2025-${c.role.split(' ')[0].toUpperCase()}-${c.id.padStart(3, '0')}`} />
             </div>
 
             <div style={{ marginBottom: 14 }}>
@@ -377,41 +409,7 @@ export default function CandidateDetailPage() {
           </Section>
         </motion.div>
 
-        {/* ── Speech Analysis ── */}
-        {c.speechAnalysis.candidate.duration !== "N/A" && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
-            style={{ marginBottom: 16 }}
-          >
-            <Section title="Speech Analysis" icon={BarChart2}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {[
-                  { who: "Interviewer", data: c.speechAnalysis.interviewer, bg: "#EFF6FF", accent: "#3B82F6" },
-                  { who: "Candidate",   data: c.speechAnalysis.candidate,   bg: "#F5F3FF", accent: "#8B5CF6" },
-                ].map(({ who, data, bg, accent }) => (
-                  <div key={who} style={{ background: bg, borderRadius: 10, padding: "14px 16px" }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 12 }}>
-                      <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: accent, marginRight: 6 }} />
-                      {who}
-                    </p>
-                    {[
-                      ["Speech Duration",    data.duration],
-                      ["Avg Confidence",     `${data.confidence}%`],
-                      ["Positive Sentiment", `${data.positive}%`],
-                      ["Neutral Sentiment",  `${data.neutral}%`],
-                      ["Negative Sentiment", `${data.negative}%`],
-                    ].map(([label, value]) => (
-                      <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0" }}>
-                        <span style={{ color: "var(--text-muted)" }}>{label}</span>
-                        <span style={{ fontWeight: 600, color: "var(--text)" }}>{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </Section>
-          </motion.div>
-        )}
+
 
         {/* ── Transcript ── */}
         {c.transcript.length > 0 && (
