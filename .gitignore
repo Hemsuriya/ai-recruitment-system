@@ -7,3 +7,7 @@ venv/
 id_cache/
 *.log
 .DS_Store
+
+#Files
+folder_structure_plan.md
+next_steps.md
