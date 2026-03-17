@@ -1,20 +1,23 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import LoginPage from "./features/auth/LoginPage"
-import TemplateList from "../hr/Templates/TemplateList"
-import HrLayout from "./components/layouts/HrLayout"
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import LoginPage from "./features/auth/LoginPage";
+import TemplateList from "../hr/Templates/TemplateList";
+import CreateAssessmentPage from "./features/assessment/CreateAssessmentPage";
+import DashboardPage from "./features/dashboard/DashboardPage";
 
 function App() {
   return (
-   <BrowserRouter>
-   <Routes>
-    {/* Login */}
-    <Route path="/login" element={<LoginPage/>}/>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/hr" element={<Navigate to="/hr/dashboard" replace />} />
+        <Route path="/hr/dashboard" element={<DashboardPage />} />
+        <Route path="/hr/templates" element={<TemplateList />} />
+        <Route path="/hr/create-assessment" element={<CreateAssessmentPage />} />
 
-    {/* HR Layouts routes */}
-     <Route path="/hr" element={<HrLayout />}></Route>
-     <Route path="/hr/templates" element={<TemplateList/>}/>
-   </Routes>
-   </BrowserRouter>
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
