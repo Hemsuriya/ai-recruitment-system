@@ -110,6 +110,23 @@ services:
         condition: service_started
 
 # ─────────────────────────────────────────────
+# Create Assessment Frontend (React + Vite)
+# ─────────────────────────────────────────────
+  create-assessment-ui:
+    build:
+      context: ./frontend/create-assessment
+      dockerfile: Dockerfile
+    container_name: acs_create_assessment_ui
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/create-assessment/src:/app/src
+    depends_on:
+      backend:
+        condition: service_started
+
+# ─────────────────────────────────────────────
 # ID Verification Service (FastAPI)
 # ─────────────────────────────────────────────
   id-verification:
