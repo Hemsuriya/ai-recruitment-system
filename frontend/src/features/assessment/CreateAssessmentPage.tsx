@@ -175,7 +175,7 @@ function AssessmentDetails({
   };
 
   return (
-    <div className={cardClassName}>
+    <div className={`${cardClassName} h-fit pb-4`}>
       <div className="mb-5 flex items-center gap-2">
         <ClipboardList className="h-4 w-4 text-violet-500" />
         <h2 className="text-[14px] font-semibold text-gray-900">Assessment Details</h2>
