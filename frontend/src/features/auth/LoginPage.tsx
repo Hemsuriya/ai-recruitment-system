@@ -5,13 +5,13 @@ export default function HireAILogin() {
   return (
     <div className="min-h-screen flex">
       {/* LEFT PANEL */}
-      <div className="w-1/2 relative flex flex-col items-center justify-center p-12 bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-800 text-white">
+      <div className="w-1/2 relative flex flex-col items-center justify-center p-12 bg-linear-to-br from-blue-600 via-indigo-600 to-blue-800 text-white">
         {/* Logo */}
         <div className="absolute top-12 left-12 flex items-center gap-2">
           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur">
             <span className="text-xl">🧠</span>
           </div>
-          <span className="text-lg font-semibold">HireAI</span>
+          <span className="text-lg font-semibold">AI Candidate Screening</span>
         </div>
 
         {/* Center Content */}
@@ -78,7 +78,7 @@ export default function HireAILogin() {
           </div>
 
           {/* Sign In Button */}
-          <button className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-medium shadow-md hover:opacity-95">
+          <button className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-linear-to-r from-indigo-500 to-blue-600 text-white font-medium shadow-md hover:opacity-95">
             Sign in <ArrowRight className="w-4 h-4" />
           </button>
 
