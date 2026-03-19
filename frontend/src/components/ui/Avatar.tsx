@@ -5,14 +5,14 @@ interface AvatarProps {
 }
 
 const AVATAR_COLORS = [
-  ["#6D5DF6", "#EDE9FE"],
-  ["#3B82F6", "#DBEAFE"],
-  ["#22C55E", "#DCFCE7"],
-  ["#F59E0B", "#FEF3C7"],
-  ["#EF4444", "#FEE2E2"],
-  ["#8B5CF6", "#F3E8FF"],
-  ["#06B6D4", "#CFFAFE"],
-  ["#F97316", "#FFEDD5"],
+  ["var(--color-violet-600)", "var(--color-violet-50)"],
+  ["var(--color-blue-500)", "var(--color-blue-100)"],
+  ["var(--color-green-500)", "var(--color-green-100)"],
+  ["var(--color-amber-500)", "var(--color-amber-100)"],
+  ["var(--color-red-500)", "var(--color-red-100)"],
+  ["var(--color-violet-500)", "var(--color-violet-50)"],
+  ["var(--color-cyan-500)", "var(--color-cyan-100)"],
+  ["var(--color-orange-500)", "var(--color-orange-100)"],
 ];
 
 function hashInitials(s: string) {

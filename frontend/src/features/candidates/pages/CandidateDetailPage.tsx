@@ -67,7 +67,7 @@ function SkillChip({ label, type }: { label: string; type: "matched" | "missing"
         fontWeight: 500,
         padding: "3px 9px",
         borderRadius: 20,
-        background: matched ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.08)",
+        background: matched ? "var(--verdict-strong-hire-bg)" : "var(--verdict-reject-bg)",
         color: matched ? "var(--score-high)" : "var(--score-low)",
         border: `1px solid ${matched ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.15)"}`,
       }}
@@ -97,16 +97,16 @@ export default function CandidateDetailPage() {
   if (!c) return null;
 
   const scoreCards = [
-    { icon: FileText, score: c.resumeScore, label: "Resume Score",   color: "#3B82F6" },
-    { icon: Brain,    score: c.mcqScore,    label: "MCQ Score",      color: "#F59E0B" },
-    { icon: Video,    score: c.videoScore,  label: "Video Score",    color: "#8B5CF6" },
-    { icon: ShieldCheck, score: c.proctoring.integrityScore, label: "Integrity Score", color: "#22C55E" },
+    { icon: FileText, score: c.resumeScore, label: "Resume Score",   color: "var(--color-blue-500)" },
+    { icon: Brain,    score: c.mcqScore,    label: "MCQ Score",      color: "var(--color-amber-500)" },
+    { icon: Video,    score: c.videoScore,  label: "Video Score",    color: "var(--color-violet-500)" },
+    { icon: ShieldCheck, score: c.proctoring.integrityScore, label: "Integrity Score", color: "var(--color-green-500)" },
   ];
 
   const getScoreBorder = (score: number) => {
-    if (score >= 80) return "3px solid #22C55E";
-    if (score >= 60) return "3px solid #F59E0B";
-    return "3px solid #EF4444";
+    if (score >= 80) return "3px solid var(--color-green-500)";
+    if (score >= 60) return "3px solid var(--color-amber-500)";
+    return "3px solid var(--color-red-500)";
   };
 
   return (
@@ -145,7 +145,7 @@ export default function CandidateDetailPage() {
                     fontWeight: 600,
                     padding: "2px 8px",
                     borderRadius: 20,
-                    background: "rgba(109,93,246,0.1)",
+                    background: "var(--brand-soft)",
                     color: "var(--brand)",
                   }}
                 >
@@ -190,7 +190,7 @@ export default function CandidateDetailPage() {
           </div>
         </div>
 
-        <div style={{ padding: "24px 28px 64px", maxWidth: 1200 }}>
+        <div style={{ padding: "24px 2px 64px", width: "100%" }}>
           <div
             style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}
           >

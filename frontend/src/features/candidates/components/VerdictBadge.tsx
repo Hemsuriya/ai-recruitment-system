@@ -12,17 +12,17 @@ export default function VerdictBadge({ verdict }: VerdictBadgeProps) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
-        fontSize: 11,
+        gap: 8,
+        fontSize: 14,
         fontWeight: 600,
         color,
         background: bg,
         borderRadius: 20,
-        padding: "3px 9px",
+        padding: "8px 14px",
         whiteSpace: "nowrap",
       }}
     >
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
       {verdict}
     </span>
   );

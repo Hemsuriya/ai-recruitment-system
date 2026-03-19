@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import HrShell from "../../src/components/layouts/HrShell";
 
 const Tag = ({ children }: any) => (
-  <span className="rounded-md bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-500">
+  <span className="rounded-md bg-gray-100 px-2.5 py-1.5 text-[13px] font-medium text-gray-500">
     {children}
   </span>
 );
@@ -28,7 +28,7 @@ const Card = ({ title, tags, meta, badge }: any) => (
       </span>
     </div>
 
-    <h3 className="mb-3 text-[16px] font-semibold text-gray-900">{title}</h3>
+    <h3 className="mb-3 text-[17px] font-semibold text-gray-900">{title}</h3>
 
     <div className="mb-5 flex flex-wrap gap-2">
       {tags.map((t: string) => (
@@ -36,15 +36,15 @@ const Card = ({ title, tags, meta, badge }: any) => (
       ))}
     </div>
 
-    <div className="mb-4 space-y-2 text-[12px] text-gray-500">
+    <div className="mb-4 space-y-2 text-[14px] text-gray-500">
       <div className="flex items-center gap-2">
-        <ChartColumn className="h-3.5 w-3.5 text-gray-400" />
+        <ChartColumn className="h-4 w-4 text-gray-400" />
         <span>{meta[0]}</span>
-        <ChartColumn className="ml-4 h-3.5 w-3.5 text-gray-400" />
+        <ChartColumn className="ml-4 h-4 w-4 text-gray-400" />
         <span>{meta[1]}</span>
       </div>
       <div className="flex items-center gap-2">
-        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+        <Calendar className="h-4 w-4 text-gray-400" />
         <span>{meta[2]}</span>
       </div>
     </div>
@@ -74,8 +74,8 @@ export default function TemplatesPage()
           <div className="flex min-h-full flex-col">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <h1 className="text-[18px] font-semibold text-gray-900">Job Templates</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="app-page-title">Job Templates</h1>
+              <p className="app-page-subtitle">
                 Reusable hiring templates for quick assessment setup
               </p>
             </div>

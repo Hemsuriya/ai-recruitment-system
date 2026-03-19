@@ -123,7 +123,7 @@ function TemplatePicker() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex min-w-[156px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-white"
+        className="flex min-w-[156px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-[14px] text-gray-700 transition-colors hover:bg-white"
       >
         {selected || "Choose a template"}
         <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -139,7 +139,7 @@ function TemplatePicker() {
                 setSelected(option);
                 setOpen(false);
               }}
-              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-violet-50 hover:text-violet-700 first:rounded-t-xl last:rounded-b-xl"
+              className="w-full px-4 py-2.5 text-left text-[14px] text-gray-700 transition-colors hover:bg-violet-50 hover:text-violet-700 first:rounded-t-xl last:rounded-b-xl"
             >
               {option}
             </button>
@@ -178,12 +178,12 @@ function AssessmentDetails({
     <div className={`${cardClassName} h-fit pb-4`}>
       <div className="mb-5 flex items-center gap-2">
         <ClipboardList className="h-4 w-4 text-violet-500" />
-        <h2 className="text-[14px] font-semibold text-gray-900">Assessment Details</h2>
+        <h2 className="app-card-title">Assessment Details</h2>
       </div>
 
       <div className="space-y-4">
         <label className="block">
-          <span className="mb-2 block text-[13px] font-semibold text-gray-700">
+          <span className="app-field-label mb-2 block">
             Role Title
           </span>
           <input
@@ -195,12 +195,12 @@ function AssessmentDetails({
               }))
             }
             placeholder="e.g. Senior Data Scientist"
-            className="h-10 w-full rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            className="h-10 w-full rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 placeholder-gray-400 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-[13px] font-semibold text-gray-700">
+          <span className="app-field-label mb-2 block">
             Experience Level
           </span>
           <div className="relative max-w-[108px]">
@@ -212,7 +212,7 @@ function AssessmentDetails({
                   experienceLevel: event.target.value,
                 }))
               }
-              className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-sm text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
             >
               {experienceLevels.map((level) => (
                 <option key={level} value={level === "Select level" ? "" : level}>
@@ -225,7 +225,7 @@ function AssessmentDetails({
         </label>
 
         <div>
-          <span className="mb-2 block text-[13px] font-semibold text-gray-700">
+          <span className="app-field-label mb-2 block">
             Skills Required
           </span>
           <div className="flex gap-2">
@@ -239,7 +239,7 @@ function AssessmentDetails({
                 }
               }}
               placeholder="Add a skill (e.g. Python)"
-              className="h-10 flex-1 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              className="h-10 flex-1 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 placeholder-gray-400 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
             />
             <button
               type="button"
@@ -255,7 +255,7 @@ function AssessmentDetails({
               {formData.skills.map((skill) => (
                 <span
                   key={skill}
-                  className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700"
+                  className="rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
                 >
                   {skill}
                 </span>
@@ -310,11 +310,11 @@ function PreScreeningQuestions({
     <div className={cardClassName}>
       <div className="mb-4 flex items-center gap-2">
         <CheckCircle2 className="h-4 w-4 text-green-500" />
-        <h2 className="text-[14px] font-semibold text-gray-900">
+        <h2 className="app-card-title">
           Pre-Screening Questions
         </h2>
       </div>
-      <p className="text-[13px] text-gray-500">
+      <p className="app-meta-text">
         Select questions to include in the assessment
       </p>
 
@@ -333,7 +333,7 @@ function PreScreeningQuestions({
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
             </div>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-[16px] font-medium text-gray-700">
               {question.text}
             </span>
           </button>
@@ -353,12 +353,12 @@ function PreScreeningQuestions({
             }}
             autoFocus
             placeholder="Add a custom question"
-            className="flex-1 rounded-[10px] border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            className="flex-1 rounded-[10px] border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-gray-900 placeholder-gray-400 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
           />
           <button
             type="button"
             onClick={addQuestion}
-            className="rounded-[10px] bg-violet-600 px-4 py-2.5 text-sm text-white transition-colors hover:bg-violet-700"
+            className="rounded-[10px] bg-violet-600 px-4 py-2.5 text-[14px] text-white transition-colors hover:bg-violet-700"
           >
             Add
           </button>
@@ -368,7 +368,7 @@ function PreScreeningQuestions({
               setAdding(false);
               setCustomQuestion("");
             }}
-            className="rounded-[10px] border border-gray-200 px-4 py-2.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+            className="rounded-[10px] border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600 transition-colors hover:bg-gray-50"
           >
             Cancel
           </button>
@@ -377,7 +377,7 @@ function PreScreeningQuestions({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="mt-4 flex items-center gap-2 text-sm font-medium text-violet-600 transition-colors hover:text-violet-700"
+          className="mt-4 flex items-center gap-2 text-[14px] font-medium text-violet-600 transition-colors hover:text-violet-700"
         >
           <CirclePlus className="h-4 w-4" />
           Add Custom Question
@@ -407,30 +407,30 @@ function AssessmentSummary({
 
   return (
     <div className={cardClassName}>
-      <h2 className="mb-6 text-[14px] font-semibold text-gray-900">
+      <h2 className="app-card-title mb-6">
         Assessment Summary
       </h2>
 
       <div className="mb-5">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">
+        <p className="mb-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-400">
           Role
         </p>
-        <p className="text-[13px] font-semibold text-gray-900">
+        <p className="app-field-label text-gray-900">
           {formData.roleTitle || "Not specified"}
         </p>
       </div>
 
       <div className="mb-5">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">
+        <p className="mb-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-400">
           Experience
         </p>
-        <p className="text-[13px] font-semibold text-gray-900">
+        <p className="app-field-label text-gray-900">
           {formData.experienceLevel || "Not selected"}
         </p>
       </div>
 
       <div className="mb-5">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">
+        <p className="mb-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-400">
           Skills
         </p>
         {formData.skills.length > 0 ? (
@@ -438,21 +438,21 @@ function AssessmentSummary({
             {formData.skills.map((skill) => (
               <span
                 key={skill}
-                className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700"
+                className="rounded-full bg-violet-50 px-2.5 py-0.5 text-[14px] font-medium text-violet-700"
               >
                 {skill}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-[13px] text-gray-500">No skills added</p>
+          <p className="app-meta-text">No skills added</p>
         )}
       </div>
 
       <hr className="my-5 border-gray-200" />
 
       <div className="mb-5">
-        <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">
+        <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-400">
           Components
         </p>
         <div className="space-y-2.5">
@@ -463,7 +463,7 @@ function AssessmentSummary({
               ) : (
                 <CircleX className="h-4 w-4 text-orange-400" />
               )}
-              <span className="text-[13px] text-gray-700">{component.label}</span>
+              <span className="text-[14px] font-medium leading-[1.4] text-gray-900">{component.label}</span>
             </div>
           ))}
         </div>
@@ -472,10 +472,10 @@ function AssessmentSummary({
       <hr className="my-5 border-gray-200" />
 
       <div>
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">
+        <p className="mb-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-400">
           Pre-Screening
         </p>
-        <p className="text-[13px] font-semibold text-gray-900">
+        <p className="app-field-label text-gray-900">
           {selectedQuestionCount} questions selected
         </p>
       </div>
@@ -498,7 +498,7 @@ function AssessmentOptions({
     <div className={cardClassName}>
       <div className="mb-4 flex items-center gap-2">
         <WandSparkles className="h-4 w-4 text-amber-500" />
-        <h2 className="text-[14px] font-semibold text-gray-900">Assessment Options</h2>
+        <h2 className="app-card-title">Assessment Options</h2>
       </div>
 
       <div className="space-y-3">
@@ -531,8 +531,8 @@ function AssessmentOptions({
                 </div>
 
                 <div>
-                  <p className="text-[13px] font-medium text-gray-900">{option.label}</p>
-                  <p className="text-[11px] text-gray-500">{option.description}</p>
+                  <p className="text-[16px] font-medium text-gray-900">{option.label}</p>
+                  <p className="text-[14px] text-gray-900">{option.description}</p>
                 </div>
               </div>
             </div>
@@ -545,7 +545,7 @@ function AssessmentOptions({
         onClick={() => {
           console.log("Generating assessment from options panel");
         }}
-        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-violet-500 to-indigo-600 px-6 text-sm font-medium text-white shadow-lg shadow-violet-200 transition-colors hover:opacity-95"
+        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-violet-500 to-indigo-600 px-6 text-[14px] font-medium text-white shadow-lg shadow-violet-200 transition-colors hover:opacity-95"
       >
         <Sparkles className="h-4 w-4" />
         Generate Assessment
@@ -574,14 +574,14 @@ export default function CreateAssessmentPage() {
       <div className="w-full py-1">
         <div className="mb-5 flex items-start justify-between">
           <div>
-            <h1 className="text-[19px] font-semibold text-gray-900">Create Assessment</h1>
-            <p className="mt-1 text-[13px] text-gray-500">
+            <h1 className="app-page-title">Create Assessment</h1>
+            <p className="app-page-subtitle">
               Generate AI-powered screening assessments for candidates
             </p>
           </div>
 
           <div className="flex flex-col items-start gap-2">
-            <span className="text-[12px] font-semibold text-gray-700">Select Template</span>
+            <span className="text-[14px] font-semibold text-gray-700">Select Template</span>
             <TemplatePicker />
           </div>
         </div>

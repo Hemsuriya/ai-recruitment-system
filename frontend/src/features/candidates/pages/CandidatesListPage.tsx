@@ -11,22 +11,14 @@ export default function CandidatesListPage() {
 
   return (
     <HrShell activeItem="candidates">
-      <div style={{ padding: "8px 8px 24px", maxWidth: 1280 }}>
+      <div style={{ padding: "8px 2px 24px", width: "100%" }}>
         <div style={{ marginBottom: 22 }}>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
             <div>
-              <h1
-                style={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: "var(--text)",
-                  letterSpacing: "-0.4px",
-                  marginBottom: 4,
-                }}
-              >
+              <h1 className="app-page-title" style={{ marginBottom: 4 }}>
                 Candidates
               </h1>
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              <p className="app-meta-text">
                 Showing{" "}
                 <strong style={{ color: "var(--text)" }}>{filtered.length}</strong>
                 {" "}of{" "}

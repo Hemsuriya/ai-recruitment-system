@@ -20,10 +20,10 @@ const roles = [
 ];
 
 const funnelStages = [
-  { label: "Resume", value: 12, color: "#5B8DE3" },
-  { label: "MCQ", value: 10, color: "#F4B24A" },
-  { label: "Video", value: 8, color: "#8B67E8" },
-  { label: "Final", value: 6, color: "#58C472" },
+  { label: "Resume", value: 12, color: "var(--color-blue-500)" },
+  { label: "MCQ", value: 10, color: "var(--color-amber-500)" },
+  { label: "Video", value: 8, color: "var(--color-violet-500)" },
+  { label: "Final", value: 6, color: "var(--color-green-500)" },
 ];
 
 const stageScores = [
@@ -244,7 +244,7 @@ function FunnelChart() {
               key={`${polygon.label}-label`}
               x={polygon.labelX}
               y={polygon.labelY}
-              fill="#9CA3AF"
+              fill="var(--color-gray-400)"
               fontSize="16"
               fontWeight="500"
               textAnchor="start"
@@ -278,11 +278,11 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-[1.95rem] font-bold tracking-tight text-gray-900">
+            <h1 className="app-page-title">
               Dashboard
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <p className="text-lg text-gray-500">
+              <p className="app-page-subtitle mt-0">
                 Overview of your hiring pipeline
               </p>
               <div className="relative">
@@ -338,7 +338,7 @@ export default function DashboardPage() {
               <Activity className="h-5 w-5 text-indigo-500" />
               Candidate Pipeline Funnel
             </div>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-4 text-base text-gray-500">
               Shows where candidates drop off in the hiring process
             </p>
 
@@ -350,7 +350,7 @@ export default function DashboardPage() {
               <TrendingUp className="h-5 w-5 text-cyan-500" />
               Stage-wise Avg Score
             </div>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-4 text-base text-gray-500">
               Where candidates are excelling or struggling
             </p>
 
@@ -435,7 +435,7 @@ export default function DashboardPage() {
             <div className="mt-8 overflow-x-auto">
               <table className="min-w-full border-separate border-spacing-y-4 text-left">
                 <thead>
-                  <tr className="text-sm text-gray-400">
+                  <tr className="text-sm text-gray-900">
                     <th className="pb-2 font-medium">Name</th>
                     <th className="pb-2 font-medium">Role</th>
                     <th className="pb-2 font-medium">Resume</th>

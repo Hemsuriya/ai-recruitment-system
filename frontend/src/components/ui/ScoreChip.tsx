@@ -9,13 +9,13 @@ interface ScoreChipProps {
 export default function ScoreChip({ score, label, size = "sm" }: ScoreChipProps) {
   if (score <= 0) {
     return (
-      <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: "monospace" }}>—</span>
+      <span style={{ fontSize: 14, color: "var(--text-muted)", fontFamily: "monospace" }}>—</span>
     );
   }
 
   const color = getScoreColor(score);
-  const fs = size === "sm" ? 12 : 13;
-  const px = size === "sm" ? "6px 8px" : "4px 10px";
+  const fs = size === "sm" ? 14 : 14;
+  const px = size === "sm" ? "8px 14px" : "8px 14px";
 
   return (
     <span
@@ -29,13 +29,13 @@ export default function ScoreChip({ score, label, size = "sm" }: ScoreChipProps)
         fontFamily: "monospace",
         color,
         background: `${color}14`,
-        borderRadius: 6,
+        borderRadius: 999,
         padding: px,
         cursor: "default",
       }}
     >
       <span
-        style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }}
+        style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }}
       />
       {score}
     </span>

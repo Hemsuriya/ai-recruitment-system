@@ -22,20 +22,18 @@ export default function CandidateTable({ candidates }: CandidateTableProps) {
   return (
     <div className="card" style={{ overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               {HEADERS.map((h, i) => (
                 <th
                   key={i}
                   style={{
-                    padding: "10px 16px",
+                    padding: "14px 16px",
                     textAlign: h.align,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: "#111827",
                     whiteSpace: "nowrap",
                   }}
                 >
