@@ -17,13 +17,33 @@ const Tag = ({ children }: any) => (
   </span>
 );
 
-const Card = ({ title, tags, meta, badge }: any) => (
+const Card = ({ title, tags, meta, badge, accent = "indigo" }: any) => {
+  const accentClasses =
+    accent === "cyan"
+      ? {
+          iconWrap: "bg-cyan-50",
+          icon: "text-cyan-500",
+          badge: "bg-cyan-50 text-cyan-500",
+        }
+      : accent === "orange"
+        ? {
+            iconWrap: "bg-orange-50",
+            icon: "text-orange-500",
+            badge: "bg-orange-50 text-orange-500",
+          }
+      : {
+          iconWrap: "bg-indigo-50",
+          icon: "text-indigo-600",
+          badge: "bg-indigo-50 text-indigo-500",
+        };
+
+  return (
   <div className="flex min-h-[350px] flex-col rounded-[22px] border border-gray-200 bg-white p-5 shadow-[0_1px_4px_rgba(16,24,40,0.06)]">
     <div className="mb-4 flex items-start justify-between">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-        <FileText className="h-5 w-5 text-indigo-600" />
+      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accentClasses.iconWrap}`}>
+        <FileText className={`h-5 w-5 ${accentClasses.icon}`} />
       </div>
-      <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-500">
+      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${accentClasses.badge}`}>
         {badge}
       </span>
     </div>
@@ -64,6 +84,7 @@ const Card = ({ title, tags, meta, badge }: any) => (
     </div>
   </div>
 );
+};
 
 export default function TemplatesPage() 
 {
@@ -109,6 +130,7 @@ export default function TemplatesPage()
               tags={["Go", "PostgreSQL", "Docker", "REST APIs"]}
               badge="MCQ + Coding"
               meta={["20 questions", "Used 15x", "Created Feb 19"]}
+              accent="cyan"
             />
 
             <Card
@@ -123,6 +145,7 @@ export default function TemplatesPage()
               tags={["Figma", "User Research", "Prototyping", "Design Systems"]}
               badge="MCQ + Video"
               meta={["15 questions", "Used 10x", "Created Feb 4"]}
+              accent="orange"
             />
 
             <Card
@@ -130,6 +153,7 @@ export default function TemplatesPage()
               tags={["AWS", "Terraform", "Kubernetes", "CI/CD"]}
               badge="MCQ + Coding"
               meta={["22 questions", "Used 4x", "Created Feb 17"]}
+              accent="cyan"
             />
           </div>
           </div>
