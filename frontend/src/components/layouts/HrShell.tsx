@@ -52,7 +52,7 @@ export default function HrShell({ activeItem, children }: HrShellProps) {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <div className="flex w-[206px] flex-col justify-between border-r border-gray-200 bg-white px-3 py-4">
+      <div className="flex w-[20vw] min-w-[240px] max-w-[320px] flex-col justify-between border-r border-gray-200 bg-white px-4 py-4">
         <div>
           <div className="mb-6 flex items-center gap-3 px-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-sm font-bold text-white shadow-sm">
