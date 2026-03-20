@@ -9,7 +9,7 @@ import {
   Play,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import HrShell from "../../src/components/layouts/HrShell";
+import HrShell from "../../../components/layouts/HrShell";
 
 const Tag = ({ children }: any) => (
   <span className="rounded-md bg-gray-100 px-2.5 py-1.5 text-[13px] font-medium text-gray-500">

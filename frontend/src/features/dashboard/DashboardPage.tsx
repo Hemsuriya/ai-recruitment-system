@@ -227,7 +227,7 @@ function FunnelChart() {
       <div className="flex flex-1 items-center justify-center px-6 pt-6">
         <svg
           viewBox="0 0 640 270"
-          className="w-full max-w-[620px]"
+          className="w-full max-w-155"
           role="img"
           aria-label="Candidate pipeline funnel chart"
         >
@@ -333,7 +333,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-          <section className="flex min-h-[520px] flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="flex min-h-130 flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2 text-xl font-semibold text-gray-900">
               <Activity className="h-5 w-5 text-indigo-500" />
               Candidate Pipeline Funnel
@@ -345,7 +345,7 @@ export default function DashboardPage() {
             <FunnelChart />
           </section>
 
-          <section className="flex min-h-[520px] flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="flex min-h-130 flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2 text-xl font-semibold text-gray-900">
               <TrendingUp className="h-5 w-5 text-cyan-500" />
               Stage-wise Avg Score
