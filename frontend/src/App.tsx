@@ -6,6 +6,7 @@ import DashboardPage from "./features/dashboard/DashboardPage";
 import CandidatesListPage from "./features/candidates/pages/CandidatesListPage";
 import CandidateDetailPage from "./features/candidates/pages/CandidateDetailPage";
 import IdVerificationPage from "./features/candidate/pages/IdVerificationPage";
+import SelfieVerificationPage from "./features/candidate/pages/SelfieVerificationPage";
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
         <Route path="/hr/candidates" element={<CandidatesListPage />} />
         <Route path="/hr/candidates/:id" element={<CandidateDetailPage />} />
         <Route path="/candidate/id-verification" element={<IdVerificationPage />} />
+        <Route path="/candidate/selfie-verification" element={<SelfieVerificationPage />} />
+        <Route path="/screening/:id/selfie" element={<SelfieVerificationPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
