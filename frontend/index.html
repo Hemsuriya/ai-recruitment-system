@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HireAI — Candidate Screening</title>
+    <meta name="description" content="AI-powered candidate screening and evaluation platform." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      /* Candidate row hover — can't do :hover in inline React styles */
+      .candidate-row:hover td {
+        background: rgba(109, 93, 246, 0.03);
+      }
+      .candidate-row td {
+        transition: background 0.12s;
+        border-bottom: 1px solid var(--border);
+      }
+      .candidate-row:last-child td {
+        border-bottom: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -75,3 +75,10 @@ make dev
 ## Environment Variables
 
 See `.env.example` for all required variables.
+
+
+Page	URL
+HR Portal	http://localhost:5000/hr
+MCQ Assessment	http://localhost:5000/assessment-page
+Video Interview	http://localhost:5000/video-interview
+Health Check	http://localhost:5000/health
