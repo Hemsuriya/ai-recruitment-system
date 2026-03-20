@@ -22,14 +22,14 @@ ai-candidate-screening/
 
 ## Services
 
-| Service | Port | Tech |
-|---|---|---|
-| Backend API | 5000 | Node.js, Express, PostgreSQL |
-| ID Verification | 8000 | FastAPI, DeepFace, Redis |
-| Video Analysis | 5001 | Flask, MediaPipe, OpenCV |
-| n8n Workflows | 5678 | n8n |
-| PostgreSQL | 5432 | PostgreSQL 17 |
-| Redis | 6379 | Redis 7 |
+| Service         | Port | Tech                         |
+| --------------- | ---- | ---------------------------- |
+| Backend API     | 5000 | Node.js, Express, PostgreSQL |
+| ID Verification | 8000 | FastAPI, DeepFace, Redis     |
+| Video Analysis  | 5001 | Flask, MediaPipe, OpenCV     |
+| n8n Workflows   | 5678 | n8n                          |
+| PostgreSQL      | 5432 | PostgreSQL 17                |
+| Redis           | 6379 | Redis 7                      |
 
 ## Quick Start
 
@@ -50,24 +50,26 @@ make dev
 
 ## Backend API Routes
 
-| Method | Route | Description |
-|---|---|---|
-| POST | `/candidate/create` | Create new candidate |
-| GET | `/survey/:screening_id` | Get survey questions |
-| POST | `/survey/submit` | Submit survey answers |
-| POST | `/validation/validate` | Validate survey + unlock assessment |
-| GET | `/assessment/questions/:candidateId` | Get assessment questions (via n8n) |
-| POST | `/assessment/status` | Update assessment status (via n8n) |
-| POST | `/assessment/submit` | Submit assessment results (via n8n) |
+| Method | Route                                | Description                         |
+| ------ | ------------------------------------ | ----------------------------------- |
+| POST   | `/candidate/create`                  | Create new candidate                |
+| GET    | `/survey/:screening_id`              | Get survey questions                |
+| POST   | `/survey/submit`                     | Submit survey answers               |
+| POST   | `/validation/validate`               | Validate survey + unlock assessment |
+| GET    | `/assessment/questions/:candidateId` | Get assessment questions (via n8n)  |
+| POST   | `/assessment/status`                 | Update assessment status (via n8n)  |
+| POST   | `/assessment/submit`                 | Submit assessment results (via n8n) |
 
 ## AI Services API
 
 ### ID Verification (port 8000)
+
 - `POST /upload-id` — Store candidate ID image
 - `POST /verify-selfie` — Verify selfie against stored ID
 - `GET /health`
 
 ### Video Analysis (port 5001)
+
 - `POST /analyze` — Analyze interview video (MediaPipe proctoring)
 - `POST /test-download` — Test OneDrive video download
 - `GET /health`
@@ -76,9 +78,6 @@ make dev
 
 See `.env.example` for all required variables.
 
-
-Page	URL
-HR Portal	http://localhost:5000/hr
-MCQ Assessment	http://localhost:5000/assessment-page
-Video Interview	http://localhost:5000/video-interview
-Health Check	http://localhost:5000/health
+Hr:
+Login - http://localhost:5173/login
+ID Verification: http://localhost:5173/candidate/id-verification
