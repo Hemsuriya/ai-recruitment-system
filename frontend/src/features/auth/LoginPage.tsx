@@ -1,7 +1,9 @@
-
 import { Eye, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function HireAILogin() {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen flex">
       {/* LEFT PANEL */}
@@ -78,7 +80,12 @@ export default function HireAILogin() {
           </div>
 
           {/* Sign In Button */}
-          <button className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-linear-to-r from-indigo-500 to-blue-600 text-white font-medium shadow-md hover:opacity-95">
+          <button className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-linear-to-r from-indigo-500 to-blue-600 text-white font-medium shadow-md hover:opacity-95"/>
+          <button
+            type="button"
+            onClick={() => navigate("/hr/dashboard")}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-linear-to-r from-indigo-500 to-blue-600 text-white font-medium shadow-md hover:opacity-95"
+          >
             Sign in <ArrowRight className="w-4 h-4" />
           </button>
 
@@ -90,7 +97,11 @@ export default function HireAILogin() {
           </div>
 
           {/* Google Button */}
-          <button className="w-full flex items-center justify-center gap-2 py-3 border border-gray-200 rounded-lg bg-white hover:bg-gray-50">
+          <button
+            type="button"
+            onClick={() => navigate("/hr/dashboard")}
+            className="w-full flex items-center justify-center gap-2 py-3 border border-gray-200 rounded-lg bg-white hover:bg-gray-50"
+          >
             <img
               src="https://www.svgrepo.com/show/475656/google-color.svg"
               alt="Google"
