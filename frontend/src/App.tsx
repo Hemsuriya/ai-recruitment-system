@@ -9,6 +9,8 @@ import IdVerificationPage from "./features/candidate/pages/IdVerificationPage";
 import SelfieVerificationPage from "./features/candidate/pages/SelfieVerificationPage";
 
 import AssessmentInstructions from "./features/candidate-portal/pages/AssessmentsInstructions";
+import CandidateInterviewPage from "./features/candidate-portal/pages/CandidateInterviewPage";
+import TechnicalAssessmentPage from "./features/candidate-portal/pages/TechnicalAssessmentPage";
 
 function App() {
   return (
@@ -29,6 +31,14 @@ function App() {
         <Route
           path="/candidate-portal/assessment-instructions"
           element={<AssessmentInstructions/>}
+        />
+        <Route
+          path="/candidate-portal/technical-assessment"
+          element={<TechnicalAssessmentPage />}
+        />
+        <Route
+          path="/candidate-portal/interview"
+          element={<CandidateInterviewPage />}
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
