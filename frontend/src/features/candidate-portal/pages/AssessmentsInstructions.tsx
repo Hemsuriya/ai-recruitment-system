@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ClipboardList,
   Camera,
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 
 export default function AssessmentInstructions() {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="border-b bg-white px-6 py-4 flex items-center justify-between">
@@ -115,7 +118,11 @@ export default function AssessmentInstructions() {
             Estimated time to complete: <b>15–20 mins</b>
           </span>
 
-          <button className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate("/candidate-portal/technical-assessment")}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2"
+          >
             Start Assessment →
           </button>
         </div>
