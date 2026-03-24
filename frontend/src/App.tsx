@@ -7,6 +7,7 @@ import CandidatesListPage from "./features/candidates/pages/CandidatesListPage";
 import CandidateDetailPage from "./features/candidates/pages/CandidateDetailPage";
 import IdVerificationPage from "./features/candidate/pages/IdVerificationPage";
 import SelfieVerificationPage from "./features/candidate/pages/SelfieVerificationPage";
+import SettingsPage from "./features/settings/SettingsPage";
 
 import AssessmentInstructions from "./features/candidate-portal/pages/AssessmentsInstructions";
 
@@ -22,6 +23,7 @@ function App() {
         <Route path="/hr/create-assessment" element={<CreateAssessmentPage />} />
         <Route path="/hr/candidates" element={<CandidatesListPage />} />
         <Route path="/hr/candidates/:id" element={<CandidateDetailPage />} />
+        <Route path="/hr/settings" element={<SettingsPage />} />
         <Route path="/candidate/id-verification" element={<IdVerificationPage />} />
         <Route path="/candidate/selfie-verification" element={<SelfieVerificationPage />} />
         <Route path="/screening/:id/selfie" element={<SelfieVerificationPage />} />
