@@ -2,7 +2,8 @@ const hrCandidateService = require("../services/hrCandidateService");
 
 exports.getAllCandidates = async (req, res) => {
   try {
-    const candidates = await hrCandidateService.getAllCandidates();
+    const filters = { jid: req.query.jid || null };
+    const candidates = await hrCandidateService.getAllCandidates(filters);
     res.json({ success: true, data: candidates });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
