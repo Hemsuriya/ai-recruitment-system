@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -9,22 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import HrShell from "../../components/layouts/HrShell";
-
-const roles = [
-  "ML Engineer",
-  "Senior Frontend Engineer",
-  "Product Designer",
-  "Data Scientist",
-  "Backend Engineer",
-];
-
-const mockJobPostings = [
-  { jid: "JOB-2026-001", job_title: "ML Engineer", status: "open", opens_at: "2026-03-01" },
-  { jid: "JOB-2026-002", job_title: "Senior Frontend Engineer", status: "open", opens_at: "2026-03-10" },
-  { jid: "JOB-2026-003", job_title: "Backend Engineer", status: "open", opens_at: "2026-03-15" },
-  { jid: "JOB-2026-004", job_title: "Data Scientist", status: "closed", opens_at: "2026-02-01" },
-  { jid: "JOB-2026-005", job_title: "Product Designer", status: "open", opens_at: "2026-03-20" },
-];
+import { jobPostingApi, type JobPostingDropdownItem } from "@/services/api";
 
 const funnelStages = [
   { label: "Resume", value: 12, color: "var(--color-blue-500)" },
@@ -280,6 +265,23 @@ function FunnelChart() {
 }
 
 export default function DashboardPage() {
+  const [roles, setRoles] = useState<string[]>([]);
+  const [jobPostings, setJobPostings] = useState<JobPostingDropdownItem[]>([]);
+  const [selectedRole, setSelectedRole] = useState("All Roles");
+  const [selectedJid, setSelectedJid] = useState("All Jobs");
+
+  // Fetch roles on mount
+  useEffect(() => {
+    jobPostingApi.getRoles().then(setRoles).catch(() => {});
+  }, []);
+
+  // When role changes, reset JID and fetch filtered postings
+  useEffect(() => {
+    setSelectedJid("All Jobs");
+    const role = selectedRole !== "All Roles" ? selectedRole : undefined;
+    jobPostingApi.getDropdown(role).then(setJobPostings).catch(() => {});
+  }, [selectedRole]);
+
   return (
     <HrShell activeItem="dashboard">
       <div className="space-y-6">
@@ -293,21 +295,31 @@ export default function DashboardPage() {
                 Overview of your hiring pipeline
               </p>
               <div className="relative">
-                <select className="min-w-52 appearance-none rounded-2xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-base text-gray-700 shadow-sm outline-none">
-                  {mockJobPostings.map((jp) => (
+                <select
+                  className="min-w-44 appearance-none rounded-2xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-base text-gray-700 shadow-sm outline-none"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                >
+                  <option value="All Roles">All Roles</option>
+                  {roles.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="relative">
+                <select
+                  className="min-w-52 appearance-none rounded-2xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-base text-gray-700 shadow-sm outline-none"
+                  value={selectedJid}
+                  onChange={(e) => setSelectedJid(e.target.value)}
+                >
+                  <option value="All Jobs">All Jobs</option>
+                  {jobPostings.map((jp) => (
                     <option key={jp.jid} value={jp.jid}>
                       {jp.jid} — {jp.job_title} ({jp.status})
                     </option>
                   ))}
                 </select>
                 <BriefcaseBusiness className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              </div>
-              <div className="relative">
-                <select className="min-w-44 appearance-none rounded-2xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-base text-gray-700 shadow-sm outline-none">
-                  {roles.map((role) => (
-                    <option key={role}>{role}</option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>

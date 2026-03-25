@@ -102,6 +102,7 @@ function mapRow(row: ApiCandidateListItem): CandidateListRow {
 
 export interface CandidatesListState {
   search: string;
+  roleFilter: string;
   jidFilter: string;
   verdictFilter: string;
   statusFilter: string;
@@ -110,8 +111,10 @@ export interface CandidatesListState {
   total: number;
   loading: boolean;
   error: string | null;
+  roles: string[];
   jobPostings: JobPostingDropdownItem[];
   setSearch: (v: string) => void;
+  setRoleFilter: (v: string) => void;
   setJidFilter: (v: string) => void;
   setVerdictFilter: (v: string) => void;
   setStatusFilter: (v: string) => void;
@@ -121,28 +124,58 @@ export interface CandidatesListState {
 
 export function useCandidatesList(): CandidatesListState {
   const [rows, setRows] = useState<CandidateListRow[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
   const [jobPostings, setJobPostings] = useState<JobPostingDropdownItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilterRaw] = useState("All Roles");
   const [jidFilter, setJidFilter] = useState("All Jobs");
   const [verdictFilter, setVerdictFilter] = useState("All Verdicts");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [sortBy, setSortBy] = useState<SortKey>("highest");
   const [fetchKey, setFetchKey] = useState(0);
 
-  // Fetch job postings dropdown once
+  // Fetch roles once
   useEffect(() => {
-    jobPostingApi.getDropdown().then(setJobPostings).catch(() => {});
+    jobPostingApi.getRoles().then(setRoles).catch(() => {});
   }, []);
 
-  // Fetch candidates (re-fetch when JID filter or fetchKey changes)
+  // When role changes, reset JID and re-fetch JID dropdown
+  const setRoleFilter = (v: string) => {
+    setRoleFilterRaw(v);
+    setJidFilter("All Jobs");
+  };
+
+  useEffect(() => {
+    const role = roleFilter !== "All Roles" ? roleFilter : undefined;
+    jobPostingApi.getDropdown(role).then(setJobPostings).catch(() => {});
+  }, [roleFilter]);
+
+  // Handle template_id URL param (from Templates "Use" button)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const templateId = params.get("template_id");
+    if (templateId) {
+      jobPostingApi.getByTemplate(Number(templateId)).then((postings) => {
+        if (postings.length > 0) {
+          setRoleFilterRaw(postings[0].job_title);
+          setJidFilter(postings[0].jid);
+        }
+      }).catch(() => {});
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  // Fetch candidates (re-fetch when JID, role, or fetchKey changes)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     const jid = jidFilter !== "All Jobs" ? jidFilter : undefined;
+    const jobTitle = roleFilter !== "All Roles" ? roleFilter : undefined;
     candidateApi
-      .getAll(jid)
+      .getAll(jid, jobTitle)
       .then((data) => {
         if (!cancelled) {
           setRows(data.map(mapRow));
@@ -156,7 +189,7 @@ export function useCandidatesList(): CandidatesListState {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [jidFilter, fetchKey]);
+  }, [jidFilter, roleFilter, fetchKey]);
 
   const filtered = useMemo(() => {
     let result = [...rows];
@@ -197,9 +230,9 @@ export function useCandidatesList(): CandidatesListState {
   }, [rows, search, verdictFilter, statusFilter, sortBy]);
 
   return {
-    search, jidFilter, verdictFilter, statusFilter, sortBy,
-    filtered, total: rows.length, loading, error, jobPostings,
-    setSearch, setJidFilter, setVerdictFilter, setStatusFilter, setSortBy,
+    search, roleFilter, jidFilter, verdictFilter, statusFilter, sortBy,
+    filtered, total: rows.length, loading, error, roles, jobPostings,
+    setSearch, setRoleFilter, setJidFilter, setVerdictFilter, setStatusFilter, setSortBy,
     refetch: () => setFetchKey((k) => k + 1),
   };
 }

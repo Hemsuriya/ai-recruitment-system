@@ -54,6 +54,18 @@ exports.updateTemplate = async (req, res) => {
   }
 };
 
+exports.duplicateTemplate = async (req, res) => {
+  try {
+    const template = await jobTemplateService.duplicateTemplate(req.params.templateKey);
+    if (!template) {
+      return res.status(404).json({ success: false, message: "Template not found" });
+    }
+    res.status(201).json({ success: true, message: "Template duplicated", data: template });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 exports.deleteTemplate = async (req, res) => {
   try {
     const deleted = await jobTemplateService.deleteTemplate(req.params.templateKey);

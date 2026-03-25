@@ -9,6 +9,11 @@ exports.getAllCandidates = async (filters = {}) => {
     conditions.push(`c.jid = $${params.length}`);
   }
 
+  if (filters.job_title) {
+    params.push(filters.job_title);
+    conditions.push(`c.job_title = $${params.length}`);
+  }
+
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const result = await db.query(`

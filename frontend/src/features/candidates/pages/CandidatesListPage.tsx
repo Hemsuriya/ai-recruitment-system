@@ -6,9 +6,9 @@ import { Loader2 } from "lucide-react";
 
 export default function CandidatesListPage() {
   const {
-    search, jidFilter, verdictFilter, statusFilter, sortBy, filtered, total,
-    loading, error, jobPostings,
-    setSearch, setJidFilter, setVerdictFilter, setStatusFilter, setSortBy, refetch,
+    search, roleFilter, jidFilter, verdictFilter, statusFilter, sortBy, filtered, total,
+    loading, error, roles, jobPostings,
+    setSearch, setRoleFilter, setJidFilter, setVerdictFilter, setStatusFilter, setSortBy, refetch,
   } = useCandidatesList();
 
   return (
@@ -64,12 +64,15 @@ export default function CandidatesListPage() {
         <div style={{ marginBottom: 16 }}>
           <CandidateFilters
             search={search}
+            roleFilter={roleFilter}
             jidFilter={jidFilter}
             verdictFilter={verdictFilter}
             statusFilter={statusFilter}
             sortBy={sortBy}
+            roles={roles}
             jobPostings={jobPostings}
             onSearch={setSearch}
+            onRole={setRoleFilter}
             onJid={setJidFilter}
             onVerdict={setVerdictFilter}
             onStatus={setStatusFilter}

@@ -6,12 +6,15 @@ const ALL_STATUSES = ["All Statuses", "Screening", "Assessment Pending", "Interv
 
 interface CandidateFiltersProps {
   search: string;
+  roleFilter: string;
   jidFilter: string;
   verdictFilter: string;
   statusFilter: string;
   sortBy: string;
+  roles: string[];
   jobPostings: JobPostingDropdownItem[];
   onSearch: (v: string) => void;
+  onRole: (v: string) => void;
   onJid: (v: string) => void;
   onVerdict: (v: string) => void;
   onStatus: (v: string) => void;
@@ -26,9 +29,9 @@ const SORT_OPTIONS = [
 ] as const;
 
 export default function CandidateFilters({
-  search, jidFilter, verdictFilter, statusFilter, sortBy,
-  jobPostings,
-  onSearch, onJid, onVerdict, onStatus, onSort,
+  search, roleFilter, jidFilter, verdictFilter, statusFilter, sortBy,
+  roles, jobPostings,
+  onSearch, onRole, onJid, onVerdict, onStatus, onSort,
 }: CandidateFiltersProps) {
   return (
     <div className="card" style={{ padding: "12px 16px" }}>
@@ -53,6 +56,14 @@ export default function CandidateFilters({
             onChange={(e) => onSearch(e.target.value)}
           />
         </div>
+
+        {/* Role Filter */}
+        <select className="select" value={roleFilter} onChange={(e) => onRole(e.target.value)}>
+          <option value="All Roles">All Roles</option>
+          {roles.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
 
         {/* JID Filter */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
