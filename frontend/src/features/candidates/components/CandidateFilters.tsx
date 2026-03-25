@@ -1,14 +1,21 @@
-import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
-import { ALL_ROLES, ALL_VERDICTS, ALL_STATUSES } from "@/mock";
+import { Search, ArrowUpDown, Briefcase } from "lucide-react";
+import type { JobPostingDropdownItem } from "@/services/api";
+
+const ALL_VERDICTS = ["All Verdicts", "Strong Hire", "Hire", "Maybe", "Reject"];
+const ALL_STATUSES = ["All Statuses", "Screening", "Assessment Pending", "Interview Complete", "Final Review"];
 
 interface CandidateFiltersProps {
   search: string;
   roleFilter: string;
+  jidFilter: string;
   verdictFilter: string;
   statusFilter: string;
   sortBy: string;
+  roles: string[];
+  jobPostings: JobPostingDropdownItem[];
   onSearch: (v: string) => void;
   onRole: (v: string) => void;
+  onJid: (v: string) => void;
   onVerdict: (v: string) => void;
   onStatus: (v: string) => void;
   onSort: (v: "highest" | "lowest" | "latest" | "earliest") => void;
@@ -22,14 +29,12 @@ const SORT_OPTIONS = [
 ] as const;
 
 export default function CandidateFilters({
-  search, roleFilter, verdictFilter, statusFilter, sortBy,
-  onSearch, onRole, onVerdict, onStatus, onSort,
+  search, roleFilter, jidFilter, verdictFilter, statusFilter, sortBy,
+  roles, jobPostings,
+  onSearch, onRole, onJid, onVerdict, onStatus, onSort,
 }: CandidateFiltersProps) {
   return (
-    <div
-      className="card"
-      style={{ padding: "12px 16px" }}
-    >
+    <div className="card" style={{ padding: "12px 16px" }}>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         {/* Search */}
         <div style={{ position: "relative", flex: "1 1 200px", minWidth: 180 }}>
@@ -46,17 +51,30 @@ export default function CandidateFilters({
           <input
             className="input"
             style={{ paddingLeft: 30, height: 34 }}
-            placeholder="Search name, email, role…"
+            placeholder="Search name, email…"
             value={search}
             onChange={(e) => onSearch(e.target.value)}
           />
         </div>
 
-        {/* Role */}
+        {/* Role Filter */}
+        <select className="select" value={roleFilter} onChange={(e) => onRole(e.target.value)}>
+          <option value="All Roles">All Roles</option>
+          {roles.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+
+        {/* JID Filter */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <SlidersHorizontal size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-          <select className="select" value={roleFilter} onChange={(e) => onRole(e.target.value)}>
-            {ALL_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          <Briefcase size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+          <select className="select" value={jidFilter} onChange={(e) => onJid(e.target.value)}>
+            <option value="All Jobs">All Jobs</option>
+            {jobPostings.map((jp) => (
+              <option key={jp.jid} value={jp.jid}>
+                {jp.jid} — {jp.job_title} ({jp.status})
+              </option>
+            ))}
           </select>
         </div>
 

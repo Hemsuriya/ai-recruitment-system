@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ComponentType } from "react";
 import {
   BrainCircuit,
@@ -13,12 +13,15 @@ import {
   WandSparkles,
   Zap,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import HrShell from "../../components/layouts/HrShell";
+import { jobTemplateApi, type ApiJobTemplate } from "@/services/api";
 
 type FormData = {
   roleTitle: string;
   experienceLevel: string;
   skills: string[];
+  timerMinutes: number;
 };
 
 type Question = {
@@ -38,13 +41,7 @@ type Options = {
 const cardClassName =
   "rounded-[18px] border border-gray-200 bg-white p-5 shadow-[0_1px_3px_rgba(16,24,40,0.06)]";
 
-const templateOptions = [
-  "Software Engineer",
-  "Data Scientist",
-  "Product Manager",
-  "UX Designer",
-  "DevOps Engineer",
-];
+// templateOptions removed — now fetched from API
 
 const defaultQuestions: Question[] = [
   { id: "relocate", text: "Are you willing to relocate?", checked: true },
@@ -114,9 +111,17 @@ const optionConfig: Array<{
   },
 ];
 
-function TemplatePicker() {
+function TemplatePicker({
+  templates,
+  selected,
+  onSelect,
+}: {
+  templates: ApiJobTemplate[];
+  selected: string;
+  onSelect: (key: string) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState("");
+  const selectedTemplate = templates.find((t) => t.template_key === selected);
 
   return (
     <div className="relative">
@@ -125,23 +130,23 @@ function TemplatePicker() {
         onClick={() => setOpen((value) => !value)}
         className="flex min-w-[156px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-[14px] text-gray-700 transition-colors hover:bg-white"
       >
-        {selected || "Choose a template"}
+        {selectedTemplate?.job_title || "Choose a template"}
         <ChevronDown className="h-4 w-4 text-gray-400" />
       </button>
 
       {open ? (
         <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-[14px] border border-gray-200 bg-white shadow-lg">
-          {templateOptions.map((option) => (
+          {templates.map((t) => (
             <button
-              key={option}
+              key={t.template_key}
               type="button"
               onClick={() => {
-                setSelected(option);
+                onSelect(t.template_key);
                 setOpen(false);
               }}
               className="w-full px-4 py-2.5 text-left text-[14px] text-gray-700 transition-colors hover:bg-violet-50 hover:text-violet-700 first:rounded-t-xl last:rounded-b-xl"
             >
-              {option}
+              {t.job_title}
             </button>
           ))}
         </div>
@@ -263,6 +268,25 @@ function AssessmentDetails({
             </div>
           ) : null}
         </div>
+
+        <label className="block">
+          <span className="app-field-label mb-2 block">
+            Assessment Timer (minutes)
+          </span>
+          <input
+            type="number"
+            min={5}
+            max={180}
+            value={formData.timerMinutes}
+            onChange={(event) =>
+              setFormData((current) => ({
+                ...current,
+                timerMinutes: Number(event.target.value) || 30,
+              }))
+            }
+            className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+          />
+        </label>
       </div>
     </div>
   );
@@ -486,9 +510,15 @@ function AssessmentSummary({
 function AssessmentOptions({
   options,
   setOptions,
+  onSubmit,
+  submitting,
+  editMode,
 }: {
   options: Options;
   setOptions: React.Dispatch<React.SetStateAction<Options>>;
+  onSubmit: () => void;
+  submitting: boolean;
+  editMode: boolean;
 }) {
   const toggleOption = (key: keyof Options) => {
     setOptions((current) => ({ ...current, [key]: !current[key] }));
@@ -542,23 +572,29 @@ function AssessmentOptions({
 
       <button
         type="button"
-        onClick={() => {
-          console.log("Generating assessment from options panel");
-        }}
-        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-violet-500 to-indigo-600 px-6 text-[14px] font-medium text-white shadow-lg shadow-violet-200 transition-colors hover:opacity-95"
+        onClick={onSubmit}
+        disabled={submitting}
+        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-violet-500 to-indigo-600 px-6 text-[14px] font-medium text-white shadow-lg shadow-violet-200 transition-colors hover:opacity-95 disabled:opacity-60"
       >
         <Sparkles className="h-4 w-4" />
-        Generate Assessment
+        {submitting ? "Saving…" : editMode ? "Update Template" : "Generate Assessment"}
       </button>
     </div>
   );
 }
 
 export default function CreateAssessmentPage() {
+  const navigate = useNavigate();
+  const [templates, setTemplates] = useState<ApiJobTemplate[]>([]);
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [successJid, setSuccessJid] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     roleTitle: "",
     experienceLevel: "",
     skills: [],
+    timerMinutes: 30,
   });
   const [questions, setQuestions] = useState<Question[]>(defaultQuestions);
   const [options, setOptions] = useState<Options>({
@@ -569,20 +605,110 @@ export default function CreateAssessmentPage() {
     manualInterview: false,
   });
 
+  // Fetch templates on mount + handle URL params
+  useEffect(() => {
+    jobTemplateApi.getAll().then((data) => {
+      setTemplates(data);
+      const params = new URLSearchParams(window.location.search);
+      const editKey = params.get("edit");
+      const templateKey = params.get("template_key");
+      if (editKey) {
+        applyTemplate(editKey, data);
+        setEditMode(true);
+      } else if (templateKey) {
+        applyTemplate(templateKey, data);
+      }
+      window.history.replaceState({}, "", window.location.pathname);
+    }).catch(() => {});
+  }, []);
+
+  const applyTemplate = (key: string, list: ApiJobTemplate[]) => {
+    const t = list.find((tpl) => tpl.template_key === key);
+    if (!t) return;
+    setSelectedTemplateKey(key);
+    setFormData({
+      roleTitle: t.job_title || "",
+      experienceLevel: "",
+      skills: t.required_skills
+        ? t.required_skills.split(",").map((s) => s.trim()).filter(Boolean)
+        : [],
+      timerMinutes: t.time_limit_minutes ?? 30,
+    });
+    if (t.survey_question_1) {
+      setQuestions((prev) => {
+        const exists = prev.some((q) => q.text === t.survey_question_1);
+        if (exists) return prev;
+        return [
+          ...prev,
+          { id: `tpl-${Date.now()}`, text: t.survey_question_1!, checked: true },
+        ];
+      });
+    }
+  };
+
+  const handleTemplateSelect = (key: string) => {
+    setEditMode(false);
+    setSuccessJid(null);
+    applyTemplate(key, templates);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.roleTitle.trim()) {
+      alert("Role Title is required");
+      return;
+    }
+    setSaving(true);
+    setSuccessJid(null);
+    try {
+      const selectedQ = questions.filter((q) => q.checked);
+      if (editMode && selectedTemplateKey) {
+        // Update existing template
+        await jobTemplateApi.update(selectedTemplateKey, {
+          job_title: formData.roleTitle,
+          required_skills: formData.skills.join(", "),
+          survey_question_1: selectedQ[0]?.text || null,
+          survey_q1_expected_answer: null,
+          time_limit_minutes: formData.timerMinutes,
+        } as Partial<ApiJobTemplate>);
+        setSuccessJid("saved");
+      } else {
+        // Create new assessment + job posting with auto JID
+        const result = await jobTemplateApi.createAssessment({
+          job_title: formData.roleTitle,
+          template_key: selectedTemplateKey || undefined,
+          required_skills: formData.skills.join(", "),
+          survey_question_1: selectedQ[0]?.text || undefined,
+          time_limit_minutes: formData.timerMinutes,
+        });
+        setSuccessJid(result.jid);
+      }
+    } catch (err: unknown) {
+      alert(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <HrShell activeItem="create-assessment">
       <div className="w-full py-1">
         <div className="mb-5 flex items-start justify-between">
           <div>
-            <h1 className="app-page-title">Create Assessment</h1>
+            <h1 className="app-page-title">{editMode ? "Edit Template" : "Create Assessment"}</h1>
             <p className="app-page-subtitle">
-              Generate AI-powered screening assessments for candidates
+              {editMode
+                ? "Update template details and timer settings"
+                : "Generate AI-powered screening assessments for candidates"}
             </p>
           </div>
 
           <div className="flex flex-col items-start gap-2">
             <span className="text-[14px] font-semibold text-gray-700">Select Template</span>
-            <TemplatePicker />
+            <TemplatePicker
+              templates={templates}
+              selected={selectedTemplateKey}
+              onSelect={handleTemplateSelect}
+            />
           </div>
         </div>
 
@@ -601,7 +727,32 @@ export default function CreateAssessmentPage() {
               questions={questions}
               options={options}
             />
-            <AssessmentOptions options={options} setOptions={setOptions} />
+            <AssessmentOptions
+              options={options}
+              setOptions={setOptions}
+              onSubmit={handleSubmit}
+              submitting={saving}
+              editMode={editMode}
+            />
+
+            {successJid && (
+              <div className={`${cardClassName} border-green-200 bg-green-50`}>
+                <p className="text-[14px] font-semibold text-green-700">
+                  {successJid === "saved"
+                    ? "Template updated successfully!"
+                    : `Assessment created! Job ID: ${successJid}`}
+                </p>
+                {successJid !== "saved" && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/hr/candidates")}
+                    className="mt-2 text-[13px] font-medium text-green-600 underline"
+                  >
+                    View Candidates →
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

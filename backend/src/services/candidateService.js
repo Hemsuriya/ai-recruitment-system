@@ -6,8 +6,8 @@ exports.createCandidate = async (data) => {
 
   const query = `
     INSERT INTO candidates_v2
-    (screening_id, name, email, phone, location, template_key)
-    VALUES ($1,$2,$3,$4,$5,$6)
+    (screening_id, name, email, phone, location, template_key, jid)
+    VALUES ($1,$2,$3,$4,$5,$6,$7)
     RETURNING *;
   `;
 
@@ -17,7 +17,8 @@ exports.createCandidate = async (data) => {
     data.email,
     data.phone,
     data.location,
-    data.template_key || null
+    data.template_key || null,
+    data.jid || null
   ];
 
   const result = await db.query(query, values);

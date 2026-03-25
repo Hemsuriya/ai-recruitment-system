@@ -43,6 +43,7 @@ export interface TranscriptEntry {
 export interface Candidate {
   // ── List fields ──────────────────────────────────────────────────
   id: string;
+  jid?: string;
   name: string;
   email: string;
   avatar: string;           // initials e.g. "JD"

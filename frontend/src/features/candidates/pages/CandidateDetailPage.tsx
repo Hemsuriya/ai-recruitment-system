@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, FileText, Brain, Video, ShieldCheck,
   User, BarChart2, CheckCircle, AlertCircle, MessageSquare,
-  ChevronDown,
+  ChevronDown, Loader2,
 } from "lucide-react";
 import HrShell from "../../../components/layouts/HrShell";
 import { useCandidateDetail } from "../hooks/useCandidateDetail";
@@ -11,7 +11,12 @@ import VerdictBadge from "../components/VerdictBadge";
 import StatusBadge from "../components/StatusBadge";
 import Avatar from "@/components/ui/Avatar";
 import ScoreChip from "@/components/ui/ScoreChip";
-import { getScoreColor } from "@/mock";
+
+function getScoreColor(score: number): string {
+  if (score >= 80) return "var(--score-high)";
+  if (score >= 60) return "var(--score-mid)";
+  return "var(--score-low)";
+}
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
@@ -80,14 +85,25 @@ function SkillChip({ label, type }: { label: string; type: "matched" | "missing"
 export default function CandidateDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { candidate: c, notFound } = useCandidateDetail(id);
+  const { candidate: c, raw, notFound, loading, error } = useCandidateDetail(id);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
 
-  if (notFound) {
+  if (loading) {
+    return (
+      <HrShell activeItem="candidates">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", gap: 10 }}>
+          <Loader2 size={24} style={{ color: "var(--brand)", animation: "spin 1s linear infinite" }} />
+          <span style={{ color: "var(--text-muted)", fontSize: 14 }}>Loading candidate…</span>
+        </div>
+      </HrShell>
+    );
+  }
+
+  if (notFound || error) {
     return (
       <HrShell activeItem="candidates">
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 12 }}>
-          <p style={{ fontSize: 18, fontWeight: 600, color: "var(--text)" }}>Candidate not found</p>
+          <p style={{ fontSize: 18, fontWeight: 600, color: "var(--text)" }}>{error ?? "Candidate not found"}</p>
           <button className="btn-ghost" onClick={() => navigate("/hr/candidates")}>← Back to Candidates</button>
         </div>
       </HrShell>
@@ -114,13 +130,11 @@ export default function CandidateDetailPage() {
       <div>
         <div
           style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-            background: "rgba(255,255,255,0.9)",
-            backdropFilter: "blur(12px)",
+            background: "var(--bg-card)",
             borderBottom: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
             padding: "14px 28px",
+            marginBottom: 20,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -313,39 +327,37 @@ export default function CandidateDetailPage() {
           >
           {/* Video Panel */}
           <Section title="Video Interview" icon={Video}>
-            <div
-              style={{
-                background: "#0F172A",
-                borderRadius: 10,
-                aspectRatio: "16/9",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 12,
-                gap: 8,
-              }}
-            >
-              <Video size={36} style={{ color: "rgba(255,255,255,0.5)" }} />
-              <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>Interview Recording</p>
-              <button
+            {raw?.video_url ? (
+              <div style={{ borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
+                <video
+                  controls
+                  style={{ width: "100%", aspectRatio: "16/9", background: "#0F172A", borderRadius: 10 }}
+                  src={raw.video_url}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            ) : (
+              <div
                 style={{
-                  marginTop: 4,
-                  padding: "6px 16px",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "#fff",
-                  background: "rgba(255,255,255,0.12)",
-                  border: "1px solid rgba(255,255,255,0.25)",
-                  borderRadius: 6,
-                  cursor: "pointer",
+                  background: "#0F172A",
+                  borderRadius: 10,
+                  aspectRatio: "16/9",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 12,
+                  gap: 8,
                 }}
               >
-                ▶ Play Recording
-              </button>
-            </div>
+                <Video size={36} style={{ color: "rgba(255,255,255,0.5)" }} />
+                <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>No recording available</p>
+              </div>
+            )}
             <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              Duration: {c.videoScore > 0 ? "42 min" : "Not yet recorded"} · Applied: {new Date(c.appliedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              Duration: {raw?.video_duration_seconds ? `${Math.round(raw.video_duration_seconds / 60)} min` : "N/A"}
+              {" "}· Applied: {new Date(c.appliedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </p>
           </Section>
 
@@ -402,6 +414,77 @@ export default function CandidateDetailPage() {
             </div>
           </Section>
           </div>
+
+          {/* AI Insights Panel */}
+          {raw && (
+            <div style={{ marginBottom: 16 }}>
+            <Section title="AI Insights — Emotion & Behavior Analysis" icon={Brain}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {/* Emotion Detection */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                    Emotion Detection
+                  </p>
+                  {(() => {
+                    const ea = (raw.emotion_analysis ?? {}) as Record<string, unknown>;
+                    const entries = Object.entries(ea).filter(([k]) => !k.includes("dominant") && !k.includes("primary"));
+                    if (entries.length === 0) return <p style={{ fontSize: 13, color: "var(--text-muted)" }}>No emotion data available</p>;
+                    return entries.map(([key, val]) => (
+                      <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "capitalize" }}>{key.replace(/_/g, " ")}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{String(val)}</span>
+                      </div>
+                    ));
+                  })()}
+                  <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "var(--brand-soft)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--brand)" }}>
+                      Dominant: {c.proctoring.dominantEmotion}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Attention & Head Orientation */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                    Attention & Orientation
+                  </p>
+                  {(() => {
+                    const attn = (raw.attention_metrics ?? {}) as Record<string, unknown>;
+                    const face = (raw.face_detection ?? {}) as Record<string, unknown>;
+                    const combined = { ...attn, ...face };
+                    const entries = Object.entries(combined);
+                    if (entries.length === 0) return <p style={{ fontSize: 13, color: "var(--text-muted)" }}>No attention data available</p>;
+                    return entries.map(([key, val]) => (
+                      <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "capitalize" }}>{key.replace(/_/g, " ")}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>
+                          {typeof val === "number" ? `${Math.round(val)}%` : String(val)}
+                        </span>
+                      </div>
+                    ));
+                  })()}
+                  <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "var(--brand-soft)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--brand)" }}>
+                      Head: {c.proctoring.headOrientation} · Gaze: {c.proctoring.pupilOrientation}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Summary */}
+              {(raw.overall_feedback || raw.recommendation) && (
+                <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                    AI Summary
+                  </p>
+                  <p style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>
+                    {raw.overall_feedback || raw.recommendation}
+                  </p>
+                </div>
+              )}
+            </Section>
+            </div>
+          )}
 
           {c.transcript.length > 0 && (
             <div className="card" style={{ overflow: "hidden" }}>

@@ -3,9 +3,10 @@ const db = require("../config/db");
 exports.getAllTemplates = async () => {
   const result = await db.query(`
     SELECT
-      template_key, job_title, job_description,
+      id, template_key, job_title, job_description,
       required_skills, number_of_candidates,
       survey_question_1, survey_q1_expected_answer,
+      time_limit_minutes,
       created_at, updated_at
     FROM job_templates
     ORDER BY created_at DESC
@@ -26,7 +27,8 @@ exports.createTemplate = async (data) => {
   const {
     template_key, job_title, job_description,
     required_skills, number_of_candidates,
-    survey_question_1, survey_q1_expected_answer
+    survey_question_1, survey_q1_expected_answer,
+    time_limit_minutes
   } = data;
 
   // Check duplicate key
@@ -43,14 +45,16 @@ exports.createTemplate = async (data) => {
   const result = await db.query(
     `INSERT INTO job_templates
       (template_key, job_title, job_description, required_skills,
-       number_of_candidates, survey_question_1, survey_q1_expected_answer)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+       number_of_candidates, survey_question_1, survey_q1_expected_answer,
+       time_limit_minutes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
      RETURNING *`,
     [
       template_key, job_title,
       job_description || null, required_skills || null,
       number_of_candidates || null,
-      survey_question_1 || null, survey_q1_expected_answer || null
+      survey_question_1 || null, survey_q1_expected_answer || null,
+      time_limit_minutes || 30
     ]
   );
   return result.rows[0];
@@ -59,23 +63,52 @@ exports.createTemplate = async (data) => {
 exports.updateTemplate = async (templateKey, data) => {
   const {
     job_title, job_description, required_skills,
-    number_of_candidates, survey_question_1, survey_q1_expected_answer
+    number_of_candidates, survey_question_1, survey_q1_expected_answer,
+    time_limit_minutes
   } = data;
 
   const result = await db.query(
     `UPDATE job_templates
      SET job_title = $1, job_description = $2, required_skills = $3,
          number_of_candidates = $4, survey_question_1 = $5,
-         survey_q1_expected_answer = $6, updated_at = CURRENT_TIMESTAMP
-     WHERE template_key = $7
+         survey_q1_expected_answer = $6, time_limit_minutes = $7,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE template_key = $8
      RETURNING *`,
     [
       job_title, job_description || null, required_skills || null,
       number_of_candidates || null, survey_question_1 || null,
-      survey_q1_expected_answer || null, templateKey
+      survey_q1_expected_answer || null, time_limit_minutes || 30,
+      templateKey
     ]
   );
   if (result.rows.length === 0) return null;
+  return result.rows[0];
+};
+
+exports.duplicateTemplate = async (templateKey) => {
+  const original = await exports.getTemplateByKey(templateKey);
+  if (!original) return null;
+
+  const newKey = `${templateKey}_copy_${Date.now()}`;
+  const result = await db.query(
+    `INSERT INTO job_templates
+      (template_key, job_title, job_description, required_skills,
+       number_of_candidates, survey_question_1, survey_q1_expected_answer,
+       time_limit_minutes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     RETURNING *`,
+    [
+      newKey,
+      `${original.job_title} (Copy)`,
+      original.job_description,
+      original.required_skills,
+      original.number_of_candidates,
+      original.survey_question_1,
+      original.survey_q1_expected_answer,
+      original.time_limit_minutes || 30,
+    ]
+  );
   return result.rows[0];
 };
 

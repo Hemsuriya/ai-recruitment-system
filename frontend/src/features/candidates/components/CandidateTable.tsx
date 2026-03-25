@@ -1,21 +1,20 @@
 import { Users } from "lucide-react";
 import CandidateRow from "./CandidateRow";
-import type { Candidate } from "@/types/models";
+import type { CandidateListRow } from "../hooks/useCandidatesList";
 
 interface CandidateTableProps {
-  candidates: Candidate[];
+  candidates: CandidateListRow[];
 }
 
 const HEADERS = [
   { label: "Candidate", align: "left" as const },
-  { label: "Role",      align: "left" as const },
-  { label: "Resume",    align: "center" as const },
-  { label: "MCQ",       align: "center" as const },
-  { label: "Video",     align: "center" as const },
-  { label: "Final",     align: "center" as const },
-  { label: "Verdict",   align: "left" as const },
-  { label: "Status",    align: "left" as const },
-  { label: "",          align: "right" as const },
+  { label: "Role / JID", align: "left" as const },
+  { label: "Interview",  align: "center" as const },
+  { label: "Security",   align: "center" as const },
+  { label: "Final",      align: "center" as const },
+  { label: "Verdict",    align: "left" as const },
+  { label: "Status",     align: "left" as const },
+  { label: "",           align: "right" as const },
 ];
 
 export default function CandidateTable({ candidates }: CandidateTableProps) {
@@ -49,7 +48,7 @@ export default function CandidateTable({ candidates }: CandidateTableProps) {
               ))
             ) : (
               <tr>
-                <td colSpan={9} style={{ padding: "64px 24px", textAlign: "center" }}>
+                <td colSpan={8} style={{ padding: "64px 24px", textAlign: "center" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
                     <Users size={36} style={{ color: "var(--text-muted)", opacity: 0.25 }} />
                     <p style={{ fontSize: 14, color: "var(--text-muted)" }}>No candidates match your filters</p>

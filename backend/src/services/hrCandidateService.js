@@ -1,9 +1,24 @@
 const db = require("../config/db");
 
-exports.getAllCandidates = async () => {
+exports.getAllCandidates = async (filters = {}) => {
+  const params = [];
+  const conditions = ["c.interview_completed = true"];
+
+  if (filters.jid) {
+    params.push(filters.jid);
+    conditions.push(`c.jid = $${params.length}`);
+  }
+
+  if (filters.job_title) {
+    params.push(filters.job_title);
+    conditions.push(`c.job_title = $${params.length}`);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
   const result = await db.query(`
     SELECT
-      c.id, c.video_assessment_id, c.name, c.email, c.phone, c.created_at,
+      c.id, c.video_assessment_id, c.name, c.email, c.phone, c.jid, c.job_title, c.created_at,
       e.final_score, e.interview_score, e.security_score, e.security_details,
       e.recommendation, e.security_violations_count, e.security_severity,
       e.decision_comment,
@@ -11,9 +26,9 @@ exports.getAllCandidates = async () => {
     FROM video_interview_candidates c
     LEFT JOIN video_interview_evaluations e  ON c.video_assessment_id = e.video_assessment_id
     LEFT JOIN video_analysis_results ar      ON c.video_assessment_id = ar.video_assessment_id
-    WHERE c.interview_completed = true
+    ${whereClause}
     ORDER BY c.created_at DESC
-  `);
+  `, params);
 
   return result.rows.map((row) => ({
     id:                        row.id,
@@ -21,6 +36,8 @@ exports.getAllCandidates = async () => {
     name:                      row.name,
     email:                     row.email,
     phone:                     row.phone,
+    jid:                       row.jid || null,
+    job_title:                 row.job_title || null,
     score:                     row.final_score || 0,
     date:                      row.created_at,
     interview_score:           row.interview_score,
@@ -47,6 +64,7 @@ exports.getCandidateById = async (id) => {
       c.phone,
       c.location,
       c.job_title,
+      c.jid,
       c.status,
       c.interview_started,
       c.interview_completed,
@@ -113,7 +131,6 @@ exports.updateCandidateComment = async (id, decision_comment) => {
 
   if (updateResult.rows.length > 0) return updateResult.rows[0];
 
-  // No evaluation row yet — insert one
   const insertResult = await db.query(
     `INSERT INTO video_interview_evaluations (video_assessment_id, decision_comment)
      VALUES ($1, $2) RETURNING *`,
@@ -125,7 +142,7 @@ exports.updateCandidateComment = async (id, decision_comment) => {
 exports.searchCandidates = async (term) => {
   const result = await db.query(
     `SELECT
-      c.id, c.video_assessment_id, c.name, c.email, c.phone, c.created_at,
+      c.id, c.video_assessment_id, c.name, c.email, c.phone, c.jid, c.created_at,
       e.final_score, e.security_details, e.decision_comment
      FROM video_interview_candidates c
      LEFT JOIN video_interview_evaluations e ON c.video_assessment_id = e.video_assessment_id
@@ -140,6 +157,7 @@ exports.searchCandidates = async (term) => {
     name:                row.name,
     email:               row.email,
     phone:               row.phone,
+    jid:                 row.jid || null,
     score:               row.final_score || 0,
     date:                row.created_at,
     security_details:    row.security_details || {},
