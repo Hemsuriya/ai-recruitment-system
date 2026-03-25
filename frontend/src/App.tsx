@@ -10,6 +10,7 @@ import SelfieVerificationPage from "./features/candidate/pages/SelfieVerificatio
 import SettingsPage from "./features/settings/SettingsPage";
 
 import AssessmentInstructions from "./features/candidate-portal/pages/AssessmentsInstructions";
+import VideoInterviewPage from "./features/candidate-portal/pages/VideoInterviewPage";
 
 function App() {
   return (
@@ -31,6 +32,10 @@ function App() {
         <Route
           path="/candidate-portal/assessment-instructions"
           element={<AssessmentInstructions/>}
+        />
+        <Route
+          path="/candidate-portal/video-interview"
+          element={<VideoInterviewPage />}
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

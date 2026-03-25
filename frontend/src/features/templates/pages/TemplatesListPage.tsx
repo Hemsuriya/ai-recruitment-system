@@ -13,7 +13,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import HrShell from "../../../components/layouts/HrShell";
 import { jobTemplateApi, type ApiJobTemplate } from "@/services/api";
-import { Clock } from "lucide-react";
+
 
 const Tag = ({ children }: { children: React.ReactNode }) => (
   <span className="rounded-md bg-gray-100 px-2.5 py-1.5 text-[13px] font-medium text-gray-500">
@@ -35,6 +35,7 @@ function Card({
   onUse,
   onEdit,
   onDuplicate,
+  onDelete,
 }: {
   template: ApiJobTemplate;
   accent: string;

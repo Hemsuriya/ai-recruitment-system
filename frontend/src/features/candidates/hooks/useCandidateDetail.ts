@@ -153,7 +153,7 @@ function parseQuestionScores(row: ApiCandidateDetail) {
 function mapDetail(row: ApiCandidateDetail): Candidate {
   const scores = parseQuestionScores(row);
   const interviewScore = row.interview_score ?? 0;
-  const securityScore = row.security_score ?? 0;
+
   const finalScore = row.final_score ?? 0;
 
   return {
