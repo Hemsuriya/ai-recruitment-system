@@ -60,9 +60,38 @@ const submitAssessmentResults = async (payload) => {
   }
 };
 
+// ─── FETCH OR CREATE JOB TEMPLATE VIA N8N ─────────────────────
+const fetchOrCreateJobTemplate = async ({
+  jobId,
+  jobDescription,
+  regenerate = false,
+}) => {
+  try {
+    const endpoint = process.env.N8N_JOB_TEMPLATE_WEBHOOK;
+
+    console.log("Calling n8n job template endpoint:", `${BASE}${endpoint}`);
+
+    const response = await axiosClient.post(endpoint, {
+      action: "create",
+      job_id: jobId,
+      job_description: jobDescription,
+      regenerate,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "❌ N8N JOB TEMPLATE ERROR:",
+      error.response?.data || error.message
+    );
+    throw new Error("Failed to fetch or create job template from n8n");
+  }
+};
+
 // ─── Export functions ─────────────────────────────────────────
 module.exports = {
   getAssessmentQuestions,
   updateAssessmentStatus,
   submitAssessmentResults,
+  fetchOrCreateJobTemplate,
 };
