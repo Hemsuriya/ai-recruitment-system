@@ -1,7 +1,6 @@
 
 @import "tailwindcss";
 @source "../src";
-@source "../hr";
 
 @theme {
   --default-ring-width: 3px;

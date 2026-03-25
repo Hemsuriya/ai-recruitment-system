@@ -4,10 +4,10 @@ import Avatar from "@/components/ui/Avatar";
 import ScoreChip from "@/components/ui/ScoreChip";
 import VerdictBadge from "./VerdictBadge";
 import StatusBadge from "./StatusBadge";
-import type { Candidate } from "@/types/models";
+import type { CandidateListRow } from "../hooks/useCandidatesList";
 
 interface CandidateRowProps {
-  candidate: Candidate;
+  candidate: CandidateListRow;
 }
 
 export default function CandidateRow({ candidate: c }: CandidateRowProps) {
@@ -33,24 +33,22 @@ export default function CandidateRow({ candidate: c }: CandidateRowProps) {
         </div>
       </td>
 
-      {/* Role */}
+      {/* Role / JID */}
       <td style={{ padding: "18px 16px" }}>
         <span style={{ fontSize: 14, color: "var(--text-muted)" }}>{c.role}</span>
+        {c.jid && (
+          <p style={{ fontSize: 11, color: "var(--text-subtle)", marginTop: 2 }}>{c.jid}</p>
+        )}
       </td>
 
-      {/* Resume */}
+      {/* Interview */}
       <td style={{ padding: "18px 16px", textAlign: "center" }}>
-        <ScoreChip score={c.resumeScore} label="Resume" />
+        <ScoreChip score={c.interviewScore} label="Interview" />
       </td>
 
-      {/* MCQ */}
+      {/* Security */}
       <td style={{ padding: "18px 16px", textAlign: "center" }}>
-        <ScoreChip score={c.mcqScore} label="MCQ" />
-      </td>
-
-      {/* Video */}
-      <td style={{ padding: "18px 16px", textAlign: "center" }}>
-        <ScoreChip score={c.videoScore} label="Video" />
+        <ScoreChip score={c.securityScore} label="Security" />
       </td>
 
       {/* Final */}

@@ -11,12 +11,19 @@ import {
 import HrShell from "../../components/layouts/HrShell";
 
 const roles = [
-  "All Roles",
   "ML Engineer",
   "Senior Frontend Engineer",
   "Product Designer",
   "Data Scientist",
   "Backend Engineer",
+];
+
+const mockJobPostings = [
+  { jid: "JOB-2026-001", job_title: "ML Engineer", status: "open", opens_at: "2026-03-01" },
+  { jid: "JOB-2026-002", job_title: "Senior Frontend Engineer", status: "open", opens_at: "2026-03-10" },
+  { jid: "JOB-2026-003", job_title: "Backend Engineer", status: "open", opens_at: "2026-03-15" },
+  { jid: "JOB-2026-004", job_title: "Data Scientist", status: "closed", opens_at: "2026-02-01" },
+  { jid: "JOB-2026-005", job_title: "Product Designer", status: "open", opens_at: "2026-03-20" },
 ];
 
 const funnelStages = [
@@ -287,11 +294,20 @@ export default function DashboardPage() {
               </p>
               <div className="relative">
                 <select className="min-w-52 appearance-none rounded-2xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-base text-gray-700 shadow-sm outline-none">
+                  {mockJobPostings.map((jp) => (
+                    <option key={jp.jid} value={jp.jid}>
+                      {jp.jid} — {jp.job_title} ({jp.status})
+                    </option>
+                  ))}
+                </select>
+                <BriefcaseBusiness className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              </div>
+              <div className="relative">
+                <select className="min-w-44 appearance-none rounded-2xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-base text-gray-700 shadow-sm outline-none">
                   {roles.map((role) => (
                     <option key={role}>{role}</option>
                   ))}
                 </select>
-                <BriefcaseBusiness className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               </div>
             </div>
           </div>

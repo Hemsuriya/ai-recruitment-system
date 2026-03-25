@@ -144,6 +144,21 @@ services:
       - "5001:5001"
  
 # ─────────────────────────────────────────────
+# Frontend (React + Vite)
+# ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: acs_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_started
+
+# ─────────────────────────────────────────────
 # Volumes
 # ─────────────────────────────────────────────
 volumes:

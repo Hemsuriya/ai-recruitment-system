@@ -11,7 +11,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 type HrShellProps = {
-  activeItem: "dashboard" | "candidates" | "templates" | "create-assessment";
+  activeItem: "dashboard" | "candidates" | "templates" | "create-assessment" | "settings";
   children: ReactNode;
 };
 
@@ -88,7 +88,12 @@ export default function HrShell({ activeItem, children }: HrShellProps) {
               active={activeItem === "templates"}
               onClick={() => navigate("/hr/templates")}
             />
-            <SidebarItem icon={Settings} label="Settings" />
+            <SidebarItem
+              icon={Settings}
+              label="Settings"
+              active={activeItem === "settings"}
+              onClick={() => navigate("/hr/settings")}
+            />
           </div>
         </div>
 

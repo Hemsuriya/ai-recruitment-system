@@ -14,4 +14,8 @@ export default defineConfig({
       "@types_": path.resolve(__dirname, "./src/types"),
     },
   },
+  server: {
+    port: 5173,
+    host: true,
+  },
 });
