@@ -38,7 +38,7 @@ const Card = ({ title, tags, meta, badge, accent = "indigo" }: any) => {
         };
 
   return (
-  <div className="flex min-h-[350px] flex-col rounded-[22px] border border-gray-200 bg-white p-5 shadow-[0_1px_4px_rgba(16,24,40,0.06)]">
+  <div className="flex min-h-87.5 flex-col rounded-[22px] border border-gray-200 bg-white p-5 shadow-[0_1px_4px_rgba(16,24,40,0.06)]">
     <div className="mb-4 flex items-start justify-between">
       <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accentClasses.iconWrap}`}>
         <FileText className={`h-5 w-5 ${accentClasses.icon}`} />

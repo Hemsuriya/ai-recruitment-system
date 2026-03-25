@@ -80,7 +80,8 @@ export default function HireAILogin() {
           </div>
 
           {/* Sign In Button */}
-          <button className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-linear-to-r from-indigo-500 to-blue-600 text-white font-medium shadow-md hover:opacity-95"/>
+         
+         
           <button
             type="button"
             onClick={() => navigate("/hr/dashboard")}
