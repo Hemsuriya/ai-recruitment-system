@@ -267,20 +267,37 @@ function FunnelChart() {
 export default function DashboardPage() {
   const [roles, setRoles] = useState<string[]>([]);
   const [jobPostings, setJobPostings] = useState<JobPostingDropdownItem[]>([]);
-  const [selectedRole, setSelectedRole] = useState("All Roles");
-  const [selectedJid, setSelectedJid] = useState("All Jobs");
+  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedJid, setSelectedJid] = useState("");
 
-  // Fetch roles on mount
+  // Fetch roles on mount → auto-select first
   useEffect(() => {
-    jobPostingApi.getRoles().then(setRoles).catch(() => {});
+    jobPostingApi.getRoles().then((data) => {
+      setRoles(data);
+      if (data.length > 0) setSelectedRole(data[0]);
+    }).catch(() => {});
   }, []);
 
-  // When role changes, reset JID and fetch filtered postings
+  // When role changes, fetch filtered postings → auto-select first JID
   useEffect(() => {
-    setSelectedJid("All Jobs");
-    const role = selectedRole !== "All Roles" ? selectedRole : undefined;
-    jobPostingApi.getDropdown(role).then(setJobPostings).catch(() => {});
+    if (!selectedRole) return;
+    sessionStorage.setItem("dashboard_role", selectedRole);
+    jobPostingApi.getDropdown(selectedRole).then((data) => {
+      setJobPostings(data);
+      if (data.length > 0) {
+        setSelectedJid(data[0].jid);
+        sessionStorage.setItem("dashboard_jid", data[0].jid);
+      } else {
+        setSelectedJid("");
+        sessionStorage.removeItem("dashboard_jid");
+      }
+    }).catch(() => {});
   }, [selectedRole]);
+
+  // Persist JID selection changes
+  useEffect(() => {
+    if (selectedJid) sessionStorage.setItem("dashboard_jid", selectedJid);
+  }, [selectedJid]);
 
   return (
     <HrShell activeItem="dashboard">
@@ -300,7 +317,6 @@ export default function DashboardPage() {
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value)}
                 >
-                  <option value="All Roles">All Roles</option>
                   {roles.map((role) => (
                     <option key={role} value={role}>{role}</option>
                   ))}
@@ -312,7 +328,6 @@ export default function DashboardPage() {
                   value={selectedJid}
                   onChange={(e) => setSelectedJid(e.target.value)}
                 >
-                  <option value="All Jobs">All Jobs</option>
                   {jobPostings.map((jp) => (
                     <option key={jp.jid} value={jp.jid}>
                       {jp.jid} — {jp.job_title} ({jp.status})
@@ -338,11 +353,14 @@ export default function DashboardPage() {
             tone="bg-indigo-50"
           />
           <KpiCard
-            icon={<TrendingUp className="h-5 w-5 text-blue-500" />}
-            value="69"
-            label="Avg. Score"
-            trend="+5pts"
-            tone="bg-blue-50"
+            icon={<BriefcaseBusiness className="h-5 w-5 text-violet-500" />}
+            value={(() => {
+              const jp = jobPostings.find((p) => p.jid === selectedJid);
+              return String(jp?.headcount ?? "—");
+            })()}
+            label="Positions to Fill"
+            trend={selectedJid || selectedRole || "—"}
+            tone="bg-violet-50"
           />
           <KpiCard
             icon={<SearchCheck className="h-5 w-5 text-green-500" />}
