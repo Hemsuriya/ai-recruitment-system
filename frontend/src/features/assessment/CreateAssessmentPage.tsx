@@ -22,6 +22,7 @@ type FormData = {
   experienceLevel: string;
   skills: string[];
   timerMinutes: number;
+  headcount: number;
 };
 
 type Question = {
@@ -269,24 +270,45 @@ function AssessmentDetails({
           ) : null}
         </div>
 
-        <label className="block">
-          <span className="app-field-label mb-2 block">
-            Assessment Timer (minutes)
-          </span>
-          <input
-            type="number"
-            min={5}
-            max={180}
-            value={formData.timerMinutes}
-            onChange={(event) =>
-              setFormData((current) => ({
-                ...current,
-                timerMinutes: Number(event.target.value) || 30,
-              }))
-            }
-            className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
-          />
-        </label>
+        <div className="flex gap-4">
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Assessment Timer (minutes)
+            </span>
+            <input
+              type="number"
+              min={5}
+              max={180}
+              value={formData.timerMinutes}
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  timerMinutes: Number(event.target.value) || 30,
+                }))
+              }
+              className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+          </label>
+
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Positions to Fill
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={formData.headcount}
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  headcount: Number(event.target.value) || 1,
+                }))
+              }
+              className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+          </label>
+        </div>
       </div>
     </div>
   );
@@ -589,12 +611,12 @@ export default function CreateAssessmentPage() {
   const [selectedTemplateKey, setSelectedTemplateKey] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [successJid, setSuccessJid] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     roleTitle: "",
     experienceLevel: "",
     skills: [],
     timerMinutes: 30,
+    headcount: 1,
   });
   const [questions, setQuestions] = useState<Question[]>(defaultQuestions);
   const [options, setOptions] = useState<Options>({
@@ -633,6 +655,7 @@ export default function CreateAssessmentPage() {
         ? t.required_skills.split(",").map((s) => s.trim()).filter(Boolean)
         : [],
       timerMinutes: t.time_limit_minutes ?? 30,
+      headcount: Number(t.number_of_candidates) || 1,
     });
     if (t.survey_question_1) {
       setQuestions((prev) => {
@@ -648,7 +671,6 @@ export default function CreateAssessmentPage() {
 
   const handleTemplateSelect = (key: string) => {
     setEditMode(false);
-    setSuccessJid(null);
     applyTemplate(key, templates);
   };
 
@@ -658,29 +680,30 @@ export default function CreateAssessmentPage() {
       return;
     }
     setSaving(true);
-    setSuccessJid(null);
     try {
       const selectedQ = questions.filter((q) => q.checked);
       if (editMode && selectedTemplateKey) {
-        // Update existing template
         await jobTemplateApi.update(selectedTemplateKey, {
           job_title: formData.roleTitle,
           required_skills: formData.skills.join(", "),
+          number_of_candidates: String(formData.headcount),
           survey_question_1: selectedQ[0]?.text || null,
           survey_q1_expected_answer: null,
           time_limit_minutes: formData.timerMinutes,
         } as Partial<ApiJobTemplate>);
-        setSuccessJid("saved");
+        alert("Template updated successfully!");
+        navigate("/hr/templates");
       } else {
-        // Create new assessment + job posting with auto JID
         const result = await jobTemplateApi.createAssessment({
           job_title: formData.roleTitle,
           template_key: selectedTemplateKey || undefined,
           required_skills: formData.skills.join(", "),
           survey_question_1: selectedQ[0]?.text || undefined,
           time_limit_minutes: formData.timerMinutes,
+          headcount: formData.headcount,
         });
-        setSuccessJid(result.jid);
+        alert(`Assessment created successfully!\n\nJob ID: ${result.jid}\nRole: ${formData.roleTitle}\nPositions: ${formData.headcount}`);
+        navigate("/hr/dashboard");
       }
     } catch (err: unknown) {
       alert(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -735,24 +758,6 @@ export default function CreateAssessmentPage() {
               editMode={editMode}
             />
 
-            {successJid && (
-              <div className={`${cardClassName} border-green-200 bg-green-50`}>
-                <p className="text-[14px] font-semibold text-green-700">
-                  {successJid === "saved"
-                    ? "Template updated successfully!"
-                    : `Assessment created! Job ID: ${successJid}`}
-                </p>
-                {successJid !== "saved" && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/hr/candidates")}
-                    className="mt-2 text-[13px] font-medium text-green-600 underline"
-                  >
-                    View Candidates →
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>

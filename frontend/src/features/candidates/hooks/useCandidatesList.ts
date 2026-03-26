@@ -129,8 +129,8 @@ export function useCandidatesList(): CandidatesListState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilterRaw] = useState("All Roles");
-  const [jidFilter, setJidFilter] = useState("All Jobs");
+  const [roleFilter, setRoleFilterRaw] = useState(() => sessionStorage.getItem("dashboard_role") || "All Roles");
+  const [jidFilter, setJidFilter] = useState(() => sessionStorage.getItem("dashboard_jid") || "All Jobs");
   const [verdictFilter, setVerdictFilter] = useState("All Verdicts");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [sortBy, setSortBy] = useState<SortKey>("highest");
