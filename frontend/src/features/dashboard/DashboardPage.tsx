@@ -252,8 +252,8 @@ function FunnelChart({ funnelStages }: { funnelStages: Array<DashboardFunnelItem
 export default function DashboardPage() {
   const [roles, setRoles] = useState<string[]>([]);
   const [jobPostings, setJobPostings] = useState<JobPostingDropdownItem[]>([]);
-  const [selectedRole, setSelectedRole] = useState("All Roles");
-  const [selectedJid, setSelectedJid] = useState("All Jobs");
+  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedJid, setSelectedJid] = useState("");
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
   const [funnelStages, setFunnelStages] = useState<Array<DashboardFunnelItem & { color: string }>>([]);
   const [stageScores, setStageScores] = useState<Array<DashboardStageScoreItem & { color: string }>>([]);
@@ -264,16 +264,50 @@ export default function DashboardPage() {
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
-  // Fetch roles on mount
+  // Fetch roles on mount → auto-select first
   useEffect(() => {
-    jobPostingApi.getRoles().then(setRoles).catch(() => {});
+    jobPostingApi
+      .getRoles()
+      .then((data) => {
+        setRoles(data);
+
+        const storedRole = sessionStorage.getItem("dashboard_role");
+        if (storedRole && data.includes(storedRole)) {
+          setSelectedRole(storedRole);
+          return;
+        }
+
+        if (data.length > 0) {
+          setSelectedRole(data[0]);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  // When role changes, reset JID and fetch filtered postings
+  // When role changes, fetch filtered postings → auto-select first JID
   useEffect(() => {
-    setSelectedJid("All Jobs");
-    const role = selectedRole !== "All Roles" ? selectedRole : undefined;
-    jobPostingApi.getDropdown(role).then(setJobPostings).catch(() => {});
+    if (!selectedRole) return;
+    sessionStorage.setItem("dashboard_role", selectedRole);
+    jobPostingApi
+      .getDropdown(selectedRole)
+      .then((data) => {
+        setJobPostings(data);
+
+        const storedJid = sessionStorage.getItem("dashboard_jid");
+        if (storedJid && data.some((posting) => posting.jid === storedJid)) {
+          setSelectedJid(storedJid);
+          return;
+        }
+
+        if (data.length > 0) {
+          setSelectedJid(data[0].jid);
+          sessionStorage.setItem("dashboard_jid", data[0].jid);
+        } else {
+          setSelectedJid("");
+          sessionStorage.removeItem("dashboard_jid");
+        }
+      })
+      .catch(() => {});
   }, [selectedRole]);
 
   useEffect(() => {
@@ -338,6 +372,13 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Persist JID selection changes
+  useEffect(() => {
+    if (selectedJid) {
+      sessionStorage.setItem("dashboard_jid", selectedJid);
+    }
+  }, [selectedJid]);
+
   return (
     <HrShell activeItem="dashboard">
       <div className="space-y-6">
@@ -356,7 +397,6 @@ export default function DashboardPage() {
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value)}
                 >
-                  <option value="All Roles">All Roles</option>
                   {roles.map((role) => (
                     <option key={role} value={role}>{role}</option>
                   ))}
@@ -368,7 +408,6 @@ export default function DashboardPage() {
                   value={selectedJid}
                   onChange={(e) => setSelectedJid(e.target.value)}
                 >
-                  <option value="All Jobs">All Jobs</option>
                   {jobPostings.map((jp) => (
                     <option key={jp.jid} value={jp.jid}>
                       {jp.jid} — {jp.job_title} ({jp.status})
@@ -391,13 +430,23 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-4">
+        <div className="grid gap-4 xl:grid-cols-5">
           <KpiCard
             icon={<Users className="h-5 w-5 text-indigo-500" />}
             value={String(summary.totalCandidates)}
             label="Total Candidates"
             trend="+12%"
             tone="bg-indigo-50"
+          />
+          <KpiCard
+            icon={<BriefcaseBusiness className="h-5 w-5 text-violet-500" />}
+            value={(() => {
+              const jp = jobPostings.find((posting) => posting.jid === selectedJid);
+              return String(jp?.headcount ?? "—");
+            })()}
+            label="Positions to Fill"
+            trend={selectedJid || selectedRole || "—"}
+            tone="bg-violet-50"
           />
           <KpiCard
             icon={<TrendingUp className="h-5 w-5 text-blue-500" />}
