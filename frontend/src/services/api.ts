@@ -13,6 +13,95 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return json.data ?? json;
 }
 
+// ── HR Assessments ──────────────────────────────────────────
+
+export interface AssessmentQuestion {
+  id?: number;
+  question_text: string;
+  is_default: boolean;
+  is_selected: boolean;
+  sort_order: number;
+}
+
+export interface AssessmentTimeLimits {
+  mcq_time_limit: number;
+  video_time_limit: number;
+  coding_time_limit: number;
+}
+
+export interface AssessmentOptions {
+  generate_ai_questions: boolean;
+  include_coding: boolean;
+  include_aptitude: boolean;
+  include_ai_interview: boolean;
+  include_manual_interview: boolean;
+}
+
+export interface CreateAssessmentPayload {
+  role_title: string;
+  experience_level: string;
+  skills: string[];
+  template_key?: string;
+  questions: AssessmentQuestion[];
+  options: AssessmentOptions;
+  time_limits: AssessmentTimeLimits;
+  job_description?: string;
+}
+
+export interface AssessmentRecord {
+  id: number;
+  jid: string;
+  template_id: number | null;
+  role_title: string;
+  experience_level: string;
+  skills: string[];
+  job_description: string | null;
+  ai_generated_jd: boolean;
+  mcq_time_limit: number;
+  video_time_limit: number;
+  coding_time_limit: number;
+  include_coding: boolean;
+  include_aptitude: boolean;
+  include_ai_interview: boolean;
+  include_manual_interview: boolean;
+  generate_ai_questions: boolean;
+  status: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  questions: AssessmentQuestion[];
+}
+
+export const assessmentApi = {
+  create: (data: CreateAssessmentPayload) =>
+    request<{ assessment_id: number; jid: string; template_key: string }>(
+      "/api/hr/assessments",
+      { method: "POST", body: JSON.stringify(data) }
+    ),
+
+  getAll: (status?: string, page?: number) => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (page) params.set("page", String(page));
+    const qs = params.toString();
+    return request<{ data: AssessmentRecord[]; total: number }>(
+      `/api/hr/assessments${qs ? `?${qs}` : ""}`
+    );
+  },
+
+  getById: (id: number) =>
+    request<{ data: AssessmentRecord }>(`/api/hr/assessments/${id}`),
+
+  update: (id: number, data: Partial<CreateAssessmentPayload>) =>
+    request<{ data: AssessmentRecord }>(`/api/hr/assessments/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  remove: (id: number) =>
+    request<void>(`/api/hr/assessments/${id}`, { method: "DELETE" }),
+};
+
 // ── HR Candidates ────────────────────────────────────────────
 
 export interface ApiCandidateListItem {

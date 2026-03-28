@@ -15,13 +15,15 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import HrShell from "../../components/layouts/HrShell";
-import { jobTemplateApi, type ApiJobTemplate } from "@/services/api";
+import { jobTemplateApi, assessmentApi, type ApiJobTemplate } from "@/services/api";
 
 type FormData = {
   roleTitle: string;
   experienceLevel: string;
   skills: string[];
-  timerMinutes: number;
+  mcqTimerMinutes: number;
+  videoTimerMinutes: number;
+  codingTimerMinutes: number;
   headcount: number;
 };
 
@@ -270,26 +272,66 @@ function AssessmentDetails({
           ) : null}
         </div>
 
-        <div className="flex gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label className="block">
             <span className="app-field-label mb-2 block">
-              Assessment Timer (minutes)
+              MCQ Timer (min)
             </span>
             <input
               type="number"
               min={5}
               max={180}
-              value={formData.timerMinutes}
+              value={formData.mcqTimerMinutes}
               onChange={(event) =>
                 setFormData((current) => ({
                   ...current,
-                  timerMinutes: Number(event.target.value) || 30,
+                  mcqTimerMinutes: Number(event.target.value) || 30,
                 }))
               }
-              className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              className="h-10 w-full rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
             />
           </label>
 
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Video Timer (min)
+            </span>
+            <input
+              type="number"
+              min={5}
+              max={180}
+              value={formData.videoTimerMinutes}
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  videoTimerMinutes: Number(event.target.value) || 15,
+                }))
+              }
+              className="h-10 w-full rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+          </label>
+
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Coding Timer (min)
+            </span>
+            <input
+              type="number"
+              min={5}
+              max={180}
+              value={formData.codingTimerMinutes}
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  codingTimerMinutes: Number(event.target.value) || 45,
+                }))
+              }
+              className="h-10 w-full rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+          </label>
+        </div>
+
+        <div className="flex gap-4">
           <label className="block">
             <span className="app-field-label mb-2 block">
               Positions to Fill
@@ -615,7 +657,9 @@ export default function CreateAssessmentPage() {
     roleTitle: "",
     experienceLevel: "",
     skills: [],
-    timerMinutes: 30,
+    mcqTimerMinutes: 30,
+    videoTimerMinutes: 15,
+    codingTimerMinutes: 45,
     headcount: 1,
   });
   const [questions, setQuestions] = useState<Question[]>(defaultQuestions);
@@ -654,7 +698,9 @@ export default function CreateAssessmentPage() {
       skills: t.required_skills
         ? t.required_skills.split(",").map((s) => s.trim()).filter(Boolean)
         : [],
-      timerMinutes: t.time_limit_minutes ?? 30,
+      mcqTimerMinutes: t.time_limit_minutes ?? 30,
+      videoTimerMinutes: 15,
+      codingTimerMinutes: 45,
       headcount: Number(t.number_of_candidates) || 1,
     });
     if (t.survey_question_1) {
@@ -689,18 +735,34 @@ export default function CreateAssessmentPage() {
           number_of_candidates: String(formData.headcount),
           survey_question_1: selectedQ[0]?.text || null,
           survey_q1_expected_answer: null,
-          time_limit_minutes: formData.timerMinutes,
+          time_limit_minutes: formData.mcqTimerMinutes,
         } as Partial<ApiJobTemplate>);
         alert("Template updated successfully!");
         navigate("/hr/templates");
       } else {
-        const result = await jobTemplateApi.createAssessment({
-          job_title: formData.roleTitle,
+        const result = await assessmentApi.create({
+          role_title: formData.roleTitle,
+          experience_level: formData.experienceLevel,
+          skills: formData.skills,
           template_key: selectedTemplateKey || undefined,
-          required_skills: formData.skills.join(", "),
-          survey_question_1: selectedQ[0]?.text || undefined,
-          time_limit_minutes: formData.timerMinutes,
-          headcount: formData.headcount,
+          questions: selectedQ.map((q, i) => ({
+            question_text: q.text,
+            is_default: q.id !== "custom" && !q.id.startsWith("custom-"),
+            is_selected: true,
+            sort_order: i,
+          })),
+          options: {
+            generate_ai_questions: options.generateAI,
+            include_coding: options.codingRound,
+            include_aptitude: options.aptitudeTest,
+            include_ai_interview: options.aiInterview,
+            include_manual_interview: options.manualInterview,
+          },
+          time_limits: {
+            mcq_time_limit: formData.mcqTimerMinutes,
+            video_time_limit: formData.videoTimerMinutes,
+            coding_time_limit: formData.codingTimerMinutes,
+          },
         });
         alert(`Assessment created successfully!\n\nJob ID: ${result.jid}\nRole: ${formData.roleTitle}\nPositions: ${formData.headcount}`);
         navigate("/hr/dashboard");

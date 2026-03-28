@@ -1,0 +1,148 @@
+{
+  "name": "JD Generation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-jd",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "ecca2f13-6d02-4afc-adf9-5e263725b81a",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nconst prompt = `You are a professional HR recruiter. Write a concise, compelling \nJob Description for the following role.\n\nRole: ${data.role_title}\nExperience Level: ${data.experience_level}\nRequired Skills: ${Array.isArray(data.skills) ? data.skills.join(', ') : data.skills}\n\nThe JD must include:\n1. Role Overview (2-3 sentences)\n2. Key Responsibilities (5 bullet points)\n3. Required Skills and Qualifications\n4. What We Offer (3 bullet points)\n\nKeep the tone professional and engaging. Return plain text only.`;\n\nreturn [{\n  json: {\n    assessment_id: data.assessment_id,\n    jid: data.jid,\n    role_title: data.role_title,\n    skills: data.skills,\n    experience_level: data.experience_level,\n    jdPrompt: prompt\n  }\n}];"
+      },
+      "id": "270dc26c-3aa2-4df9-a868-b7ab453addbe",
+      "name": "Build JD Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.jdPrompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an expert HR recruiter. Return only the formatted Job Description text. No JSON, no markdown headers, no extra commentary.",
+              "type": "systemMessage"
+            }
+          ]
+        }
+      },
+      "id": "67040441-aa60-4966-bfd6-bb4269c1ce8d",
+      "name": "Basic LLM Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant"
+      },
+      "id": "cdefc5ff-be29-43c2-a982-fbb8782a2082",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [440, 200],
+      "credentials": {
+        "groqApi": {
+          "id": "rOd6m7YG43wEg4fN",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nconst prev = $('Build JD Prompt').first().json;\n\nconst jdText = aiResponse.text || aiResponse.output || JSON.stringify(aiResponse);\n\nreturn [{\n  json: {\n    assessment_id: prev.assessment_id,\n    jid: prev.jid,\n    job_description: jdText.trim()\n  }\n}];"
+      },
+      "id": "e67e3a9f-3dbe-40cd-b8a7-f58c7eab5643",
+      "name": "Parse JD Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'http://acs_backend:5000/api/hr/assessments/' + $json.assessment_id }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"job_description\": \"{{ $json.job_description.replace(/\"/g, '\\\\\"').replace(/\\n/g, '\\\\n') }}\"\n}"
+      },
+      "id": "e5868e40-a3fe-42ce-aab6-ea2eab7e7518",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1000, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build JD Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build JD Prompt": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Parse JD Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse JD Output": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
