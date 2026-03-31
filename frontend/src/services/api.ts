@@ -86,10 +86,13 @@ export interface ApiCandidateDetail {
 }
 
 export const candidateApi = {
-  getAll: (jid?: string) =>
-    request<ApiCandidateListItem[]>(
-      `/api/hr/candidates${jid ? `?jid=${encodeURIComponent(jid)}` : ""}`
-    ),
+  getAll: (jid?: string, jobTitle?: string) => {
+    const params = new URLSearchParams();
+    if (jid) params.set("jid", jid);
+    if (jobTitle) params.set("job_title", jobTitle);
+    const qs = params.toString();
+    return request<ApiCandidateListItem[]>(`/api/hr/candidates${qs ? `?${qs}` : ""}`);
+  },
 
   getById: (id: string | number) =>
     request<ApiCandidateDetail>(`/api/hr/candidates/${id}`),
@@ -117,14 +120,120 @@ export interface JobPostingDropdownItem {
 export const jobPostingApi = {
   getAll: () => request<JobPostingDropdownItem[]>("/api/job-postings"),
 
-  getDropdown: () =>
-    request<JobPostingDropdownItem[]>("/api/job-postings/dropdown"),
+  getDropdown: (jobTitle?: string) =>
+    request<JobPostingDropdownItem[]>(
+      `/api/job-postings/dropdown${jobTitle ? `?job_title=${encodeURIComponent(jobTitle)}` : ""}`
+    ),
+
+  getRoles: () => request<string[]>("/api/job-postings/roles"),
 
   getByJid: (jid: string) =>
     request<JobPostingDropdownItem>(`/api/job-postings/${encodeURIComponent(jid)}`),
 
+  getByTemplate: (templateId: number) =>
+    request<JobPostingDropdownItem[]>(`/api/job-postings/by-template/${templateId}`),
+
   create: (data: { job_title: string; template_id?: number; status?: string; opens_at?: string; closes_at?: string }) =>
     request<JobPostingDropdownItem>("/api/job-postings", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+// ── Job Templates ─────────────────────────────────────────────
+
+export interface ApiJobTemplate {
+  id: number;
+  template_key: string;
+  job_title: string;
+  job_description: string | null;
+  required_skills: string | null;
+  number_of_candidates: string | null;
+  survey_question_1: string | null;
+  survey_q1_expected_answer: string | null;
+  time_limit_minutes: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateAssessmentResult {
+  jid: string;
+  template_key: string;
+  posting: Record<string, unknown>;
+}
+
+export type ApiDropdownTemplate = {
+  id: number;
+  template_code: string;
+  template_name: string;
+};
+
+export type AutopopulateResponse = {
+  template_code: string;
+  template_name: string;
+  role_title: string;
+  experience_level: string;
+  job_description: string;
+  skills_required: string[];
+  pre_screening_questions: string[];
+  assessment_options?: {
+    include_ai_questions?: boolean;
+    include_coding_round?: boolean;
+    include_aptitude_test?: boolean;
+    include_ai_video_interview?: boolean;
+    include_manual_video_interview?: boolean;
+  };
+  assessment_summary?: {
+    role?: string;
+    experience?: string;
+    skills?: string[];
+    components?: string[];
+  };
+  ai_source?: string;
+  number_of_candidates?: number;
+  survey_q1_expected_answer?: string;
+};
+
+export const jobTemplateApi = {
+   
+  getAll: () => request<ApiJobTemplate[]>("/api/job-templates"),
+
+   getDropdownTemplates: () =>
+    request<ApiDropdownTemplate[]>("/api/job-templates/dropdown"),
+
+  autopopulate: (templateCode: string) =>
+    request<AutopopulateResponse>(
+      `/api/job-templates/${encodeURIComponent(templateCode)}/autopopulate`
+    ),
+
+  getByKey: (key: string) =>
+    request<ApiJobTemplate>(`/api/job-templates/${encodeURIComponent(key)}`),
+
+  update: (key: string, data: Partial<ApiJobTemplate>) =>
+    request<ApiJobTemplate>(`/api/job-templates/${encodeURIComponent(key)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  duplicate: (key: string) =>
+    request<ApiJobTemplate>(`/api/job-templates/${encodeURIComponent(key)}/duplicate`, {
+      method: "POST",
+    }),
+
+  remove: (key: string) =>
+    request<void>(`/api/job-templates/${encodeURIComponent(key)}`, {
+      method: "DELETE",
+    }),
+
+  createAssessment: (data: {
+    job_title: string;
+    template_key?: string;
+    required_skills?: string;
+    survey_question_1?: string;
+    survey_q1_expected_answer?: string;
+    time_limit_minutes?: number;
+  }) =>
+    request<CreateAssessmentResult>("/api/job-postings/create-assessment", {
       method: "POST",
       body: JSON.stringify(data),
     }),

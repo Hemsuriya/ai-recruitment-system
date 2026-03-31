@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ComponentType } from "react";
 import {
   BrainCircuit,
@@ -13,12 +13,19 @@ import {
   WandSparkles,
   Zap,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import HrShell from "../../components/layouts/HrShell";
+import {
+  jobTemplateApi,
+  type ApiDropdownTemplate,
+  type AutopopulateResponse,
+} from "@/services/api";
 
 type FormData = {
   roleTitle: string;
   experienceLevel: string;
   skills: string[];
+  timerMinutes: number;
 };
 
 type Question = {
@@ -38,13 +45,7 @@ type Options = {
 const cardClassName =
   "rounded-[18px] border border-gray-200 bg-white p-5 shadow-[0_1px_3px_rgba(16,24,40,0.06)]";
 
-const templateOptions = [
-  "Software Engineer",
-  "Data Scientist",
-  "Product Manager",
-  "UX Designer",
-  "DevOps Engineer",
-];
+// templateOptions removed — now fetched from API
 
 const defaultQuestions: Question[] = [
   { id: "relocate", text: "Are you willing to relocate?", checked: true },
@@ -114,34 +115,42 @@ const optionConfig: Array<{
   },
 ];
 
-function TemplatePicker() {
+function TemplatePicker({
+  templates,
+  selected,
+  onSelect,
+}: {
+  templates: ApiDropdownTemplate[];
+  selected: string;
+  onSelect: (key: string) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState("");
+  const selectedTemplate = templates.find((t) => t.template_code === selected);
 
   return (
     <div className="relative">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex min-w-[156px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-[14px] text-gray-700 transition-colors hover:bg-white"
+        className="flex min-w-39 items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-[14px] text-gray-700 transition-colors hover:bg-white"
       >
-        {selected || "Choose a template"}
+        {selectedTemplate?.template_name || "Choose a template"}
         <ChevronDown className="h-4 w-4 text-gray-400" />
       </button>
 
       {open ? (
         <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-[14px] border border-gray-200 bg-white shadow-lg">
-          {templateOptions.map((option) => (
+          {templates.map((t) => (
             <button
-              key={option}
+              key={t.template_code}
               type="button"
               onClick={() => {
-                setSelected(option);
+                onSelect(t.template_code);
                 setOpen(false);
               }}
               className="w-full px-4 py-2.5 text-left text-[14px] text-gray-700 transition-colors hover:bg-violet-50 hover:text-violet-700 first:rounded-t-xl last:rounded-b-xl"
             >
-              {option}
+              {t.template_name}
             </button>
           ))}
         </div>
@@ -203,7 +212,7 @@ function AssessmentDetails({
           <span className="app-field-label mb-2 block">
             Experience Level
           </span>
-          <div className="relative max-w-[108px]">
+          <div className="relative max-w-27">
             <select
               value={formData.experienceLevel}
               onChange={(event) =>
@@ -263,6 +272,25 @@ function AssessmentDetails({
             </div>
           ) : null}
         </div>
+
+        <label className="block">
+          <span className="app-field-label mb-2 block">
+            Assessment Timer (minutes)
+          </span>
+          <input
+            type="number"
+            min={5}
+            max={180}
+            value={formData.timerMinutes}
+            onChange={(event) =>
+              setFormData((current) => ({
+                ...current,
+                timerMinutes: Number(event.target.value) || 30,
+              }))
+            }
+            className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+          />
+        </label>
       </div>
     </div>
   );
@@ -324,7 +352,7 @@ function PreScreeningQuestions({
             key={question.id}
             type="button"
             onClick={() => toggleQuestion(question.id)}
-            className="flex w-full items-center gap-3 rounded-[12px] border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-gray-300"
+            className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-gray-300"
           >
             <div
               className={`flex h-5 w-5 items-center justify-center rounded-md text-white ${
@@ -486,9 +514,15 @@ function AssessmentSummary({
 function AssessmentOptions({
   options,
   setOptions,
+  onSubmit,
+  submitting,
+  editMode,
 }: {
   options: Options;
   setOptions: React.Dispatch<React.SetStateAction<Options>>;
+  onSubmit: () => void;
+  submitting: boolean;
+  editMode: boolean;
 }) {
   const toggleOption = (key: keyof Options) => {
     setOptions((current) => ({ ...current, [key]: !current[key] }));
@@ -509,13 +543,13 @@ function AssessmentOptions({
           return (
             <div
               key={option.key}
-              className="flex items-center rounded-[12px] border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300"
+              className="flex items-center rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300"
             >
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => toggleOption(option.key)}
-                  className={`flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors ${
+                  className={`flex h-4 w-4 items-center justify-center rounded-sm border transition-colors ${
                     enabled
                       ? "border-violet-500 bg-violet-500 text-white"
                       : "border-gray-300 bg-white text-transparent"
@@ -542,47 +576,181 @@ function AssessmentOptions({
 
       <button
         type="button"
-        onClick={() => {
-          console.log("Generating assessment from options panel");
-        }}
-        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-violet-500 to-indigo-600 px-6 text-[14px] font-medium text-white shadow-lg shadow-violet-200 transition-colors hover:opacity-95"
+        onClick={onSubmit}
+        disabled={submitting}
+        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-linear-to-r from-violet-500 to-indigo-600 px-6 text-[14px] font-medium text-white shadow-lg shadow-violet-200 transition-colors hover:opacity-95 disabled:opacity-60"
       >
         <Sparkles className="h-4 w-4" />
-        Generate Assessment
+        {submitting ? "Saving…" : editMode ? "Update Template" : "Generate Assessment"}
       </button>
     </div>
   );
 }
 
 export default function CreateAssessmentPage() {
-  const [formData, setFormData] = useState<FormData>({
-    roleTitle: "",
-    experienceLevel: "",
-    skills: [],
+  const navigate = useNavigate();
+const [templates, setTemplates] = useState<ApiDropdownTemplate[]>([]);
+const [selectedTemplateKey, setSelectedTemplateKey] = useState("");
+const [editMode, setEditMode] = useState(false);
+const [saving, setSaving] = useState(false);
+const [loadingTemplate, setLoadingTemplate] = useState(false);
+const [successJid, setSuccessJid] = useState<string | null>(null);
+
+const [formData, setFormData] = useState<FormData>({
+  roleTitle: "",
+  experienceLevel: "",
+  skills: [],
+  timerMinutes: 30,
+});
+
+const [questions, setQuestions] = useState<Question[]>(defaultQuestions);
+
+const [options, setOptions] = useState<Options>({
+  generateAI: true,
+  codingRound: true,
+  aptitudeTest: false,
+  aiInterview: true,
+  manualInterview: false,
+});
+
+  // Fetch templates on mount + handle URL params
+useEffect(() => {
+  const loadTemplates = async () => {
+    try {
+      const data = await jobTemplateApi.getDropdownTemplates();
+      setTemplates(data);
+
+      const params = new URLSearchParams(window.location.search);
+      const templateCode = params.get("template_code");
+
+      if (templateCode) {
+        await fetchAutopopulatedTemplate(templateCode);
+      }
+
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch (error) {
+      console.error("Failed to fetch dropdown templates", error);
+    }
+  };
+
+  loadTemplates();
+}, []);
+
+const applyAutopopulateData = (data: AutopopulateResponse) => {
+  setFormData({
+    roleTitle: data.role_title || "",
+    experienceLevel: data.experience_level || "",
+    skills: data.skills_required || [],
+    timerMinutes: 30,
   });
-  const [questions, setQuestions] = useState<Question[]>(defaultQuestions);
-  const [options, setOptions] = useState<Options>({
-    generateAI: true,
-    codingRound: true,
-    aptitudeTest: false,
-    aiInterview: true,
-    manualInterview: false,
+
+  const incomingQuestions: Question[] =
+    (data.pre_screening_questions || []).map((text, index) => ({
+      id: `api-${index}-${Date.now()}`,
+      text,
+      checked: true,
+    }));
+
+  setQuestions(
+    incomingQuestions.length > 0 ? incomingQuestions : defaultQuestions
+  );
+
+  setOptions({
+    generateAI: data.assessment_options?.include_ai_questions ?? true,
+    codingRound: data.assessment_options?.include_coding_round ?? false,
+    aptitudeTest: data.assessment_options?.include_aptitude_test ?? false,
+    aiInterview: data.assessment_options?.include_ai_video_interview ?? false,
+    manualInterview:
+      data.assessment_options?.include_manual_video_interview ?? false,
   });
+};
+
+const fetchAutopopulatedTemplate = async (templateCode: string) => {
+  setLoadingTemplate(true);
+  setSuccessJid(null);
+
+  try {
+    const data = await jobTemplateApi.autopopulate(templateCode);
+    applyAutopopulateData(data);
+    setSelectedTemplateKey(templateCode);
+    setEditMode(false);
+  } catch (error) {
+    alert(
+      `Failed to load template: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  } finally {
+    setLoadingTemplate(false);
+  }
+};
+
+  const handleTemplateSelect = async (key: string) => {
+  await fetchAutopopulatedTemplate(key);
+};
+
+  const handleSubmit = async () => {
+    if (!formData.roleTitle.trim()) {
+      alert("Role Title is required");
+      return;
+    }
+    setSaving(true);
+    setSuccessJid(null);
+    try {
+      const selectedQ = questions.filter((q) => q.checked);
+      if (editMode && selectedTemplateKey) {
+        // Update existing template
+        await jobTemplateApi.update(selectedTemplateKey, {
+          job_title: formData.roleTitle,
+          required_skills: formData.skills.join(", "),
+          survey_question_1: selectedQ[0]?.text || null,
+          survey_q1_expected_answer: null,
+          time_limit_minutes: formData.timerMinutes,
+        });
+        setSuccessJid("saved");
+      } else {
+        // Create new assessment + job posting with auto JID
+        const result = await jobTemplateApi.createAssessment({
+          job_title: formData.roleTitle,
+          template_key: selectedTemplateKey || undefined,
+          required_skills: formData.skills.join(", "),
+          survey_question_1: selectedQ[0]?.text || undefined,
+          time_limit_minutes: formData.timerMinutes,
+        });
+        setSuccessJid(result.jid);
+      }
+    } catch (err: unknown) {
+      alert(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <HrShell activeItem="create-assessment">
       <div className="w-full py-1">
         <div className="mb-5 flex items-start justify-between">
           <div>
-            <h1 className="app-page-title">Create Assessment</h1>
+            <h1 className="app-page-title">{editMode ? "Edit Template" : "Create Assessment"}</h1>
             <p className="app-page-subtitle">
-              Generate AI-powered screening assessments for candidates
+              {editMode
+                ? "Update template details and timer settings"
+                : "Generate AI-powered screening assessments for candidates"}
             </p>
           </div>
 
           <div className="flex flex-col items-start gap-2">
             <span className="text-[14px] font-semibold text-gray-700">Select Template</span>
-            <TemplatePicker />
+            <TemplatePicker
+              templates={templates}
+              selected={selectedTemplateKey}
+              onSelect={handleTemplateSelect}
+            />
+            {loadingTemplate ? (
+  <p className="mt-2 text-[13px] text-violet-600">
+    Autopopulating from AI workflow...
+  </p>
+) : null}
           </div>
         </div>
 
@@ -601,7 +769,32 @@ export default function CreateAssessmentPage() {
               questions={questions}
               options={options}
             />
-            <AssessmentOptions options={options} setOptions={setOptions} />
+            <AssessmentOptions
+              options={options}
+              setOptions={setOptions}
+              onSubmit={handleSubmit}
+              submitting={saving}
+              editMode={editMode}
+            />
+
+            {successJid && (
+              <div className={`${cardClassName} border-green-200 bg-green-50`}>
+                <p className="text-[14px] font-semibold text-green-700">
+                  {successJid === "saved"
+                    ? "Template updated successfully!"
+                    : `Assessment created! Job ID: ${successJid}`}
+                </p>
+                {successJid !== "saved" && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/hr/candidates")}
+                    className="mt-2 text-[13px] font-medium text-green-600 underline"
+                  >
+                    View Candidates →
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

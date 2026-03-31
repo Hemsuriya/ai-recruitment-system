@@ -2,7 +2,10 @@ const hrCandidateService = require("../services/hrCandidateService");
 
 exports.getAllCandidates = async (req, res) => {
   try {
-    const filters = { jid: req.query.jid || null };
+    const filters = {
+      jid: req.query.jid || null,
+      job_title: req.query.job_title || null,
+    };
     const candidates = await hrCandidateService.getAllCandidates(filters);
     res.json({ success: true, data: candidates });
   } catch (error) {

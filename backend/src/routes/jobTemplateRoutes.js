@@ -8,6 +8,7 @@ router.get("/:templateCode/autopopulate", jobTemplateController.autopopulateAsse
 router.get("/", jobTemplateController.getAllTemplates);
 router.get("/:templateKey", jobTemplateController.getTemplateByKey);
 router.post("/", jobTemplateController.createTemplate);
+
 router.put("/:templateKey", jobTemplateController.updateTemplate);
 router.delete("/:templateKey", jobTemplateController.deleteTemplate);
 
