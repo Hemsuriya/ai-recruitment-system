@@ -8,6 +8,9 @@ import CandidateDetailPage from "./features/candidates/pages/CandidateDetailPage
 import IdVerificationPage from "./features/candidate/pages/IdVerificationPage";
 import SelfieVerificationPage from "./features/candidate/pages/SelfieVerificationPage";
 import SettingsPage from "./features/settings/SettingsPage";
+import SignupPage from "./features/auth/SignupPage";
+import ForgotPasswordPage from "./features/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./features/auth/ResetPasswordPage";
 
 import AssessmentInstructions from "./features/candidate-portal/pages/AssessmentsInstructions";
 import CandidateInterviewPage from "./features/candidate-portal/pages/CandidateInterviewPage";
@@ -29,6 +32,9 @@ function App() {
         <Route path="/candidate/id-verification" element={<IdVerificationPage />} />
         <Route path="/candidate/selfie-verification" element={<SelfieVerificationPage />} />
         <Route path="/screening/:id/selfie" element={<SelfieVerificationPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* Candidate Portal */}
         <Route
           path="/candidate-portal/assessment-instructions"
