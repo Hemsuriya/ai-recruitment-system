@@ -10,7 +10,11 @@ const requiredEnv = [
   "N8N_BASE_URL",
   "N8N_GET_QUESTIONS_WEBHOOK",
   "N8N_UPDATE_STATUS_WEBHOOK",
-  "N8N_SUBMIT_RESULTS_WEBHOOK"
+  "N8N_SUBMIT_RESULTS_WEBHOOK",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_USER",
+  "SMTP_PASS"
 ];
 
 requiredEnv.forEach((env) => {
