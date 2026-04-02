@@ -22,26 +22,20 @@ exports.getTemplateByKey = async (templateKey) => {
   return result.rows[0] || null;
 };
 
-// Dropdown source: assessment_templates
+// Dropdown source: job_templates (mapped to assessment_templates shape)
 exports.getAllAssessmentTemplates = async () => {
   const result = await db.query(`
     SELECT
       id,
-      template_code,
-      template_name,
-      role_title,
-      experience_level,
-      skills,
+      template_key   AS template_code,
+      job_title      AS template_name,
+      job_title      AS role_title,
       job_description,
-      include_ai_questions,
-      include_coding_round,
-      include_aptitude_test,
-      include_ai_video_interview,
-      include_manual_video_interview,
+      required_skills AS skills,
       created_at,
       updated_at
-    FROM assessment_templates
-    ORDER BY template_name ASC
+    FROM job_templates
+    ORDER BY job_title ASC
   `);
 
   return result.rows;
@@ -49,11 +43,19 @@ exports.getAllAssessmentTemplates = async () => {
 
 exports.getAssessmentTemplateByCode = async (templateCode) => {
   const result = await db.query(
-    `
-    SELECT *
-    FROM assessment_templates
-    WHERE template_code = $1
-    `,
+    `SELECT
+       id,
+       template_key   AS template_code,
+       job_title      AS template_name,
+       job_title      AS role_title,
+       job_description,
+       required_skills AS skills,
+       survey_question_1,
+       survey_q1_expected_answer,
+       number_of_candidates,
+       time_limit_minutes
+     FROM job_templates
+     WHERE template_key = $1`,
     [templateCode]
   );
 

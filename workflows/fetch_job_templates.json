@@ -225,6 +225,21 @@
       ],
       "id": "cd96dc9b-7927-4097-bfcf-07e88836a920",
       "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"source\": \"database\",\n  \"template_key\": \"{{$json.template_key}}\",\n  \"job_title\": \"{{$json.job_title}}\",\n  \"job_description\": \"{{$json.job_description}}\",\n  \"required_skills\": \"{{$json.required_skills}}\",\n  \"number_of_candidates\": {{$json.number_of_candidates}},\n  \"survey_question_1\": \"{{$json.survey_question_1}}\",\n  \"survey_q1_expected_answer\": \"{{$json.survey_q1_expected_answer}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1100,
+        -100
+      ],
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Respond to Webhook (DB)"
     }
   ],
   "pinData": {},
@@ -318,6 +333,17 @@
         [
           {
             "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook (DB)",
             "type": "main",
             "index": 0
           }

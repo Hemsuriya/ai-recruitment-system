@@ -147,11 +147,17 @@ export default function TemplatesPage() {
 
   const handleDuplicate = async (t: ApiJobTemplate) => {
     try {
-      await jobTemplateApi.duplicate(t.template_key);
+      const duplicated = await jobTemplateApi.duplicate(t.template_key);
+      alert(`Template duplicated successfully!\n\nNew template: "${duplicated.job_title}"\nKey: ${duplicated.template_key}`);
       const updated = await jobTemplateApi.getAll();
       setTemplates(updated);
-    } catch (err) {
-      alert("Failed to duplicate template");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      if (msg.includes("already exists")) {
+        alert(`A duplicate of "${t.job_title}" already exists.`);
+      } else {
+        alert(`Failed to duplicate template: ${msg}`);
+      }
     }
   };
 

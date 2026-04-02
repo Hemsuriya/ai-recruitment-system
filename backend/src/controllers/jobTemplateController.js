@@ -142,11 +142,11 @@ exports.autopopulateAssessment = async (req, res) => {
         ? [workflowData.survey_question_1]
         : [],
       assessment_options: workflowData.assessment_options || {
-        include_ai_questions: template.include_ai_questions,
-        include_coding_round: template.include_coding_round,
-        include_aptitude_test: template.include_aptitude_test,
-        include_ai_video_interview: template.include_ai_video_interview,
-        include_manual_video_interview: template.include_manual_video_interview,
+        include_ai_questions: true,
+        include_coding_round: false,
+        include_aptitude_test: false,
+        include_ai_video_interview: false,
+        include_manual_video_interview: false,
       },
       assessment_summary: workflowData.assessment_summary || {
         role: workflowData.job_title || template.role_title,
