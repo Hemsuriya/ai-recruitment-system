@@ -22,10 +22,14 @@ exports.getAllCandidates = async (filters = {}) => {
       e.final_score, e.interview_score, e.security_score, e.security_details,
       e.recommendation, e.security_violations_count, e.security_severity,
       e.decision_comment,
-      ar.attention_metrics, ar.emotion_analysis, ar.face_detection, ar.violations_summary
+      ar.attention_metrics, ar.emotion_analysis, ar.face_detection, ar.violations_summary,
+      cv2.match_score AS resume_score,
+      asr.score_percentage AS mcq_score
     FROM video_interview_candidates c
     LEFT JOIN video_interview_evaluations e  ON c.video_assessment_id = e.video_assessment_id
     LEFT JOIN video_analysis_results ar      ON c.video_assessment_id = ar.video_assessment_id
+    LEFT JOIN candidates_v2 cv2              ON c.email = cv2.email
+    LEFT JOIN assessment_results_v2 asr      ON cv2.screening_id = asr.screening_id
     ${whereClause}
     ORDER BY c.created_at DESC
   `, params);
@@ -42,6 +46,8 @@ exports.getAllCandidates = async (filters = {}) => {
     date:                      row.created_at,
     interview_score:           row.interview_score,
     security_score:            row.security_score,
+    resume_score:              row.resume_score || null,
+    mcq_score:                 row.mcq_score || null,
     recommendation:            row.recommendation,
     security_details:          row.security_details || {},
     attention_metrics:         row.attention_metrics || {},
@@ -100,11 +106,24 @@ exports.getCandidateById = async (id) => {
       r.full_transcript,
       r.video_url,
       r.video_duration,
-      r.uploaded_at AS video_uploaded_at
+      r.uploaded_at AS video_uploaded_at,
+      cv2.match_score AS resume_score,
+      cv2.current_company,
+      cv2.experience_level,
+      cv2.salary_expectation,
+      cv2.required_skills AS candidate_skills,
+      cv2.notice_period,
+      cv2.visa_status,
+      asr.score_percentage AS mcq_score,
+      asr.grade AS mcq_grade,
+      asr.total_questions AS mcq_total_questions,
+      asr.correct_answers AS mcq_correct_answers
      FROM video_interview_candidates c
      LEFT JOIN video_interview_evaluations e ON c.video_assessment_id = e.video_assessment_id
      LEFT JOIN video_analysis_results ar     ON c.video_assessment_id = ar.video_assessment_id
      LEFT JOIN video_interview_responses r   ON c.video_assessment_id = r.video_assessment_id
+     LEFT JOIN candidates_v2 cv2             ON c.email = cv2.email
+     LEFT JOIN assessment_results_v2 asr     ON cv2.screening_id = asr.screening_id
      WHERE c.id = $1`,
     [id]
   );

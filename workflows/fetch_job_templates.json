@@ -1,0 +1,339 @@
+{
+  "name": "fetch job_templates",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "job-template",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f837674c-f285-4ed7-ad90-523c29fee952",
+      "name": "Webhook",
+      "webhookId": "918cd81b-79e2-4e62-ba66-b8af7cd32b84"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8f0bb642-5909-436b-8fcc-1e31701a2550",
+              "name": "job_id",
+              "value": "={{$json.body.job_id}}",
+              "type": "string"
+            },
+            {
+              "id": "9b0d0113-ba61-45a9-8f39-45dc30b8da7b",
+              "name": "job_description",
+              "value": "={{$json.body.job_description}}",
+              "type": "string"
+            },
+            {
+              "id": "4633f9ed-6e9b-44bd-8b5d-ce32ba874376",
+              "name": "action",
+              "value": "={{$json.body.action}}",
+              "type": "string"
+            },
+            {
+              "id": "97ce8445-ff67-4f86-9a53-0f0d6a810a48",
+              "name": "regenerate",
+              "value": "={{ $json.body.regenerate }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "id": "bed62848-eb12-4999-b4d8-09d42a0b66a9",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT EXISTS (\n  SELECT 1\n  FROM job_templates\n  WHERE template_key = $1\n) AS template_exists;",
+        "options": {
+          "queryReplacement": "={{$json.job_id}}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        440,
+        0
+      ],
+      "id": "dd5e8fb4-c269-43b2-ae2b-0ffe4142d4a2",
+      "name": "Postgres",
+      "credentials": {
+        "postgres": {
+          "id": "MCtdewvNaFee1Tkz",
+          "name": "Postgres account 39"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4e75f83e-462e-4b5c-9927-d3d62e8af2dd",
+              "leftValue": "={{$json.template_exists}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        0
+      ],
+      "id": "ff28d0cf-2c01-4ecf-a420-fed8854d7338",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI recruitment template generator.\n\nJob ID: {{$('Edit Fields').item.json.job_id}}\nJob Description: {{$('Edit Fields').item.json.job_description}}\n\nReturn ONLY valid JSON:\n{\n  \"template_key\": \"string\",\n  \"job_title\": \"string\",\n  \"job_description\": \"string\",\n  \"required_skills\": \"comma separated string\",\n  \"number_of_candidates\": 10,\n  \"survey_question_1\": \"string\",\n  \"survey_q1_expected_answer\": \"string\"\n}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        820,
+        120
+      ],
+      "id": "86e9db32-b8b7-45ae-aeee-0e55234558a5",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        920,
+        340
+      ],
+      "id": "0b66bf3d-2f47-469f-87b6-12bab65204de",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "Ygmx1j8p5JfnA2eK",
+          "name": "Groq account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "let raw = $json.text || \"\";\n\n// 🔥 Remove markdown formatting (```json ... ```)\nraw = raw.replace(/```json/gi, \"\")\n         .replace(/```/g, \"\")\n         .trim();\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  throw new Error(\"Invalid JSON after cleaning: \" + raw);\n}\n\nreturn {\n  template_key: parsed.template_key,\n  job_title: parsed.job_title,\n  job_description: parsed.job_description,\n  required_skills: parsed.required_skills,\n  number_of_candidates: parsed.number_of_candidates,\n  survey_question_1: parsed.survey_question_1,\n  survey_q1_expected_ans: parsed.survey_q1_expected_answer\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        120
+      ],
+      "id": "954e16bf-6b52-424c-9e35-767c1c3fa0a4",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO job_templates\n(template_key, job_title, job_description, required_skills, number_of_candidates, survey_question_1, survey_q1_expected_answer, created_at, updated_at)\nVALUES\n($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())\nON CONFLICT (template_key)\nDO UPDATE SET\n  job_title = EXCLUDED.job_title,\n  job_description = EXCLUDED.job_description,\n  required_skills = EXCLUDED.required_skills,\n  number_of_candidates = EXCLUDED.number_of_candidates,\n  survey_question_1 = EXCLUDED.survey_question_1,\n  survey_q1_expected_answer = EXCLUDED.survey_q1_expected_answer,\n  updated_at = NOW();",
+        "options": {
+          "queryReplacement": "={{$json.template_key}}\n{{$json.job_title}}\n{{$json.job_description}}\n{{$json.required_skills}}\n{{$json.number_of_candidates}}\n{{$json.survey_question_1}}\n{{$json.survey_q1_expected_ans}}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1400,
+        120
+      ],
+      "id": "3aeaf1af-6384-44d3-82fe-e04c226841bd",
+      "name": "Postgres1",
+      "credentials": {
+        "postgres": {
+          "id": "YuHvJ4tFhMYQ0C55",
+          "name": "Postgres account 9"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM job_templates\nWHERE template_key = $1;",
+        "options": {
+          "queryReplacement": "={{$('Edit Fields').item.json.job_id}}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        860,
+        -100
+      ],
+      "id": "14d311fc-f468-4ee2-8b96-7b9100678c7e",
+      "name": "Postgres2",
+      "credentials": {
+        "postgres": {
+          "id": "YuHvJ4tFhMYQ0C55",
+          "name": "Postgres account 9"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"source\": \"ai_generated\",\n  \"template_key\": \"{{$('Code').item.json.template_key}}\",\n  \"job_title\": \"{{$('Code').item.json.job_title}}\",\n  \"job_description\": \"{{$('Code').item.json.job_description}}\",\n  \"required_skills\": \"{{$('Code').item.json.required_skills}}\",\n  \"number_of_candidates\": {{$('Code').item.json.number_of_candidates}},\n  \"survey_question_1\": \"{{$('Code').item.json.survey_question_1}}\",\n  \"survey_q1_expected_answer\": \"{{$('Code').item.json.survey_q1_expected_ans}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1640,
+        120
+      ],
+      "id": "cd96dc9b-7927-4097-bfcf-07e88836a920",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Postgres2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Postgres1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a72080e5-e659-42a9-b1e6-0ad19abc949e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "de572ab65d0b93bd7ed848f47de5d5518f5e56e7150f2361a0dc9bcf40b56d88"
+  },
+  "id": "INTNHccLAkUcRpez",
+  "tags": []
+}

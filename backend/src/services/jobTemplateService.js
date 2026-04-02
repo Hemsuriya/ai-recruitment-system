@@ -150,6 +150,11 @@ exports.duplicateTemplate = async (templateKey) => {
 };
 
 exports.deleteTemplate = async (templateKey) => {
+  // Delete linked job_postings first (FK constraint)
+  await db.query(
+    `DELETE FROM job_postings WHERE template_id = (SELECT id FROM job_templates WHERE template_key = $1)`,
+    [templateKey]
+  );
   const result = await db.query(
     `DELETE FROM job_templates WHERE template_key = $1 RETURNING template_key`,
     [templateKey]

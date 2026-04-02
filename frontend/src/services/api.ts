@@ -36,6 +36,8 @@ export interface ApiCandidateListItem {
   security_violations_count: number;
   security_severity: string;
   decision_comment: string | null;
+  resume_score: number | null;
+  mcq_score: number | null;
 }
 
 export interface ApiCandidateDetail {
@@ -83,6 +85,17 @@ export interface ApiCandidateDetail {
   video_url: string | null;
   video_duration: number | null;
   video_uploaded_at: string | null;
+  resume_score: number | null;
+  mcq_score: number | null;
+  mcq_grade: string | null;
+  mcq_total_questions: number | null;
+  mcq_correct_answers: number | null;
+  current_company: string | null;
+  experience_level: string | null;
+  salary_expectation: string | null;
+  candidate_skills: string | null;
+  notice_period: string | null;
+  visa_status: string | null;
 }
 
 export const candidateApi = {
@@ -115,6 +128,7 @@ export interface JobPostingDropdownItem {
   status: string;
   opens_at: string | null;
   closes_at: string | null;
+  headcount: number | null;
 }
 
 export const jobPostingApi = {
@@ -232,6 +246,7 @@ export const jobTemplateApi = {
     survey_question_1?: string;
     survey_q1_expected_answer?: string;
     time_limit_minutes?: number;
+    headcount?: number;
   }) =>
     request<CreateAssessmentResult>("/api/job-postings/create-assessment", {
       method: "POST",

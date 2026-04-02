@@ -10,6 +10,7 @@ router.get("/:templateKey", jobTemplateController.getTemplateByKey);
 router.post("/", jobTemplateController.createTemplate);
 
 router.put("/:templateKey", jobTemplateController.updateTemplate);
+router.post("/:templateKey/duplicate", jobTemplateController.duplicateTemplate);
 router.delete("/:templateKey", jobTemplateController.deleteTemplate);
 
 module.exports = router;
