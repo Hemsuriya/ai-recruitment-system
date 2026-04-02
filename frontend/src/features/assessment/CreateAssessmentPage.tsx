@@ -13,12 +13,15 @@ import {
   WandSparkles,
   Zap,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import HrShell from "../../components/layouts/HrShell";
 import {
   jobTemplateApi,
+  settingsApi,
   type ApiDropdownTemplate,
   type AutopopulateResponse,
+  type Department,
+  type HrMember,
 } from "@/services/api";
 
 type FormData = {
@@ -27,6 +30,10 @@ type FormData = {
   skills: string[];
   timerMinutes: number;
   headcount: number;
+  closesAt: string;
+  department: string;
+  hiringManager: string;
+  interviewer: string;
 };
 
 type Question = {
@@ -65,6 +72,7 @@ const defaultQuestions: Question[] = [
 ];
 
 const experienceLevels = ["Select level", "Junior", "Mid", "Senior", "Lead"];
+
 
 const optionConfig: Array<{
   key: keyof Options;
@@ -163,9 +171,13 @@ function TemplatePicker({
 function AssessmentDetails({
   formData,
   setFormData,
+  departments,
+  members,
 }: {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  departments: Department[];
+  members: HrMember[];
 }) {
   const [skillInput, setSkillInput] = useState("");
 
@@ -265,13 +277,79 @@ function AssessmentDetails({
               {formData.skills.map((skill) => (
                 <span
                   key={skill}
-                  className="rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
+                  className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
                 >
                   {skill}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((current) => ({
+                        ...current,
+                        skills: current.skills.filter((s) => s !== skill),
+                      }))
+                    }
+                    className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-violet-400 hover:bg-violet-200 hover:text-violet-700 transition-colors"
+                  >
+                    <CircleX className="h-3.5 w-3.5" />
+                  </button>
                 </span>
               ))}
             </div>
           ) : null}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Department / Team
+            </span>
+            <div className="relative">
+              <select
+                value={formData.department}
+                onChange={(event) =>
+                  setFormData((current) => ({
+                    ...current,
+                    department: event.target.value,
+                  }))
+                }
+                className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Select department</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Hiring Manager
+            </span>
+            <div className="relative">
+              <select
+                value={formData.hiringManager}
+                onChange={(event) =>
+                  setFormData((current) => ({
+                    ...current,
+                    hiringManager: event.target.value,
+                  }))
+                }
+                className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Select manager</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          </label>
         </div>
 
         <div className="flex gap-4">
@@ -310,6 +388,24 @@ function AssessmentDetails({
                 }))
               }
               className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+          </label>
+
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Closing Date
+            </span>
+            <input
+              type="date"
+              min={new Date().toISOString().split("T")[0]}
+              value={formData.closesAt}
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  closesAt: event.target.value,
+                }))
+              }
+              className="h-10 w-44 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
             />
           </label>
         </div>
@@ -539,12 +635,18 @@ function AssessmentOptions({
   onSubmit,
   submitting,
   editMode,
+  interviewer,
+  onInterviewerChange,
+  members,
 }: {
   options: Options;
   setOptions: React.Dispatch<React.SetStateAction<Options>>;
   onSubmit: () => void;
   submitting: boolean;
   editMode: boolean;
+  interviewer: string;
+  onInterviewerChange: (value: string) => void;
+  members: HrMember[];
 }) {
   const toggleOption = (key: keyof Options) => {
     setOptions((current) => ({ ...current, [key]: !current[key] }));
@@ -596,6 +698,34 @@ function AssessmentOptions({
         })}
       </div>
 
+      {options.manualInterview && (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Assign Interviewer
+            </span>
+            <div className="relative">
+              <select
+                value={interviewer}
+                onChange={(event) => onInterviewerChange(event.target.value)}
+                className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-white px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Select interviewer</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          </label>
+          <p className="mt-1.5 text-[12px] text-gray-400">
+            Person responsible for conducting the manual video interview
+          </p>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={onSubmit}
@@ -611,6 +741,7 @@ function AssessmentOptions({
 
 export default function CreateAssessmentPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [templates, setTemplates] = useState<ApiDropdownTemplate[]>([]);
   const [selectedTemplateKey, setSelectedTemplateKey] = useState("");
   const [editMode, setEditMode] = useState(false);
@@ -622,6 +753,10 @@ export default function CreateAssessmentPage() {
     skills: [],
     timerMinutes: 30,
     headcount: 1,
+    closesAt: "",
+    department: "",
+    hiringManager: "",
+    interviewer: "",
   });
   const [questions, setQuestions] = useState<Question[]>(defaultQuestions);
   const [options, setOptions] = useState<Options>({
@@ -631,16 +766,23 @@ export default function CreateAssessmentPage() {
     aiInterview: true,
     manualInterview: false,
   });
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [members, setMembers] = useState<HrMember[]>([]);
 
-  // Fetch templates on mount + handle URL params
+  useEffect(() => {
+    settingsApi.getDepartments().then(setDepartments).catch(() => {});
+    settingsApi.getMembers().then(setMembers).catch(() => {});
+  }, []);
+
+  // Fetch templates on mount + handle URL params (re-runs on navigation)
 useEffect(() => {
   const loadTemplates = async () => {
     try {
       const data = await jobTemplateApi.getDropdownTemplates();
       setTemplates(data);
 
-      const params = new URLSearchParams(window.location.search);
-      const templateCode = params.get("template_code");
+      const params = new URLSearchParams(location.search);
+      const templateCode = params.get("template_code") || params.get("template_key");
       const editKey = params.get("edit");
 
       if (editKey) {
@@ -657,7 +799,7 @@ useEffect(() => {
   };
 
   loadTemplates();
-}, []);
+}, [location.search]);
 
 const applyAutopopulateData = (data: AutopopulateResponse) => {
   setFormData({
@@ -666,6 +808,10 @@ const applyAutopopulateData = (data: AutopopulateResponse) => {
     skills: data.skills_required || [],
     timerMinutes: 30,
     headcount: 1,
+    closesAt: "",
+    department: "",
+    hiringManager: "",
+    interviewer: "",
   });
 
   const incomingQuestions: Question[] =
@@ -739,6 +885,10 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
           survey_question_1: selectedQ[0]?.text || undefined,
           time_limit_minutes: formData.timerMinutes,
           headcount: formData.headcount,
+          closes_at: formData.closesAt || undefined,
+          department: formData.department || undefined,
+          hiring_manager: formData.hiringManager || undefined,
+          interviewer: options.manualInterview ? formData.interviewer || undefined : undefined,
         });
         alert(`Assessment created successfully!\n\nJob ID: ${result.jid}\nRole: ${formData.roleTitle}\nPositions: ${formData.headcount}`);
         navigate("/hr/dashboard");
@@ -780,7 +930,7 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
 
         <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
           <div className="space-y-3">
-            <AssessmentDetails formData={formData} setFormData={setFormData} />
+            <AssessmentDetails formData={formData} setFormData={setFormData} departments={departments} members={members} />
             <PreScreeningQuestions
               questions={questions}
               setQuestions={setQuestions}
@@ -799,6 +949,11 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
               onSubmit={handleSubmit}
               submitting={saving}
               editMode={editMode}
+              interviewer={formData.interviewer}
+              onInterviewerChange={(value) =>
+                setFormData((current) => ({ ...current, interviewer: value }))
+              }
+              members={members}
             />
 
           </div>

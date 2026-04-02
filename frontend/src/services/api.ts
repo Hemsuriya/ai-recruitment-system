@@ -247,9 +247,51 @@ export const jobTemplateApi = {
     survey_q1_expected_answer?: string;
     time_limit_minutes?: number;
     headcount?: number;
+    closes_at?: string;
+    department?: string;
+    hiring_manager?: string;
+    interviewer?: string;
   }) =>
     request<CreateAssessmentResult>("/api/job-postings/create-assessment", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+};
+
+// ── Settings: Departments & HR Members ──────────────────────
+
+export interface Department {
+  id: number;
+  name: string;
+}
+
+export interface HrMember {
+  id: number;
+  name: string;
+  email: string | null;
+  role: string;
+}
+
+export const settingsApi = {
+  getDepartments: () => request<Department[]>("/api/settings/departments"),
+
+  createDepartment: (name: string) =>
+    request<Department>("/api/settings/departments", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteDepartment: (id: number) =>
+    request<void>(`/api/settings/departments/${id}`, { method: "DELETE" }),
+
+  getMembers: () => request<HrMember[]>("/api/settings/members"),
+
+  createMember: (data: { name: string; email?: string; role?: string }) =>
+    request<HrMember>("/api/settings/members", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  deleteMember: (id: number) =>
+    request<void>(`/api/settings/members/${id}`, { method: "DELETE" }),
 };
