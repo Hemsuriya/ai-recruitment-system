@@ -12,9 +12,8 @@ const assessmentRoutes = require("./routes/assessmentRoutes");
 const jobTemplateRoutes = require("./routes/jobTemplateRoutes");
 const hrCandidateRoutes = require("./routes/hrCandidateRoutes");
 const jobPostingRoutes = require("./routes/jobPostingRoutes");
-const assessmentConfigRoutes = require("./routes/assessmentConfigRoutes");
-const authRoutes = require("./routes/authRoutes");
-const emailRoutes = require("./routes/emailRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
+
 
 const app = express();
 
@@ -58,9 +57,7 @@ app.use("/assessment", assessmentRoutes);
 app.use("/api/job-templates", jobTemplateRoutes);
 app.use("/api/job-postings", jobPostingRoutes);
 app.use("/api/hr/candidates", hrCandidateRoutes);
-app.use("/api/hr/assessments", assessmentConfigRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/email", emailRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // ─── Frontend Pages ─────────────────────────────────────────
 

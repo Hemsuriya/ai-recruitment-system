@@ -1,9 +1,9 @@
 const db = require("../config/db");
-
+// Existing job_templates CRUD
 exports.getAllTemplates = async () => {
   const result = await db.query(`
     SELECT
-      id, template_key, job_title, job_description,
+      template_key, job_title, job_description,
       required_skills, number_of_candidates,
       survey_question_1, survey_q1_expected_answer,
       time_limit_minutes,
@@ -19,8 +19,47 @@ exports.getTemplateByKey = async (templateKey) => {
     `SELECT * FROM job_templates WHERE template_key = $1`,
     [templateKey]
   );
-  if (result.rows.length === 0) return null;
-  return result.rows[0];
+  return result.rows[0] || null;
+};
+
+// Dropdown source: job_templates (mapped to assessment_templates shape)
+exports.getAllAssessmentTemplates = async () => {
+  const result = await db.query(`
+    SELECT
+      id,
+      template_key   AS template_code,
+      job_title      AS template_name,
+      job_title      AS role_title,
+      job_description,
+      required_skills AS skills,
+      created_at,
+      updated_at
+    FROM job_templates
+    ORDER BY job_title ASC
+  `);
+
+  return result.rows;
+};
+
+exports.getAssessmentTemplateByCode = async (templateCode) => {
+  const result = await db.query(
+    `SELECT
+       id,
+       template_key   AS template_code,
+       job_title      AS template_name,
+       job_title      AS role_title,
+       job_description,
+       required_skills AS skills,
+       survey_question_1,
+       survey_q1_expected_answer,
+       number_of_candidates,
+       time_limit_minutes
+     FROM job_templates
+     WHERE template_key = $1`,
+    [templateCode]
+  );
+
+  return result.rows[0] || null;
 };
 
 exports.createTemplate = async (data) => {

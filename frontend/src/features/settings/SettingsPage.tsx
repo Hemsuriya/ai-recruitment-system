@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   User,
@@ -11,11 +11,15 @@ import {
   ShieldCheck,
   Trash2,
   Camera,
+  Plus,
+  CircleX,
+  Users,
 } from "lucide-react";
 import HrShell from "../../components/layouts/HrShell";
+import { settingsApi, type Department, type HrMember } from "@/services/api";
 
 /* ─── Types ─── */
-type TabKey = "profile" | "notifications" | "security";
+type TabKey = "profile" | "organization" | "notifications" | "security";
 
 interface ProfileState {
   name: string;
@@ -40,9 +44,12 @@ interface PasswordState {
 /* ─── Static data (outside component to avoid recreation on every render) ─── */
 const TABS: { value: TabKey; icon: LucideIcon; label: string }[] = [
   { value: "profile", icon: User, label: "Profile" },
+  { value: "organization", icon: Building, label: "Organization" },
   { value: "notifications", icon: Bell, label: "Notifications" },
   { value: "security", icon: Lock, label: "Security" },
 ];
+
+const MEMBER_ROLES = ["HR", "Manager", "Lead", "Director", "VP", "CTO", "CEO"];
 
 const EMAIL_NOTIFICATION_ITEMS: {
   key: keyof NotificationState;
@@ -123,6 +130,59 @@ export default function SettingsPage() {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Organization state
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [members, setMembers] = useState<HrMember[]>([]);
+  const [newDept, setNewDept] = useState("");
+  const [newMember, setNewMember] = useState({ name: "", email: "", role: "HR" });
+
+  useEffect(() => {
+    if (activeTab === "organization") {
+      settingsApi.getDepartments().then(setDepartments).catch(() => {});
+      settingsApi.getMembers().then(setMembers).catch(() => {});
+    }
+  }, [activeTab]);
+
+  const handleAddDept = async () => {
+    if (!newDept.trim()) return;
+    try {
+      const dept = await settingsApi.createDepartment(newDept);
+      setDepartments((prev) => [...prev, dept].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewDept("");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to add department");
+    }
+  };
+
+  const handleDeleteDept = async (id: number) => {
+    try {
+      await settingsApi.deleteDepartment(id);
+      setDepartments((prev) => prev.filter((d) => d.id !== id));
+    } catch {
+      alert("Failed to delete department");
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!newMember.name.trim()) return;
+    try {
+      const member = await settingsApi.createMember(newMember);
+      setMembers((prev) => [...prev, member].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewMember({ name: "", email: "", role: "HR" });
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to add member");
+    }
+  };
+
+  const handleDeleteMember = async (id: number) => {
+    try {
+      await settingsApi.deleteMember(id);
+      setMembers((prev) => prev.filter((m) => m.id !== id));
+    } catch {
+      alert("Failed to delete member");
+    }
+  };
+
   const handleProfileChange = (field: keyof ProfileState, value: string) => {
     setProfile((prev) => ({ ...prev, [field]: value }));
   };
@@ -146,7 +206,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="mb-8 grid grid-cols-3 gap-1 rounded-xl border border-gray-200 bg-gray-100 p-1">
+        <div className="mb-8 grid grid-cols-4 gap-1 rounded-xl border border-gray-200 bg-gray-100 p-1">
           {TABS.map(({ value, icon: Icon, label }) => (
             <button
               key={value}
@@ -298,6 +358,127 @@ export default function SettingsPage() {
                 >
                   Save Changes
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── ORGANIZATION TAB ─── */}
+        {activeTab === "organization" && (
+          <div className="space-y-6">
+            {/* Departments */}
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="px-6 pt-6 pb-2">
+                <h2 className="text-lg font-semibold text-gray-900">Departments</h2>
+                <p className="text-sm text-gray-500">Manage teams that appear in assessment creation</p>
+              </div>
+              <div className="px-6 pt-2 pb-6 space-y-4">
+                <div className="flex gap-2">
+                  <input
+                    value={newDept}
+                    onChange={(e) => setNewDept(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddDept(); } }}
+                    placeholder="New department name"
+                    className={INPUT_CLASS + " flex-1"}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddDept}
+                    className="flex h-10 items-center gap-1.5 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4" /> Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {departments.map((dept) => (
+                    <span
+                      key={dept.id}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700"
+                    >
+                      <Building className="h-3.5 w-3.5 text-gray-400" />
+                      {dept.name}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDept(dept.id)}
+                        className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-gray-400 hover:bg-red-100 hover:text-red-500 transition-colors"
+                      >
+                        <CircleX className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                  {departments.length === 0 && (
+                    <p className="text-sm text-gray-400">No departments yet. Add one above.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* HR Members */}
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="px-6 pt-6 pb-2">
+                <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
+                <p className="text-sm text-gray-500">People available as hiring managers and interviewers</p>
+              </div>
+              <div className="px-6 pt-2 pb-6 space-y-4">
+                <div className="flex gap-2">
+                  <input
+                    value={newMember.name}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Name"
+                    className={INPUT_CLASS + " flex-1"}
+                  />
+                  <input
+                    value={newMember.email}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, email: e.target.value }))}
+                    placeholder="Email (optional)"
+                    className={INPUT_CLASS + " flex-1"}
+                  />
+                  <select
+                    value={newMember.role}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, role: e.target.value }))}
+                    className="h-10 w-32 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  >
+                    {MEMBER_ROLES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddMember}
+                    className="flex h-10 items-center gap-1.5 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4" /> Add
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {members.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">
+                          {m.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{m.name}</p>
+                          <p className="text-xs text-gray-400">{m.email || "No email"} · {m.role}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMember(m.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {members.length === 0 && (
+                    <p className="text-sm text-gray-400">No team members yet. Add one above.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

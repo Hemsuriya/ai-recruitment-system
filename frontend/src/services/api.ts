@@ -265,8 +265,49 @@ export interface CreateAssessmentResult {
   posting: Record<string, unknown>;
 }
 
+export type ApiDropdownTemplate = {
+  id: number;
+  template_code: string;
+  template_name: string;
+};
+
+export type AutopopulateResponse = {
+  template_code: string;
+  template_name: string;
+  role_title: string;
+  experience_level: string;
+  job_description: string;
+  skills_required: string[];
+  pre_screening_questions: string[];
+  assessment_options?: {
+    include_ai_questions?: boolean;
+    include_coding_round?: boolean;
+    include_aptitude_test?: boolean;
+    include_ai_video_interview?: boolean;
+    include_manual_video_interview?: boolean;
+  };
+  assessment_summary?: {
+    role?: string;
+    experience?: string;
+    skills?: string[];
+    components?: string[];
+  };
+  ai_source?: string;
+  number_of_candidates?: number;
+  survey_q1_expected_answer?: string;
+};
+
 export const jobTemplateApi = {
+   
   getAll: () => request<ApiJobTemplate[]>("/api/job-templates"),
+
+   getDropdownTemplates: () =>
+    request<ApiDropdownTemplate[]>("/api/job-templates/dropdown"),
+
+  autopopulate: (templateCode: string) =>
+    request<AutopopulateResponse>(
+      `/api/job-templates/${encodeURIComponent(templateCode)}/autopopulate`
+    ),
 
   getByKey: (key: string) =>
     request<ApiJobTemplate>(`/api/job-templates/${encodeURIComponent(key)}`),
@@ -295,9 +336,51 @@ export const jobTemplateApi = {
     survey_q1_expected_answer?: string;
     time_limit_minutes?: number;
     headcount?: number;
+    closes_at?: string;
+    department?: string;
+    hiring_manager?: string;
+    interviewer?: string;
   }) =>
     request<CreateAssessmentResult>("/api/job-postings/create-assessment", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+};
+
+// ── Settings: Departments & HR Members ──────────────────────
+
+export interface Department {
+  id: number;
+  name: string;
+}
+
+export interface HrMember {
+  id: number;
+  name: string;
+  email: string | null;
+  role: string;
+}
+
+export const settingsApi = {
+  getDepartments: () => request<Department[]>("/api/settings/departments"),
+
+  createDepartment: (name: string) =>
+    request<Department>("/api/settings/departments", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteDepartment: (id: number) =>
+    request<void>(`/api/settings/departments/${id}`, { method: "DELETE" }),
+
+  getMembers: () => request<HrMember[]>("/api/settings/members"),
+
+  createMember: (data: { name: string; email?: string; role?: string }) =>
+    request<HrMember>("/api/settings/members", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  deleteMember: (id: number) =>
+    request<void>(`/api/settings/members/${id}`, { method: "DELETE" }),
 };

@@ -14,7 +14,6 @@ import { useNavigate } from "react-router-dom";
 import HrShell from "../../../components/layouts/HrShell";
 import { jobTemplateApi, type ApiJobTemplate } from "@/services/api";
 
-
 const Tag = ({ children }: { children: React.ReactNode }) => (
   <span className="rounded-md bg-gray-100 px-2.5 py-1.5 text-[13px] font-medium text-gray-500">
     {children}
@@ -55,7 +54,7 @@ function Card({
   });
 
   return (
-    <div className="flex min-h-[350px] flex-col rounded-[22px] border border-gray-200 bg-white p-5 shadow-[0_1px_4px_rgba(16,24,40,0.06)]">
+    <div className="flex min-h-87.5 flex-col rounded-[22px] border border-gray-200 bg-white p-5 shadow-[0_1px_4px_rgba(16,24,40,0.06)]">
       <div className="mb-4 flex items-start justify-between">
         <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${a.iconWrap}`}>
           <FileText className={`h-5 w-5 ${a.icon}`} />
@@ -148,11 +147,17 @@ export default function TemplatesPage() {
 
   const handleDuplicate = async (t: ApiJobTemplate) => {
     try {
-      await jobTemplateApi.duplicate(t.template_key);
+      const duplicated = await jobTemplateApi.duplicate(t.template_key);
+      alert(`Template duplicated successfully!\n\nNew template: "${duplicated.job_title}"\nKey: ${duplicated.template_key}`);
       const updated = await jobTemplateApi.getAll();
       setTemplates(updated);
-    } catch (err) {
-      alert("Failed to duplicate template");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      if (msg.includes("already exists")) {
+        alert(`A duplicate of "${t.job_title}" already exists.`);
+      } else {
+        alert(`Failed to duplicate template: ${msg}`);
+      }
     }
   };
 

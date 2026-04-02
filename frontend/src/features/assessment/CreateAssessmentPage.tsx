@@ -13,18 +13,27 @@ import {
   WandSparkles,
   Zap,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import HrShell from "../../components/layouts/HrShell";
-import { jobTemplateApi, assessmentApi, type ApiJobTemplate } from "@/services/api";
+import {
+  jobTemplateApi,
+  settingsApi,
+  type ApiDropdownTemplate,
+  type AutopopulateResponse,
+  type Department,
+  type HrMember,
+} from "@/services/api";
 
 type FormData = {
   roleTitle: string;
   experienceLevel: string;
   skills: string[];
-  mcqTimerMinutes: number;
-  videoTimerMinutes: number;
-  codingTimerMinutes: number;
+  timerMinutes: number;
   headcount: number;
+  closesAt: string;
+  department: string;
+  hiringManager: string;
+  interviewer: string;
 };
 
 type Question = {
@@ -63,6 +72,7 @@ const defaultQuestions: Question[] = [
 ];
 
 const experienceLevels = ["Select level", "Junior", "Mid", "Senior", "Lead"];
+
 
 const optionConfig: Array<{
   key: keyof Options;
@@ -119,21 +129,21 @@ function TemplatePicker({
   selected,
   onSelect,
 }: {
-  templates: ApiJobTemplate[];
+  templates: ApiDropdownTemplate[];
   selected: string;
   onSelect: (key: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const selectedTemplate = templates.find((t) => t.template_key === selected);
+  const selectedTemplate = templates.find((t) => t.template_code === selected);
 
   return (
     <div className="relative">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex min-w-[156px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-[14px] text-gray-700 transition-colors hover:bg-white"
+        className="flex min-w-39 items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-[14px] text-gray-700 transition-colors hover:bg-white"
       >
-        {selectedTemplate?.job_title || "Choose a template"}
+        {selectedTemplate?.template_name || "Choose a template"}
         <ChevronDown className="h-4 w-4 text-gray-400" />
       </button>
 
@@ -141,15 +151,15 @@ function TemplatePicker({
         <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-[14px] border border-gray-200 bg-white shadow-lg">
           {templates.map((t) => (
             <button
-              key={t.template_key}
+              key={t.template_code}
               type="button"
               onClick={() => {
-                onSelect(t.template_key);
+                onSelect(t.template_code);
                 setOpen(false);
               }}
               className="w-full px-4 py-2.5 text-left text-[14px] text-gray-700 transition-colors hover:bg-violet-50 hover:text-violet-700 first:rounded-t-xl last:rounded-b-xl"
             >
-              {t.job_title}
+              {t.template_name}
             </button>
           ))}
         </div>
@@ -161,9 +171,13 @@ function TemplatePicker({
 function AssessmentDetails({
   formData,
   setFormData,
+  departments,
+  members,
 }: {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  departments: Department[];
+  members: HrMember[];
 }) {
   const [skillInput, setSkillInput] = useState("");
 
@@ -211,7 +225,7 @@ function AssessmentDetails({
           <span className="app-field-label mb-2 block">
             Experience Level
           </span>
-          <div className="relative max-w-[108px]">
+          <div className="relative max-w-27">
             <select
               value={formData.experienceLevel}
               onChange={(event) =>
@@ -263,75 +277,101 @@ function AssessmentDetails({
               {formData.skills.map((skill) => (
                 <span
                   key={skill}
-                  className="rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
+                  className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
                 >
                   {skill}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((current) => ({
+                        ...current,
+                        skills: current.skills.filter((s) => s !== skill),
+                      }))
+                    }
+                    className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-violet-400 hover:bg-violet-200 hover:text-violet-700 transition-colors"
+                  >
+                    <CircleX className="h-3.5 w-3.5" />
+                  </button>
                 </span>
               ))}
             </div>
           ) : null}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4">
           <label className="block">
             <span className="app-field-label mb-2 block">
-              MCQ Timer (min)
+              Department / Team
             </span>
-            <input
-              type="number"
-              min={5}
-              max={180}
-              value={formData.mcqTimerMinutes}
-              onChange={(event) =>
-                setFormData((current) => ({
-                  ...current,
-                  mcqTimerMinutes: Number(event.target.value) || 30,
-                }))
-              }
-              className="h-10 w-full rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
-            />
+            <div className="relative">
+              <select
+                value={formData.department}
+                onChange={(event) =>
+                  setFormData((current) => ({
+                    ...current,
+                    department: event.target.value,
+                  }))
+                }
+                className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Select department</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
           </label>
 
           <label className="block">
             <span className="app-field-label mb-2 block">
-              Video Timer (min)
+              Hiring Manager
             </span>
-            <input
-              type="number"
-              min={5}
-              max={180}
-              value={formData.videoTimerMinutes}
-              onChange={(event) =>
-                setFormData((current) => ({
-                  ...current,
-                  videoTimerMinutes: Number(event.target.value) || 15,
-                }))
-              }
-              className="h-10 w-full rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
-            />
-          </label>
-
-          <label className="block">
-            <span className="app-field-label mb-2 block">
-              Coding Timer (min)
-            </span>
-            <input
-              type="number"
-              min={5}
-              max={180}
-              value={formData.codingTimerMinutes}
-              onChange={(event) =>
-                setFormData((current) => ({
-                  ...current,
-                  codingTimerMinutes: Number(event.target.value) || 45,
-                }))
-              }
-              className="h-10 w-full rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
-            />
+            <div className="relative">
+              <select
+                value={formData.hiringManager}
+                onChange={(event) =>
+                  setFormData((current) => ({
+                    ...current,
+                    hiringManager: event.target.value,
+                  }))
+                }
+                className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Select manager</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
           </label>
         </div>
 
         <div className="flex gap-4">
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Assessment Timer (minutes)
+            </span>
+            <input
+              type="number"
+              min={5}
+              max={180}
+              value={formData.timerMinutes}
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  timerMinutes: Number(event.target.value) || 30,
+                }))
+              }
+              className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+          </label>
+
           <label className="block">
             <span className="app-field-label mb-2 block">
               Positions to Fill
@@ -348,6 +388,24 @@ function AssessmentDetails({
                 }))
               }
               className="h-10 w-32 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+          </label>
+
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Closing Date
+            </span>
+            <input
+              type="date"
+              min={new Date().toISOString().split("T")[0]}
+              value={formData.closesAt}
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  closesAt: event.target.value,
+                }))
+              }
+              className="h-10 w-44 rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
             />
           </label>
         </div>
@@ -412,7 +470,7 @@ function PreScreeningQuestions({
             key={question.id}
             type="button"
             onClick={() => toggleQuestion(question.id)}
-            className="flex w-full items-center gap-3 rounded-[12px] border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-gray-300"
+            className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-gray-300"
           >
             <div
               className={`flex h-5 w-5 items-center justify-center rounded-md text-white ${
@@ -577,12 +635,18 @@ function AssessmentOptions({
   onSubmit,
   submitting,
   editMode,
+  interviewer,
+  onInterviewerChange,
+  members,
 }: {
   options: Options;
   setOptions: React.Dispatch<React.SetStateAction<Options>>;
   onSubmit: () => void;
   submitting: boolean;
   editMode: boolean;
+  interviewer: string;
+  onInterviewerChange: (value: string) => void;
+  members: HrMember[];
 }) {
   const toggleOption = (key: keyof Options) => {
     setOptions((current) => ({ ...current, [key]: !current[key] }));
@@ -603,13 +667,13 @@ function AssessmentOptions({
           return (
             <div
               key={option.key}
-              className="flex items-center rounded-[12px] border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300"
+              className="flex items-center rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300"
             >
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => toggleOption(option.key)}
-                  className={`flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors ${
+                  className={`flex h-4 w-4 items-center justify-center rounded-sm border transition-colors ${
                     enabled
                       ? "border-violet-500 bg-violet-500 text-white"
                       : "border-gray-300 bg-white text-transparent"
@@ -634,11 +698,39 @@ function AssessmentOptions({
         })}
       </div>
 
+      {options.manualInterview && (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <label className="block">
+            <span className="app-field-label mb-2 block">
+              Assign Interviewer
+            </span>
+            <div className="relative">
+              <select
+                value={interviewer}
+                onChange={(event) => onInterviewerChange(event.target.value)}
+                className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-white px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Select interviewer</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          </label>
+          <p className="mt-1.5 text-[12px] text-gray-400">
+            Person responsible for conducting the manual video interview
+          </p>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={onSubmit}
         disabled={submitting}
-        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-violet-500 to-indigo-600 px-6 text-[14px] font-medium text-white shadow-lg shadow-violet-200 transition-colors hover:opacity-95 disabled:opacity-60"
+        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-linear-to-r from-violet-500 to-indigo-600 px-6 text-[14px] font-medium text-white shadow-lg shadow-violet-200 transition-colors hover:opacity-95 disabled:opacity-60"
       >
         <Sparkles className="h-4 w-4" />
         {submitting ? "Saving…" : editMode ? "Update Template" : "Generate Assessment"}
@@ -649,18 +741,22 @@ function AssessmentOptions({
 
 export default function CreateAssessmentPage() {
   const navigate = useNavigate();
-  const [templates, setTemplates] = useState<ApiJobTemplate[]>([]);
+  const location = useLocation();
+  const [templates, setTemplates] = useState<ApiDropdownTemplate[]>([]);
   const [selectedTemplateKey, setSelectedTemplateKey] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     roleTitle: "",
     experienceLevel: "",
     skills: [],
-    mcqTimerMinutes: 30,
-    videoTimerMinutes: 15,
-    codingTimerMinutes: 45,
+    timerMinutes: 30,
     headcount: 1,
+    closesAt: "",
+    department: "",
+    hiringManager: "",
+    interviewer: "",
   });
   const [questions, setQuestions] = useState<Question[]>(defaultQuestions);
   const [options, setOptions] = useState<Options>({
@@ -670,55 +766,97 @@ export default function CreateAssessmentPage() {
     aiInterview: true,
     manualInterview: false,
   });
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [members, setMembers] = useState<HrMember[]>([]);
 
-  // Fetch templates on mount + handle URL params
   useEffect(() => {
-    jobTemplateApi.getAll().then((data) => {
-      setTemplates(data);
-      const params = new URLSearchParams(window.location.search);
-      const editKey = params.get("edit");
-      const templateKey = params.get("template_key");
-      if (editKey) {
-        applyTemplate(editKey, data);
-        setEditMode(true);
-      } else if (templateKey) {
-        applyTemplate(templateKey, data);
-      }
-      window.history.replaceState({}, "", window.location.pathname);
-    }).catch(() => {});
+    settingsApi.getDepartments().then(setDepartments).catch(() => {});
+    settingsApi.getMembers().then(setMembers).catch(() => {});
   }, []);
 
-  const applyTemplate = (key: string, list: ApiJobTemplate[]) => {
-    const t = list.find((tpl) => tpl.template_key === key);
-    if (!t) return;
-    setSelectedTemplateKey(key);
-    setFormData({
-      roleTitle: t.job_title || "",
-      experienceLevel: "",
-      skills: t.required_skills
-        ? t.required_skills.split(",").map((s) => s.trim()).filter(Boolean)
-        : [],
-      mcqTimerMinutes: t.time_limit_minutes ?? 30,
-      videoTimerMinutes: 15,
-      codingTimerMinutes: 45,
-      headcount: Number(t.number_of_candidates) || 1,
-    });
-    if (t.survey_question_1) {
-      setQuestions((prev) => {
-        const exists = prev.some((q) => q.text === t.survey_question_1);
-        if (exists) return prev;
-        return [
-          ...prev,
-          { id: `tpl-${Date.now()}`, text: t.survey_question_1!, checked: true },
-        ];
-      });
+  // Fetch templates on mount + handle URL params (re-runs on navigation)
+useEffect(() => {
+  const loadTemplates = async () => {
+    try {
+      const data = await jobTemplateApi.getDropdownTemplates();
+      setTemplates(data);
+
+      const params = new URLSearchParams(location.search);
+      const templateCode = params.get("template_code") || params.get("template_key");
+      const editKey = params.get("edit");
+
+      if (editKey) {
+        await fetchAutopopulatedTemplate(editKey);
+        setEditMode(true);
+      } else if (templateCode) {
+        await fetchAutopopulatedTemplate(templateCode);
+      }
+
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch (error) {
+      console.error("Failed to fetch dropdown templates", error);
     }
   };
 
-  const handleTemplateSelect = (key: string) => {
+  loadTemplates();
+}, [location.search]);
+
+const applyAutopopulateData = (data: AutopopulateResponse) => {
+  setFormData({
+    roleTitle: data.role_title || "",
+    experienceLevel: data.experience_level || "",
+    skills: data.skills_required || [],
+    timerMinutes: 30,
+    headcount: 1,
+    closesAt: "",
+    department: "",
+    hiringManager: "",
+    interviewer: "",
+  });
+
+  const incomingQuestions: Question[] =
+    (data.pre_screening_questions || []).map((text, index) => ({
+      id: `api-${index}-${Date.now()}`,
+      text,
+      checked: true,
+    }));
+
+  setQuestions(
+    incomingQuestions.length > 0 ? incomingQuestions : defaultQuestions
+  );
+
+  setOptions({
+    generateAI: data.assessment_options?.include_ai_questions ?? true,
+    codingRound: data.assessment_options?.include_coding_round ?? false,
+    aptitudeTest: data.assessment_options?.include_aptitude_test ?? false,
+    aiInterview: data.assessment_options?.include_ai_video_interview ?? false,
+    manualInterview:
+      data.assessment_options?.include_manual_video_interview ?? false,
+  });
+};
+
+const fetchAutopopulatedTemplate = async (templateCode: string) => {
+  setLoadingTemplate(true);
+
+  try {
+    const data = await jobTemplateApi.autopopulate(templateCode);
+    applyAutopopulateData(data);
+    setSelectedTemplateKey(templateCode);
     setEditMode(false);
-    applyTemplate(key, templates);
-  };
+  } catch (error) {
+    alert(
+      `Failed to load template: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  } finally {
+    setLoadingTemplate(false);
+  }
+};
+
+  const handleTemplateSelect = async (key: string) => {
+  await fetchAutopopulatedTemplate(key);
+};
 
   const handleSubmit = async () => {
     if (!formData.roleTitle.trim()) {
@@ -735,34 +873,22 @@ export default function CreateAssessmentPage() {
           number_of_candidates: String(formData.headcount),
           survey_question_1: selectedQ[0]?.text || null,
           survey_q1_expected_answer: null,
-          time_limit_minutes: formData.mcqTimerMinutes,
-        } as Partial<ApiJobTemplate>);
+          time_limit_minutes: formData.timerMinutes,
+        });
         alert("Template updated successfully!");
         navigate("/hr/templates");
       } else {
-        const result = await assessmentApi.create({
-          role_title: formData.roleTitle,
-          experience_level: formData.experienceLevel,
-          skills: formData.skills,
+        const result = await jobTemplateApi.createAssessment({
+          job_title: formData.roleTitle,
           template_key: selectedTemplateKey || undefined,
-          questions: selectedQ.map((q, i) => ({
-            question_text: q.text,
-            is_default: q.id !== "custom" && !q.id.startsWith("custom-"),
-            is_selected: true,
-            sort_order: i,
-          })),
-          options: {
-            generate_ai_questions: options.generateAI,
-            include_coding: options.codingRound,
-            include_aptitude: options.aptitudeTest,
-            include_ai_interview: options.aiInterview,
-            include_manual_interview: options.manualInterview,
-          },
-          time_limits: {
-            mcq_time_limit: formData.mcqTimerMinutes,
-            video_time_limit: formData.videoTimerMinutes,
-            coding_time_limit: formData.codingTimerMinutes,
-          },
+          required_skills: formData.skills.join(", "),
+          survey_question_1: selectedQ[0]?.text || undefined,
+          time_limit_minutes: formData.timerMinutes,
+          headcount: formData.headcount,
+          closes_at: formData.closesAt || undefined,
+          department: formData.department || undefined,
+          hiring_manager: formData.hiringManager || undefined,
+          interviewer: options.manualInterview ? formData.interviewer || undefined : undefined,
         });
         alert(`Assessment created successfully!\n\nJob ID: ${result.jid}\nRole: ${formData.roleTitle}\nPositions: ${formData.headcount}`);
         navigate("/hr/dashboard");
@@ -794,12 +920,17 @@ export default function CreateAssessmentPage() {
               selected={selectedTemplateKey}
               onSelect={handleTemplateSelect}
             />
+            {loadingTemplate ? (
+  <p className="mt-2 text-[13px] text-violet-600">
+    Autopopulating from AI workflow...
+  </p>
+) : null}
           </div>
         </div>
 
         <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
           <div className="space-y-3">
-            <AssessmentDetails formData={formData} setFormData={setFormData} />
+            <AssessmentDetails formData={formData} setFormData={setFormData} departments={departments} members={members} />
             <PreScreeningQuestions
               questions={questions}
               setQuestions={setQuestions}
@@ -818,6 +949,11 @@ export default function CreateAssessmentPage() {
               onSubmit={handleSubmit}
               submitting={saving}
               editMode={editMode}
+              interviewer={formData.interviewer}
+              onInterviewerChange={(value) =>
+                setFormData((current) => ({ ...current, interviewer: value }))
+              }
+              members={members}
             />
 
           </div>
