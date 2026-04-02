@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict 1E7KDVkx1Zq35m8hSkhSJkem3F8rw1QmtoQ8jCisP8EGjUPHZxZH8FK1rH6j8rr
+\restrict 3teeJZ6JcmdNUpSm17panCi1HSF103KQzqhYhHrRbceOQuejN2IEKROuUO8gdIb
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 -- Dumped by pg_dump version 18.1
 
--- Started on 2026-04-01 15:44:00
+-- Started on 2026-04-02 10:13:57
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1328,6 +1328,8 @@ COPY public.job_postings (id, jid, template_id, job_title, status, opens_at, clo
 16	JOB-2026-006	5	Senior Data Scientist	open	2026-03-27	\N	HR Team	2026-03-27 07:02:09.286712	2026-03-27 07:02:09.286712	1
 17	JOB-2026-007	2	Data Scientist	open	2026-03-30	\N	HR Team	2026-03-30 17:59:32.25109	2026-03-30 17:59:32.25109	2
 18	JOB-2026-008	5	Senior Data Scientist	open	2026-03-30	\N	HR Team	2026-03-30 18:04:16.928857	2026-03-30 18:04:16.928857	2
+19	JOB-2026-009	5	Junior Data Scientist	open	2026-04-02	\N	HR Team	2026-04-02 04:37:49.632204	2026-04-02 04:37:49.632204	1
+20	JOB-2026-010	16	Senior Data Scientist (Copy)	open	2026-04-02	\N	HR Team	2026-04-02 04:38:49.386448	2026-04-02 04:38:49.386448	1
 \.
 
 
@@ -1349,7 +1351,8 @@ COPY public.job_requirements_v2 (id, screening_id, job_title, required_skills, o
 
 COPY public.job_templates (id, template_key, job_title, job_description, required_skills, number_of_candidates, survey_question_1, survey_q1_expected_answer, created_at, updated_at, time_limit_minutes) FROM stdin;
 2	Template_2	Data Scientist	Data Scientist	Python, N8N	2	Are you willing to relocate?	Yes	2025-12-24 08:02:40.725636	2026-03-30 17:59:32.25109	30
-5	Template_1774506663767	Senior Data Scientist	\N		\N	Are you willing to relocate?	\N	2026-03-26 06:31:03.766765	2026-03-30 18:04:16.928857	30
+5	Template_1774506663767	Junior Data Scientist	\N		\N	Are you willing to relocate?	\N	2026-03-26 06:31:03.766765	2026-04-02 04:37:49.632204	30
+16	Template_1774506663767_copy_1775104610949	Senior Data Scientist (Copy)	\N	python	\N	Are you willing to relocate?	\N	2026-04-02 04:36:50.95025	2026-04-02 04:38:49.386448	30
 \.
 
 
@@ -1495,7 +1498,7 @@ SELECT pg_catalog.setval('public.assessment_questions_v2_id_seq', 1, false);
 -- Name: job_postings_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.job_postings_id_seq', 18, true);
+SELECT pg_catalog.setval('public.job_postings_id_seq', 20, true);
 
 
 --
@@ -1513,7 +1516,7 @@ SELECT pg_catalog.setval('public.job_requirements_v2_id_seq', 1, false);
 -- Name: job_templates_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.job_templates_id_seq', 9, true);
+SELECT pg_catalog.setval('public.job_templates_id_seq', 16, true);
 
 
 --
@@ -2214,11 +2217,11 @@ ALTER TABLE ONLY public.video_job_requirements
     ADD CONSTRAINT video_job_requirements_video_assessment_id_fkey FOREIGN KEY (video_assessment_id) REFERENCES public.video_interview_candidates(video_assessment_id);
 
 
--- Completed on 2026-04-01 15:44:00
+-- Completed on 2026-04-02 10:13:57
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 1E7KDVkx1Zq35m8hSkhSJkem3F8rw1QmtoQ8jCisP8EGjUPHZxZH8FK1rH6j8rr
+\unrestrict 3teeJZ6JcmdNUpSm17panCi1HSF103KQzqhYhHrRbceOQuejN2IEKROuUO8gdIb
 

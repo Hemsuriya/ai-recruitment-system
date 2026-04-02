@@ -641,8 +641,12 @@ useEffect(() => {
 
       const params = new URLSearchParams(window.location.search);
       const templateCode = params.get("template_code");
+      const editKey = params.get("edit");
 
-      if (templateCode) {
+      if (editKey) {
+        await fetchAutopopulatedTemplate(editKey);
+        setEditMode(true);
+      } else if (templateCode) {
         await fetchAutopopulatedTemplate(templateCode);
       }
 
