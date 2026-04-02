@@ -1,5 +1,5 @@
 {
-  "name": "JD Generation Workflow",
+  "name": "JD Generation Workflow - Fixed",
   "nodes": [
     {
       "parameters": {
@@ -12,46 +12,56 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.first().json;\n\nconst prompt = `You are a professional HR recruiter. Write a concise, compelling \nJob Description for the following role.\n\nRole: ${data.role_title}\nExperience Level: ${data.experience_level}\nRequired Skills: ${Array.isArray(data.skills) ? data.skills.join(', ') : data.skills}\n\nThe JD must include:\n1. Role Overview (2-3 sentences)\n2. Key Responsibilities (5 bullet points)\n3. Required Skills and Qualifications\n4. What We Offer (3 bullet points)\n\nKeep the tone professional and engaging. Return plain text only.`;\n\nreturn [{\n  json: {\n    assessment_id: data.assessment_id,\n    jid: data.jid,\n    role_title: data.role_title,\n    skills: data.skills,\n    experience_level: data.experience_level,\n    jdPrompt: prompt\n  }\n}];"
+        "jsCode": "try {\n  let data = $input.first().json;\n  let payload = data.body || data;\n  if (!payload) payload = {};\n\n  const roleTitle = payload.role_title || \"Unknown Role\";\n  const experienceLevel = payload.experience_level || \"Not specified\";\n  let skillsText = \"Not specified\";\n\n  if (Array.isArray(payload.skills)) {\n    skillsText = payload.skills.join(', ');\n  } else if (typeof payload.skills === 'string') {\n    skillsText = payload.skills;\n  }\n\n  const prompt = `You are a professional HR recruiter. Write a concise, compelling Job Description for the following role.\\n\\nRole: ${roleTitle}\\nExperience Level: ${experienceLevel}\\nRequired Skills: ${skillsText}\\n\\nThe JD must include:\\n1. Role Overview (2-3 sentences)\\n2. Key Responsibilities (5 bullet points)\\n3. Required Skills and Qualifications\\n4. What We Offer (3 bullet points)\\n\\nKeep the tone professional and engaging. Return plain text only.`;\n\n  return [{\n    json: {\n      assessment_id: payload.assessment_id || null,\n      jid: payload.jid || null,\n      role_title: roleTitle,\n      skills: payload.skills || null,\n      experience_level: experienceLevel,\n      jdPrompt: prompt\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      error: error.message || \"Unknown error in Build JD Prompt\",\n      jdPrompt: \"Error formatting prompt\"\n    }\n  }];\n}"
       },
       "id": "270dc26c-3aa2-4df9-a868-b7ab453addbe",
       "name": "Build JD Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 0]
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
         "promptType": "define",
         "text": "={{ $json.jdPrompt }}",
-        "messages": {
-          "messageValues": [
-            {
-              "message": "You are an expert HR recruiter. Return only the formatted Job Description text. No JSON, no markdown headers, no extra commentary.",
-              "type": "systemMessage"
-            }
-          ]
+        "options": {
+          "systemMessage": "You are an expert HR recruiter. Return only the formatted Job Description text. No JSON, no markdown headers, no extra commentary."
         }
       },
       "id": "67040441-aa60-4966-bfd6-bb4269c1ce8d",
       "name": "Basic LLM Chain",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.4,
-      "position": [440, 0]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
-        "model": "llama-3.1-8b-instant"
+        "modelName": "models/llama-3.1-8b-instant",
+        "options": {
+          "temperature": 0.7
+        }
       },
-      "id": "cdefc5ff-be29-43c2-a982-fbb8782a2082",
+      "id": "groq-model-jd",
       "name": "Groq Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
       "typeVersion": 1,
-      "position": [440, 200],
+      "position": [
+        440,
+        200
+      ],
       "credentials": {
         "groqApi": {
           "id": "rOd6m7YG43wEg4fN",
@@ -61,28 +71,33 @@
     },
     {
       "parameters": {
-        "jsCode": "const aiResponse = $input.first().json;\nconst prev = $('Build JD Prompt').first().json;\n\nconst jdText = aiResponse.text || aiResponse.output || JSON.stringify(aiResponse);\n\nreturn [{\n  json: {\n    assessment_id: prev.assessment_id,\n    jid: prev.jid,\n    job_description: jdText.trim()\n  }\n}];"
+        "jsCode": "try {\n  const aiResponse = $input.first().json;\n  const prevItems = $('Build JD Prompt').all();\n  const prev = prevItems.length > 0 && prevItems[0].json ? prevItems[0].json : {};\n  const webhookItems = $('Webhook').all();\n  const wb = webhookItems.length > 0 && webhookItems[0].json && webhookItems[0].json.body ? webhookItems[0].json.body : (webhookItems.length > 0 ? webhookItems[0].json : {});\n\n  let jdText = \"\";\n  if (aiResponse && aiResponse.text) {\n    jdText = aiResponse.text;\n  } else if (aiResponse && aiResponse.choices && aiResponse.choices.length > 0) {\n    jdText = aiResponse.choices[0].message.content;\n  } else if (aiResponse && aiResponse.error) {\n    jdText = `API Error: ${aiResponse.error.message || 'Unknown error'}`;\n  } else {\n    jdText = typeof aiResponse === 'string' ? aiResponse : JSON.stringify(aiResponse);\n  }\n\n  return [{\n    json: {\n      assessment_id: prev.assessment_id || wb.assessment_id || null,\n      jid: prev.jid || wb.jid || null,\n      job_description: (jdText || \"\").trim()\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      error: error.message || \"Unknown error in Parse JD Output\",\n      job_description: \"Failed to parse job description.\"\n    }\n  }];\n}"
       },
       "id": "e67e3a9f-3dbe-40cd-b8a7-f58c7eab5643",
       "name": "Parse JD Output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [780, 0]
+      "position": [
+        660,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ 'http://acs_backend:5000/api/hr/assessments/' + $json.assessment_id }}",
+        "url": "={{ 'http://127.0.0.1:5000/api/hr/assessments/' + ($json.assessment_id || 'UNKNOWN') }}",
         "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={\n  \"job_description\": \"{{ $json.job_description.replace(/\"/g, '\\\\\"').replace(/\\n/g, '\\\\n') }}\"\n}"
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"job_description\": $json.job_description } }}"
       },
       "id": "e5868e40-a3fe-42ce-aab6-ea2eab7e7518",
-      "name": "HTTP Request",
+      "name": "Update Backend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1000, 0]
+      "position": [
+        880,
+        0
+      ]
     }
   ],
   "connections": {
@@ -108,17 +123,6 @@
         ]
       ]
     },
-    "Groq Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Basic LLM Chain",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Basic LLM Chain": {
       "main": [
         [
@@ -130,11 +134,22 @@
         ]
       ]
     },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Parse JD Output": {
       "main": [
         [
           {
-            "node": "HTTP Request",
+            "node": "Update Backend",
             "type": "main",
             "index": 0
           }

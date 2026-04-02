@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setMessage("");
     setError("");
@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
       if (!res.ok) throw new Error(data.message || "Failed to send reset link");
       setMessage("If this email exists, a reset link will be sent.");
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     }
   };
 

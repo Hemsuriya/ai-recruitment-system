@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function SignupPage() {
@@ -7,11 +7,11 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -26,7 +26,7 @@ export default function SignupPage() {
       setSuccess("Account created! Please login.");
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     }
   };
 

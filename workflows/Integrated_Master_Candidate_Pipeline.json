@@ -1,0 +1,1474 @@
+{
+  "name": "Integrated Master Candidate Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-assessment",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Generate Assessment Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM job_requirements_v2 WHERE id = {{$json.body.job_id}}::integer;",
+        "options": {}
+      },
+      "id": "fetch-jd",
+      "name": "Fetch Job Description",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        420,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "folderId": "01PQMN3I6B7FHVWHACGBHL4IIQZREFJRBJ"
+      },
+      "id": "get-items-folder",
+      "name": "Get items in a folder",
+      "type": "n8n-nodes-base.microsoftOneDrive",
+      "typeVersion": 1,
+      "position": [
+        640,
+        400
+      ],
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "2svF5z7XskA3Nzkt",
+          "name": "Microsoft Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{$json[\"@microsoft.graph.downloadUrl\"]}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftSharePointOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "http-request-sp",
+      "name": "HTTP Request3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        400
+      ],
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "aiOwKMCPoBQnW0YF",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "extract-pdf",
+      "name": "Extract from File",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const jdNodes = $('Fetch Job Description').all();\nconst jd = jdNodes.length > 0 ? jdNodes[0].json : {};\n\nconst resumes = $input.all();\n\nlet combinedResumesText = \"\";\nresumes.forEach((r, idx) => {\n  combinedResumesText += `\\n\\n--- CANDIDATE RESUME ${idx + 1} ---\\n${r.json.text || 'Error extracting text'}`;\n});\n\nconst prompt = `You are an expert HR recruiter and resume analyst.\n\n**DYNAMIC JOB REQUIREMENTS:**\n- **Position:** ${jd.job_title || 'Software Engineer'}\n- **Required Skills:** ${jd.required_skills || 'Programming'}\n- **Optional Skills:** ${jd.optional_skills || 'None'}\n- **Experience Level:** ${jd.experience_level || 'Not Specified'}\n\n**CANDIDATE RESUMES TO ANALYZE:**\n${combinedResumesText}\n\n**ANALYSIS INSTRUCTIONS:**\nFor EACH candidate, extract and analyze the following information:\n1. Basic info (name, email, phone).\n2. Professional background (current title, experience years).\n3. Skills match against the required skills.\n4. **Match Score (1-100)** weighted precisely as:\n   - Heavy weight on REQUIRED SKILLS match (70% of score)\n   - Bonus points for matching OPTIONAL SKILLS (15% of score)\n   - Experience level, project quality, career trajectory (15% of score)\n\n**CRITICAL OUTPUT REQUIREMENTS:**\nEvaluate EVERY candidate provided above. You must return your analysis strictly as an object containing a \"candidates\" array matching the structured output tool schema.`;\n\nreturn {\n  json: {\n    aiPrompt: prompt,\n    job_id: jd.id\n  }\n};\n"
+      },
+      "id": "prepare-prompt",
+      "name": "Prepare Dynamic AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.aiPrompt }}",
+        "options": {
+          "systemMessage": "You are a senior technical recruiter screening resumes. Follow the JSON Schema strictly and output the required object containing the candidates."
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Resume Matcher",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1520,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/llama3-70b-8192",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "groq-model",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        600
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "placeholder_id",
+          "name": "Groq API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"candidates\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": { \"type\": \"string\" },\n          \"email\": { \"type\": \"string\" },\n          \"phone\": { \"type\": \"string\" },\n          \"job_title\": { \"type\": \"string\" },\n          \"experience_years\": { \"type\": \"number\" },\n          \"match_score\": { \"type\": \"number\", \"description\": \"Score out of 100\" },\n          \"ai_analysis\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"key_strengths\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n              \"concerns\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n              \"reasoning\": { \"type\": \"string\" }\n            }\n          }\n        },\n        \"required\": [\"name\", \"email\", \"match_score\", \"ai_analysis\"]\n      }\n    }\n  },\n  \"required\": [\"candidates\"]\n}"
+      },
+      "id": "output-parser",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let data = $input.first().json;\n\n// Handle Markdown-wrapped JSON from Basic LLM Chain\nlet parsedData = data;\nif (data.text) {\n  let rawText = data.text;\n  let jsonMatch = rawText.match(/```(?:json)?([\\s\\S]*?)```/);\n  if (jsonMatch && jsonMatch[1]) {\n    rawText = jsonMatch[1].trim();\n  }\n  try {\n    parsedData = JSON.parse(rawText);\n  } catch (e) {\n    parsedData = { candidates: [] };\n  }\n}\n\n// Extract nested outputs\nif (parsedData.output) parsedData = parsedData.output;\nlet candidates = parsedData.candidates || parsedData;\n\nif (!Array.isArray(candidates)) candidates = [candidates];\n\n// Generate a unique screening_id and format as individual n8n items for next steps\nreturn candidates.map(candidate => {\n  return {\n    json: {\n      ...candidate,\n      screening_id: 'scr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5)\n    }\n  };\n});"
+      },
+      "id": "split-candidates",
+      "name": "Convert AI Output to Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "candidates_v2",
+          "mode": "list",
+          "cachedResultName": "candidates_v2"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "screening_id": "={{$json.screening_id}}",
+            "name": "={{$json.name}}",
+            "email": "={{$json.email}}",
+            "phone": "={{$json.phone}}",
+            "match_score": "={{$json.match_score}}",
+            "job_title": "={{$('Prepare Dynamic AI Prompt').item.json.job_id}}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "insert-candidates",
+      "name": "Insert Candidates to Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2000,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process HR Selections & Generate MCQ Questions - UPDATED WITH SURVEY QUESTIONS AND EXPECTED ANSWERS\n// This node extracts HR selections and prepares data for AI MCQ generation\n\nconst hrFormData = $input.first().json;\n\n// Extract survey questions from earlier in the workflow\nlet surveyQuestions = [];\ntry {\n  const surveyData = $('Process Survey Questions').first().json;\n  surveyQuestions = surveyData.surveyQuestions || [];\n  console.log(`\u2705 Retrieved ${surveyQuestions.length} survey questions from earlier node`);\n  if (surveyQuestions.length > 0) {\n    console.log('Survey questions found:', surveyQuestions.map(q => q.fieldLabel));\n    console.log('Qualifying questions:', surveyQuestions.filter(q => q.isQualifying).map(q => `${q.fieldLabel} (expects: ${q.expectedAnswer})`));\n  }\n} catch (error) {\n  console.log('No survey questions found, continuing without survey data');\n  surveyQuestions = [];\n}\n\n// Get candidate data from earlier in workflow\nlet candidateData = {};\nlet jobRequirements = {};\n\ntry {\n  const reviewData = $('Prepare HR Review Data').first().json;\n  candidateData = reviewData;\n  jobRequirements = reviewData.jobRequirements || {};\n} catch (error) {\n  console.log('Could not get candidate data, using defaults');\n  jobRequirements = {\n    title: 'Software Engineer',\n    requiredSkills: 'Programming',\n    optionalSkills: '',\n    experienceLevel: '2-5 years'\n  };\n}\n\n// Extract HR form selections\nconst selectedCandidateLabels = hrFormData['Select Candidates for Round 0 AI Screening'] || hrFormData.selected_candidates || [];\nconst focusAreas = hrFormData['Assessment Focus Areas'] || hrFormData.focus_areas || ['Comprehensive Assessment (All Areas)'];\nconst assessmentType = hrFormData['Assessment Configuration'] || hrFormData.assessment_type || ['Standard MCQ Assessment (20 questions)'];\n\nconsole.log('HR Form Data:', JSON.stringify(hrFormData, null, 2));\nconsole.log('Selected Candidates:', selectedCandidateLabels);\nconsole.log('Focus Areas:', focusAreas);\nconsole.log('Assessment Type:', assessmentType);\nconsole.log(`Survey Questions to include: ${surveyQuestions.length}`);\n\n// Process selected candidates\nconst allCandidates = candidateData.candidates || [];\nconst selectedCandidates = [];\n\nselectedCandidateLabels.forEach(selectedLabel => {\n  const candidate = allCandidates.find(c => c.selectionLabel === selectedLabel);\n  if (candidate) {\n    selectedCandidates.push({\n      id: candidate.id,\n      name: candidate.name,\n      email: candidate.email,\n      phone: candidate.phone,\n      location: candidate.location,\n      currentCompany: candidate.currentCompany,\n      jobTitle: candidate.jobTitle,\n      experienceYears: candidate.experienceYears,\n      skills: candidate.skills,\n      matchScore: candidate.matchScore,\n      aiAnalysis: candidate.aiAnalysis,\n      bio: candidate.bio,\n      availability: candidate.availability,\n      \n      // Generate unique screening identifier\n      screeningId: `screening_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n      \n      // Create expiration date (3 days from now)\n      linkExpiration: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),\n      \n      // Assessment status\n      assessmentStatus: 'invited',\n      invitedAt: new Date().toISOString()\n    });\n  }\n});\n\nconsole.log(`Processed ${selectedCandidates.length} selected candidates`);\n\n// Question Pool Configuration\nconst questionsPerCandidate = 3;\nconst questionPoolSize = 5;\n\n// Determine if coding questions should be included\nconst includeCoding = assessmentType.some(type => type.includes('coding challenge'));\nconst focusOnTechStack = assessmentType.some(type => type.includes('technology stack'));\n\n// Generate comprehensive MCQ prompt for QUESTION POOL\nconst generateMCQPrompt = () => {\n  const jobTitle = jobRequirements.title || 'Software Engineer';\n  const jobDescription = jobRequirements.description || 'Standard software engineering role';\n  const requiredSkills = jobRequirements.requiredSkills || 'Programming skills';\n  const optionalSkills = jobRequirements.optionalSkills || 'None specified';\n  const experienceLevel = jobRequirements.experienceLevel || '2-5 years';\n  \n  return `You are an expert Technical Assessment Designer. Create ${questionPoolSize} multiple-choice questions for a Round 0 AI Screening assessment QUESTION POOL.\n\n**JOB CONTEXT:**\n- **Position:** ${jobTitle}\n- **Experience Level:** ${experienceLevel}\n- **Required Skills:** ${requiredSkills}\n- **Optional Skills:** ${optionalSkills}\n- **Job Description:** ${jobDescription}\n\n**SELECTED CANDIDATES:**\n${selectedCandidates.map(c => `- ${c.name}: ${c.experienceYears} years experience, Skills: ${c.skills.slice(0, 3).join(', ')}, Match: ${c.matchScore}%`).join('\\n')}\n\n**ASSESSMENT FOCUS AREAS:**\n${focusAreas.join(', ')}\n\n**\u2b50 QUESTION POOL REQUIREMENTS:**\n- **Total Pool Size:** ${questionPoolSize} questions\n- **Per Candidate:** ${questionsPerCandidate} questions (randomly selected from pool)\n- **Question Types:** Multiple choice (4 options each)\n- **Difficulty:** Adjust based on ${experienceLevel} experience level\n- **Include Coding:** ${includeCoding ? 'Yes - include programming logic questions' : 'No - focus on conceptual questions'}\n- **Technology Focus:** ${focusOnTechStack ? 'Yes - emphasize specific technologies' : 'No - general technical knowledge'}\n\n**QUESTION DISTRIBUTION FOR ${questionPoolSize} QUESTIONS:**\nCreate questions across these categories:\n\n1. **Technical Skills (40%):** ${Math.round(questionPoolSize * 0.4)} questions\n   - Programming concepts and ${requiredSkills}\n   - Optional skills like ${optionalSkills} (when applicable)\n   - Technology-specific knowledge\n\n2. **Problem Solving (30%):** ${Math.round(questionPoolSize * 0.3)} questions\n   - Logical reasoning and algorithms\n   - System design concepts\n   - Troubleshooting scenarios\n\n3. **Domain Knowledge (20%):** ${Math.round(questionPoolSize * 0.2)} questions\n   - Industry-specific knowledge for ${jobTitle}\n   - Tools and frameworks\n   - Current trends and practices\n\n4. **Analytical Thinking (10%):** ${Math.round(questionPoolSize * 0.1)} questions\n   - Data interpretation\n   - Decision-making scenarios\n   - Critical thinking\n\n**OUTPUT FORMAT:**\nReturn a JSON object with this exact structure:\n\n{\n  \"assessmentMetadata\": {\n    \"jobTitle\": \"${jobTitle}\",\n    \"targetExperience\": \"${experienceLevel}\",\n    \"requiredSkills\": \"${requiredSkills}\",\n    \"optionalSkills\": \"${optionalSkills}\",\n    \"questionPoolSize\": ${questionPoolSize},\n    \"questionsPerCandidate\": ${questionsPerCandidate},\n    \"estimatedDuration\": \"${Math.round(questionsPerCandidate * 1.5)} minutes\",\n    \"difficulty\": \"intermediate\",\n    \"focusAreas\": ${JSON.stringify(focusAreas)},\n    \"generatedAt\": \"${new Date().toISOString()}\"\n  },\n  \"questions\": [\n    {\n      \"id\": 1,\n      \"category\": \"Technical Skills\",\n      \"difficulty\": \"medium\",\n      \"question\": \"What is the primary purpose of...\",\n      \"options\": {\n        \"A\": \"Option A text\",\n        \"B\": \"Option B text\", \n        \"C\": \"Option C text\",\n        \"D\": \"Option D text\"\n      },\n      \"correctAnswer\": \"A\",\n      \"explanation\": \"Detailed explanation of why A is correct\",\n      \"skillsTested\": [\"JavaScript\", \"Problem Solving\"],\n      \"timeLimit\": 90\n    }\n  ]\n}\n\n**QUALITY REQUIREMENTS:**\n- Questions must be relevant to ${jobTitle} role specifically\n- Focus on ${requiredSkills} as primary testing criteria\n- Include ${optionalSkills} questions for comprehensive assessment\n- Avoid questions that are too basic or too advanced for ${experienceLevel}\n- Include practical, real-world scenarios\n- Ensure each question has one clearly correct answer\n- Make distractor options plausible but incorrect\n- Add detailed explanations for learning purposes\n- Test skills mentioned in: ${requiredSkills} and ${optionalSkills}\n- CREATE VARIETY: Ensure questions are diverse enough that random selections create fair assessments\n\n**ANTI-CHEATING CONSIDERATIONS:**\n- Questions should require understanding, not just memorization\n- Avoid questions easily answerable by search engines\n- Include scenario-based questions requiring experience\n- Make options specific enough to prevent guessing\n- With ${questionPoolSize} questions, each candidate gets different subset\n\nGenerate exactly ${questionPoolSize} high-quality questions following this specification.`;\n};\n\n// Create the AI prompt\nconst mcqPrompt = generateMCQPrompt();\n\n// Generate screening links for each candidate\nconst screeningLinks = selectedCandidates.map(candidate => ({\n  candidateId: candidate.screeningId,\n  candidateName: candidate.name,\n  candidateEmail: candidate.email,\n  \n  // Generate unique screening URL (this would be your assessment platform URL)\n  screeningUrl: `http://127.0.0.1:5500/assessment_html_page.html?id=${candidate.screeningId}`,\n  \n  // Backup/direct link format\n  directLink: `https://your-domain.com/assessment?id=${candidate.screeningId}&token=${Buffer.from(candidate.email + candidate.screeningId).toString('base64')}`,\n  \n  // Link metadata\n  expiresAt: candidate.linkExpiration,\n  generatedAt: new Date().toISOString(),\n  isActive: true\n}));\n\n// Prepare email data for each candidate with survey questions\nconst emailTasks = selectedCandidates.map((candidate, index) => {\n  const screeningLink = screeningLinks[index];\n  \n  // \u2705 Generate survey questions section for email with expected answers\n  let surveyQuestionsHtml = '';\n  if (surveyQuestions.length > 0) {\n    const qualifyingQuestions = surveyQuestions.filter(q => q.isQualifying);\n    const informationalQuestions = surveyQuestions.filter(q => !q.isQualifying);\n    \n    surveyQuestionsHtml = `\n      <div style=\"background: #f0f8ff; border: 2px solid #007bff; border-radius: 8px; padding: 20px; margin-bottom: 20px;\">\n        <h3 style=\"margin: 0 0 15px 0; color: #0066cc;\">\ud83d\udccb Two-Stage Assessment Process</h3>\n        <p style=\"margin: 0 0 10px 0; color: #495057;\"><strong>Stage 1: Preference Screening</strong></p>\n        <p style=\"margin: 0 0 15px 0; color: #495057;\">You must answer these qualifying questions correctly to proceed to the technical round:</p>`;\n    \n    if (qualifyingQuestions.length > 0) {\n      surveyQuestionsHtml += `<ul style=\"margin: 0 0 15px 0; padding-left: 20px; color: #495057;\">`;\n      qualifyingQuestions.forEach(q => {\n        let optionText = '';\n        if (q.fieldOptions && q.fieldOptions.values) {\n          optionText = ` (${q.fieldOptions.values.map(opt => opt.option).join(' / ')})`;\n        }\n        surveyQuestionsHtml += `<li><strong>\u2705 ${q.fieldLabel}</strong>${optionText} - <em>Qualifying Question</em></li>`;\n      });\n      surveyQuestionsHtml += `</ul>`;\n    }\n    \n    if (informationalQuestions.length > 0) {\n      surveyQuestionsHtml += `<p style=\"margin: 15px 0 10px 0; color: #495057;\"><strong>Additional Information Questions:</strong></p>`;\n      surveyQuestionsHtml += `<ul style=\"margin: 0 0 15px 0; padding-left: 20px; color: #495057;\">`;\n      informationalQuestions.forEach(q => {\n        let optionText = '';\n        if (q.fieldOptions && q.fieldOptions.values) {\n          optionText = ` (${q.fieldOptions.values.map(opt => opt.option).join(' / ')})`;\n        }\n        surveyQuestionsHtml += `<li><strong>\u2139\ufe0f ${q.fieldLabel}</strong>${optionText} - <em>For our reference only</em></li>`;\n      });\n      surveyQuestionsHtml += `</ul>`;\n    }\n    \n    surveyQuestionsHtml += `\n        <p style=\"margin: 10px 0 0 0; font-size: 12px; color: #6c757d; font-style: italic;\">\n          <strong>Important:</strong> You must pass the preference screening to access the technical assessment.\n        </p>\n      </div>`;\n  }\n  \n  return {\n    to: candidate.email,\n    candidateName: candidate.name,\n    subject: `Two-Stage Assessment Invitation - ${jobRequirements.title} Position`,\n    \n    // \u2705 Enhanced email body with survey questions and expected answers info\n    emailBody: `\n    <div style=\"font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8f9fa;\">\n      \n      <!-- Header -->\n      <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 25px;\">\n        <h1 style=\"margin: 0; font-size: 24px;\">\ud83c\udfaf Two-Stage Assessment Invitation</h1>\n        <p style=\"margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;\">${jobRequirements.title} Position</p>\n      </div>\n      \n      <!-- Personal Greeting -->\n      <div style=\"background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #007bff;\">\n        <p style=\"margin: 0 0 15px 0; font-size: 16px;\">Dear <strong>${candidate.name}</strong>,</p>\n        <p style=\"margin: 0; color: #495057; line-height: 1.6;\">\n          Congratulations! Based on your profile and experience at <strong>${candidate.currentCompany}</strong>, \n          you have been selected for our comprehensive two-stage assessment process.\n        </p>\n      </div>\n      \n      <!-- Assessment Details -->\n      <div style=\"background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;\">\n        <h3 style=\"margin: 0 0 15px 0; color: #2c3e50;\">\ud83d\udccb Assessment Overview</h3>\n        <ul style=\"margin: 0; padding-left: 20px; color: #495057; line-height: 1.8;\">\n          <li><strong>Position:</strong> ${jobRequirements.title}</li>\n          <li><strong>Required Skills Focus:</strong> ${jobRequirements.requiredSkills}</li>\n          ${jobRequirements.optionalSkills && jobRequirements.optionalSkills !== 'None specified' ? \n            `<li><strong>Bonus Skills:</strong> ${jobRequirements.optionalSkills}</li>` : ''}\n          <li><strong>Format:</strong> Two-Stage Process (Preference Screening + Technical MCQ)</li>\n          <li><strong>Technical Questions:</strong> ${questionsPerCandidate} multiple choice questions</li>\n          <li><strong>Duration:</strong> Approximately ${Math.round(questionsPerCandidate * 1.5)} minutes for technical round</li>\n          <li><strong>Focus Areas:</strong> ${focusAreas.join(', ')}</li>\n          <li><strong>Proctoring:</strong> Camera monitoring enabled for technical round</li>\n        </ul>\n      </div>\n      \n      <!-- \u2705 Survey Questions Section with Expected Answers -->\n      ${surveyQuestionsHtml}\n      \n      <!-- Access Link -->\n      <div style=\"background: #e7f3ff; border: 2px solid #007bff; border-radius: 8px; padding: 25px; margin-bottom: 20px; text-align: center;\">\n        <h3 style=\"margin: 0 0 15px 0; color: #0066cc;\">\ud83d\udd17 Your Assessment Link</h3>\n        <a href=\"${screeningLink.screeningUrl}\" \n           style=\"display: inline-block; background: #007bff; color: white; padding: 15px 30px; border-radius: 6px; text-decoration: none; font-weight: bold; margin: 10px 0;\">\n          Start Two-Stage Assessment\n        </a>\n        <p style=\"margin: 15px 0 0 0; font-size: 14px; color: #495057;\">\n          <strong>Assessment ID:</strong> ${candidate.screeningId}<br>\n          <strong>Expires:</strong> ${new Date(candidate.linkExpiration).toLocaleDateString()} at ${new Date(candidate.linkExpiration).toLocaleTimeString()}\n        </p>\n      </div>\n      \n      <!-- Important Instructions -->\n      <div style=\"background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-bottom: 20px;\">\n        <h3 style=\"margin: 0 0 15px 0; color: #856404;\">\u26a0\ufe0f Important Instructions</h3>\n        <ul style=\"margin: 0; padding-left: 20px; color: #856404; font-size: 14px; line-height: 1.6;\">\n          <li><strong>Two-Stage Process:</strong> Complete preference screening first, then technical assessment</li>\n          <li><strong>Qualifying Questions:</strong> You must answer preference questions correctly to proceed</li>\n          <li><strong>Camera Required:</strong> Ensure your camera works for the technical round</li>\n          <li><strong>Stable Internet:</strong> Use a reliable internet connection</li>\n          <li><strong>Quiet Environment:</strong> Choose a distraction-free location</li>\n          <li><strong>No External Help:</strong> Assessment must be completed independently</li>\n          <li><strong>Single Attempt:</strong> You can only take this assessment once</li>\n          <li><strong>Time Limit:</strong> Complete within 3 days of receiving this email</li>\n        </ul>\n      </div>\n      \n      <!-- Contact Information -->\n      <div style=\"background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center;\">\n        <p style=\"margin: 0 0 10px 0; color: #6c757d; font-size: 14px;\">\n          If you have any technical issues or questions, please contact our HR team.\n        </p>\n        <p style=\"margin: 0; color: #6c757d; font-size: 14px;\">\n          <strong>Best of luck with your two-stage assessment!</strong>\n        </p>\n      </div>\n      \n    </div>`,\n    \n    // \u2705 Enhanced metadata with survey questions and expected answers\n    screeningId: candidate.screeningId,\n    surveyQuestions: surveyQuestions, // Include survey questions for storage\n    assessmentMetadata: {\n      candidateMatchScore: candidate.matchScore,\n      candidateSkills: candidate.skills,\n      questionCount: questionsPerCandidate,\n      surveyQuestionCount: surveyQuestions.length,\n      qualifyingSurveyQuestionCount: surveyQuestions.filter(q => q.isQualifying).length,\n      informationalSurveyQuestionCount: surveyQuestions.filter(q => !q.isQualifying).length,\n      focusAreas: focusAreas,\n      assessmentType: assessmentType\n    }\n  };\n});\n\n// Return comprehensive data for next workflow steps\nreturn [{\n  json: {\n    // AI MCQ Generation Prompt\n    mcqPrompt: mcqPrompt,\n    \n    // Processed selections\n    selectedCandidates: selectedCandidates,\n    candidateCount: selectedCandidates.length,\n    \n    // \u2705 Survey questions data with expected answers\n    surveyQuestions: surveyQuestions,\n    \n    // Assessment configuration\n    assessmentConfig: {\n      questionPoolSize: questionPoolSize,\n      questionsPerCandidate: questionsPerCandidate,\n      surveyQuestionCount: surveyQuestions.length,\n      qualifyingSurveyQuestionCount: surveyQuestions.filter(q => q.isQualifying).length,\n      informationalSurveyQuestionCount: surveyQuestions.filter(q => !q.isQualifying).length,\n      focusAreas: focusAreas,\n      assessmentType: assessmentType,\n      includeCoding: includeCoding,\n      focusOnTechStack: focusOnTechStack,\n      estimatedDuration: Math.round(questionsPerCandidate * 1.5)\n    },\n    \n    // Job context\n    jobRequirements: jobRequirements,\n    \n    // Screening links\n    screeningLinks: screeningLinks,\n    \n    // Email tasks ready for sending (now includes survey questions with expected answers)\n    emailTasks: emailTasks,\n    \n    // Summary data\n    processingSummary: {\n      totalCandidatesSelected: selectedCandidates.length,\n      questionPoolSize: questionPoolSize,\n      questionsPerCandidate: questionsPerCandidate,\n      surveyQuestionsIncluded: surveyQuestions.length,\n      qualifyingSurveyQuestionsIncluded: surveyQuestions.filter(q => q.isQualifying).length,\n      informationalSurveyQuestionsIncluded: surveyQuestions.filter(q => !q.isQualifying).length,\n      assessmentDuration: Math.round(questionsPerCandidate * 1.5),\n      linkExpirationDays: 3,\n      focusAreasCount: focusAreas.length,\n      emailsToSend: emailTasks.length,\n      processedAt: new Date().toISOString()\n    },\n    \n    // Next step instructions\n    nextSteps: [\n      `1. Use mcqPrompt with AI Agent to generate ${questionPoolSize} questions`,\n      \"2. Send emails using emailTasks data (includes survey questions with expected answers)\", \n      \"3. Store screening links for candidate access tracking\",\n      \"4. Set up assessment platform to handle two-stage process\",\n      `5. Survey questions: ${surveyQuestions.filter(q => q.isQualifying).length} qualifying + ${surveyQuestions.filter(q => !q.isQualifying).length} informational`\n    ],\n    \n    // Debug information\n    debugInfo: {\n      hrFormReceived: Object.keys(hrFormData),\n      selectedLabels: selectedCandidateLabels,\n      candidatesFound: selectedCandidates.length,\n      emailsGenerated: emailTasks.length,\n      promptLength: mcqPrompt.length,\n      questionPoolEnabled: true,\n      surveyQuestionsFound: surveyQuestions.length,\n      qualifyingSurveyQuestionsFound: surveyQuestions.filter(q => q.isQualifying).length,\n      informationalSurveyQuestionsFound: surveyQuestions.filter(q => !q.isQualifying).length,\n      surveyQuestionDetails: surveyQuestions.map(q => ({ \n        label: q.fieldLabel, \n        type: q.fieldType,\n        isQualifying: q.isQualifying,\n        expectedAnswer: q.expectedAnswer\n      }))\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2432,
+        400
+      ],
+      "id": "cca099ac-a950-46e3-893a-c62c1f25cad7",
+      "name": "Process Selections & Generate MCQ"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.mcqPrompt }}",
+        "options": {
+          "systemMessage": "You are an expert Technical Assessment Designer specializing in creating high-quality MCQ questions for technical interviews.\n \nCRITICAL: Return ONLY valid JSON in the exact format specified. Do not add any explanations, markdown formatting, or additional text outside the JSON structure.\n \nEnsure each question:\n\n- Tests practical knowledge relevant to the job role\n\n- Has exactly 4 options (A, B, C, D)\n\n- Has one clearly correct answer\n\n- Includes detailed explanations\n\n- Follows anti-cheating best practices\n "
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        400
+      ],
+      "id": "a2f54d7d-68e6-4d5e-aacc-3cdcdf0b2540",
+      "name": "MCQ Generation Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse MCQ Output & Prepare Email Data - FIXED VERSION\nconst mcqResponse = $input.first().json;\nconst mcqGenerationData = $('Process Selections & Generate MCQ').first().json;\n \n// Extract MCQ questions from AI response\nlet mcqQuestions = [];\nlet assessmentMetadata = {};\n \ntry {\n  const outputText = mcqResponse.output;\n  const cleanedOutput = outputText.replace(/```json\\n|\\n```|```/g, '').trim();\n  const parsedMCQ = JSON.parse(cleanedOutput);\n \n  mcqQuestions = parsedMCQ.questions || [];\n  assessmentMetadata = parsedMCQ.assessmentMetadata || {};\n \n  console.log(`Successfully parsed ${mcqQuestions.length} MCQ questions`);\n \n} catch (error) {\n  console.log('Error parsing MCQ JSON:', error.message);\n  return [{\n    json: {\n      error: 'Failed to parse MCQ questions',\n      details: error.message,\n      rawOutput: mcqResponse.output\n    }\n  }];\n}\n \nconst emailTasks = mcqGenerationData.emailTasks || [];\nconst selectedCandidates = mcqGenerationData.selectedCandidates || [];\n \nconst enhancedEmailTasks = emailTasks.map((emailTask, index) => {\n \n  const matchingCandidate = selectedCandidates.find(c => c.email === emailTask.to);\n  const screeningId = matchingCandidate?.screeningId || emailTask.screeningId;\n \n  // \u2705 ENHANCED: More aggressive removal of all instruction blocks\n  let updatedBody = emailTask.emailBody;\n  // Remove all variations of Important Instructions blocks\n  updatedBody = updatedBody.replace(/\u26a0\ufe0f\\s*Important Instructions[\\s\\S]*?(?=\ud83d\udd17|<a href|Assessment ID:|<\\/div>\\s*<\\/div>)/gi, '');\n  // Remove Two-Stage Assessment Process blocks\n  updatedBody = updatedBody.replace(/\ud83d\udccb\\s*Two-Stage Assessment Process[\\s\\S]*?(?=\ud83d\udd17|<a href|Assessment ID:|<\\/div>\\s*<\\/div>)/gi, '');\n  // Remove any orphaned instruction list items or divs\n  updatedBody = updatedBody.replace(/<div[^>]*>\\s*<h3[^>]*>\u26a0\ufe0f[^<]*Important Instructions[^<]*<\\/h3>[\\s\\S]*?<\\/div>/gi, '');\n  updatedBody = updatedBody.replace(/<div[^>]*>\\s*<h3[^>]*>\ud83d\udccb[^<]*Two-Stage[^<]*<\\/h3>[\\s\\S]*?<\\/div>/gi, '');\n  // Remove Proctoring line\n  updatedBody = updatedBody.replace(/<li>\\s*<strong>Proctoring:<\\/strong>.*?<\\/li>/gi, '');\n  updatedBody = updatedBody.replace(/\u2022?\\s*Proctoring:.*?Camera monitoring enabled for technical round\\s*/gi, '');\n  // Clean up multiple line breaks\n  updatedBody = updatedBody.replace(/\\n{3,}/g, '\\n\\n');\n  updatedBody = updatedBody.trim();\n \n  // Build fresh instructions block with proper bullet points in HTML\n  const instructionsBlock = `\n<div style=\"background: #e7f3ff; border: 2px solid #007bff; border-radius: 8px; padding: 20px; margin-bottom: 20px;\">\n<h3 style=\"margin: 0 0 15px 0; color: #0066cc;\">\u26a0\ufe0f Important Instructions</h3>\n<ul style=\"margin: 0; padding-left: 20px; color: #495057; line-height: 1.8;\">\n<li><strong>Two-Stage Process:</strong> Complete preference screening first, then technical assessment</li>\n<li><strong>Qualifying Questions:</strong> Must be passed to unlock technical exam</li>\n<li><strong>Camera Required:</strong> Ensure your camera works for the technical round</li>\n<li><strong>Stable Internet:</strong> Use a reliable internet connection</li>\n<li><strong>Quiet Environment:</strong> Choose a distraction-free location</li>\n<li><strong>No External Help:</strong> Assessment must be completed independently</li>\n<li><strong>Single Attempt:</strong> You can only take this assessment once</li>\n<li><strong>Time Limit:</strong> Complete within 3 days of receiving this email</li>\n</ul>\n</div>\n`;\n \n  // Insert instructions ONLY above the link section - try multiple markers\n  if (updatedBody.includes('\ud83d\udd17 Your Assessment Link')) {\n    updatedBody = updatedBody.replace('\ud83d\udd17 Your Assessment Link', `${instructionsBlock}\\n\ud83d\udd17 Your Assessment Link`);\n  } else if (updatedBody.includes('<h3')) {\n    // If no link marker found, insert before the first remaining h3 tag that contains \ud83d\udd17\n    updatedBody = updatedBody.replace(/(<h3[^>]*>\ud83d\udd17)/i, `${instructionsBlock}\\n$1`);\n  } else if (updatedBody.includes('Start Two-Stage Assessment')) {\n    updatedBody = updatedBody.replace('Start Two-Stage Assessment', `${instructionsBlock}\\n\\nStart Two-Stage Assessment`);\n  }\n \n  return {\n    ...emailTask,\n    screeningId,\n    enhancedEmailBody: updatedBody\n      .replace('Approximately 30 minutes', assessmentMetadata.estimatedDuration || '30 minutes')\n      .replace('Multiple Choice Questions (MCQ)', `${mcqQuestions.length} Multiple Choice Questions (MCQ)`),\n \n    mcqData: {\n      questionCount: mcqQuestions.length,\n      assessmentMetadata,\n      estimatedDuration: assessmentMetadata.estimatedDuration || '30 minutes',\n      difficulty: assessmentMetadata.difficulty || 'intermediate'\n    },\n \n    emailMetadata: {\n      hasValidMCQ: mcqQuestions.length > 0,\n      questionCount: mcqQuestions.length,\n      candidateName: emailTask.candidateName,\n      candidateEmail: emailTask.to,\n      screeningId,\n      readyToSend: true\n    }\n  };\n});\n \nconst assessmentData = {\n  assessmentId: `assessment_${Date.now()}`,\n  jobTitle: assessmentMetadata.jobTitle || 'Data Scientist',\n  createdAt: new Date().toISOString(),\n  expiresAt: selectedCandidates[0]?.linkExpiration || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),\n \n  metadata: assessmentMetadata,\n  questions: mcqQuestions,\n \n  candidates: selectedCandidates.map(candidate => ({\n    screeningId: candidate.screeningId,\n    name: candidate.name,\n    email: candidate.email,\n    status: 'invited',\n    invitedAt: candidate.invitedAt,\n    linkExpiration: candidate.linkExpiration\n  })),\n \n  configuration: {\n    questionCount: mcqQuestions.length,\n    timeLimit: assessmentMetadata.estimatedDuration || '30 minutes',\n    proctoring: true,\n    singleAttempt: true,\n    antiCheating: true\n  }\n};\n \nreturn [{\n  json: {\n    emailTasks: enhancedEmailTasks,\n    emailCount: enhancedEmailTasks.length,\n    mcqQuestions,\n    assessmentMetadata,\n    assessmentData,\n    success: mcqQuestions.length > 0 && enhancedEmailTasks.length > 0,\n    readyForEmailSending: true\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        400
+      ],
+      "id": "0414526a-76d7-42e6-b60c-ca2b8c4c1a02",
+      "name": "Parse MCQ & Prepare Emails"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "emailTasks",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        3424,
+        400
+      ],
+      "id": "1533a446-509f-435c-ba17-f3d08591cd87",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ENHANCED Store Assessment Data - PostgreSQL Version with QUALIFYING SURVEY QUESTIONS\n// This node prepares data for PostgreSQL storage with unique questions per candidate + qualifying survey questions\n\nconst emailData = $input.all();\n\nconsole.log('=== POSTGRESQL STORE ASSESSMENT DATA WITH QUALIFYING SURVEY QUESTIONS ===');\n\n// Get candidate data from earlier workflow nodes\nlet mcqQuestions = [];\nlet assessmentMetadata = {};\nlet selectedCandidates = [];\nlet emailTasks = [];\n\ntry {\n  const mcqData = $('Parse MCQ & Prepare Emails').first().json;\n  mcqQuestions = mcqData.mcqQuestions || [];\n  assessmentMetadata = mcqData.assessmentMetadata || {};\n  emailTasks = mcqData.emailTasks || [];\n  \n  const selectionData = $('Process Selections & Generate MCQ').first().json;\n  selectedCandidates = selectionData.selectedCandidates || [];\n  \n  console.log('\u2705 Retrieved data from workflow nodes');\n  console.log(`\u2705 Question pool size: ${mcqQuestions.length}`);\n  \n} catch (error) {\n  console.error('\u274c Error getting assessment data:', error.message);\n}\n\n// \u2705 EXTRACT SURVEY QUESTIONS with EXPECTED ANSWERS from workflow\nlet workflowSurveyQuestions = [];\ntry {\n  const selectionData = $('Process Selections & Generate MCQ').first().json;\n  workflowSurveyQuestions = selectionData.surveyQuestions || [];\n  console.log(`\u2705 Found ${workflowSurveyQuestions.length} survey questions for database storage`);\n  if (workflowSurveyQuestions.length > 0) {\n    console.log('Survey questions with expected answers:');\n    workflowSurveyQuestions.forEach(q => {\n      console.log(`  - ${q.fieldLabel} (${q.questionCategory}${q.expectedAnswer ? `, expects: ${q.expectedAnswer}` : ''})`);\n    });\n  }\n} catch (error) {\n  console.log('No survey questions found for database storage');\n  workflowSurveyQuestions = [];\n}\n\n// \u2705 SHUFFLE FUNCTION for random question selection\nfunction shuffleArray(array) {\n  const shuffled = [...array];\n  for (let i = shuffled.length - 1; i > 0; i--) {\n    const j = Math.floor(Math.random() * (i + 1));\n    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];\n  }\n  return shuffled;\n}\n\n// \u2705 CONFIGURATION from assessment metadata\nconst questionsPerCandidate = assessmentMetadata.questionsPerCandidate || 20;\nconst questionPoolSize = assessmentMetadata.questionPoolSize || 50;\n\nconsole.log(`\u2705 Questions per candidate: ${questionsPerCandidate}`);\nconsole.log(`\u2705 Total pool size: ${questionPoolSize}`);\nconsole.log(`\u2705 Survey questions to store: ${workflowSurveyQuestions.length}`);\n\n// Validate we have enough questions\nif (mcqQuestions.length < questionsPerCandidate) {\n  throw new Error(`Insufficient questions in pool. Have: ${mcqQuestions.length}, Need: ${questionsPerCandidate} per candidate`);\n}\n\n// Process assessment sessions with UNIQUE QUESTIONS per candidate\nconst assessmentSessions = emailTasks.map((emailTask, index) => {\n  const candidate = selectedCandidates.find(c => c.email === emailTask.to) || {};\n  \n  if (!emailTask.screeningId) {\n    emailTask.screeningId = candidate.screeningId || `screening_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n  }\n  \n  // \u2705 RANDOMLY SELECT UNIQUE QUESTIONS FOR THIS CANDIDATE\n  const shuffledQuestions = shuffleArray(mcqQuestions);\n  const selectedQuestions = shuffledQuestions.slice(0, questionsPerCandidate);\n  \n  console.log(`\u2705 Selected ${selectedQuestions.length} unique questions for ${candidate.name || emailTask.candidateName}`);\n  \n  return {\n    screeningId: emailTask.screeningId,\n    candidate: {\n      name: emailTask.candidateName || candidate.name || 'Unknown Name',\n      email: emailTask.to || candidate.email || 'unknown@email.com',\n      phone: candidate.phone || 'Not provided',\n      location: candidate.location || 'Not provided',\n      currentCompany: candidate.currentCompany || 'Not provided',\n      matchScore: candidate.matchScore || 0,\n      salaryExpectation: candidate.salaryExpectation || 'Not specified'\n    },\n    jobRequirements: {\n      jobTitle: assessmentMetadata.jobTitle || 'Data Scientist',\n      requiredSkills: assessmentMetadata.requiredSkills || 'Python, SQL, Machine Learning, Statistics, Data Visualization',\n      optionalSkills: assessmentMetadata.optionalSkills || 'None specified',\n      experienceLevel: assessmentMetadata.targetExperience || '2-5 years',\n      salaryBudget: 'Competitive',\n      questionCount: questionsPerCandidate,\n      timeLimit: assessmentMetadata.estimatedDuration || '30 minutes',\n      difficulty: assessmentMetadata.difficulty || 'intermediate',\n      focusAreas: assessmentMetadata.focusAreas || ['Comprehensive Assessment']\n    },\n    // \u2705 UNIQUE QUESTIONS for this candidate\n    questions: selectedQuestions.map((q, qIndex) => ({\n      questionId: q.id || qIndex + 1,\n      questionText: q.question || `Question ${qIndex + 1}`,\n      options: {\n        A: q.options?.A || '',\n        B: q.options?.B || '',\n        C: q.options?.C || '',\n        D: q.options?.D || ''\n      },\n      correctAnswer: q.correctAnswer || 'A',\n      category: q.category || 'General',\n      difficulty: q.difficulty || 'medium',\n      explanation: q.explanation || '',\n      timeLimit: q.timeLimit || 90\n    })),\n    createdAt: new Date().toISOString(),\n    expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()\n  };\n});\n\nconsole.log(`\u2705 Processed ${assessmentSessions.length} assessment sessions with unique questions`);\n\n// Prepare data for PostgreSQL nodes\nconst candidatesData = [];\nconst jobRequirementsData = [];\nconst questionsData = [];\n\nassessmentSessions.forEach(session => {\n  // Candidate data for candidates table\n  candidatesData.push({\n    screening_id: session.screeningId,\n    name: session.candidate.name,\n    email: session.candidate.email,\n    phone: session.candidate.phone,\n    location: session.candidate.location,\n    current_company: session.candidate.currentCompany,\n    job_title: session.jobRequirements.jobTitle,\n    match_score: session.candidate.matchScore,\n    required_skills: session.jobRequirements.requiredSkills,\n    experience_level: session.jobRequirements.experienceLevel,\n    salary_expectation: session.candidate.salaryExpectation,\n    expires_at: session.expiresAt,\n    status: 'pending',\n    survey_validation_status: 'pending', // \u2705 NEW: Default survey status\n    technical_assessment_unlocked: false // \u2705 NEW: Default locked\n  });\n  \n  // Job requirements data for job_requirements table\n  jobRequirementsData.push({\n    screening_id: session.screeningId,\n    job_title: session.jobRequirements.jobTitle,\n    required_skills: session.jobRequirements.requiredSkills,\n    optional_skills: session.jobRequirements.optionalSkills,\n    experience_level: session.jobRequirements.experienceLevel,\n    salary_budget: session.jobRequirements.salaryBudget,\n    question_count: session.jobRequirements.questionCount,\n    time_limit: session.jobRequirements.timeLimit,\n    difficulty: session.jobRequirements.difficulty,\n    focus_areas: JSON.stringify(session.jobRequirements.focusAreas)\n  });\n  \n  // \u2705 UNIQUE Questions data for assessment_questions table\n  session.questions.forEach(question => {\n    questionsData.push({\n      screening_id: session.screeningId,\n      question_id: question.questionId,\n      question_text: question.questionText,\n      options: JSON.stringify(question.options),\n      correct_answer: question.correctAnswer,\n      category: question.category,\n      difficulty: question.difficulty,\n      explanation: question.explanation,\n      time_limit: question.timeLimit\n    });\n  });\n});\n\n// \u2705 SURVEY QUESTIONS Data Preparation with EXPECTED ANSWERS\nconst surveyQuestionsData = [];\n\nassessmentSessions.forEach(session => {\n  workflowSurveyQuestions.forEach((question, qIndex) => {\n    surveyQuestionsData.push({\n      screening_id: session.screeningId,\n      question_id: question.surveyQuestionId || (qIndex + 1),\n      question_text: question.fieldLabel,\n      question_type: question.fieldType === 'dropdown' ? \n        (question.fieldOptions?.values?.length === 2 && \n         question.fieldOptions.values.some(opt => opt.option === 'Yes') ? 'yes_no' : 'multiple_choice') \n        : 'text',\n      options: question.fieldOptions ? JSON.stringify(question.fieldOptions) : null,\n      expected_answer: question.expectedAnswer || null, // \u2705 NEW: Store expected answer\n      is_qualifying: question.isQualifying || false, // \u2705 NEW: Store qualifying flag\n      question_category: question.questionCategory || 'informational', // \u2705 NEW: Store category\n      validation_type: question.validationType || 'none', // \u2705 NEW: Store validation type\n      created_at: new Date().toISOString()\n    });\n  });\n});\n\nconsole.log('\u2705 PREPARED DATA FOR POSTGRESQL WITH QUALIFYING SURVEY QUESTIONS:');\nconsole.log(`  - Candidates: ${candidatesData.length}`);\nconsole.log(`  - Job Requirements: ${jobRequirementsData.length}`);\nconsole.log(`  - MCQ Questions: ${questionsData.length} (${questionsPerCandidate} per candidate)`);\nconsole.log(`  - Survey Questions: ${surveyQuestionsData.length} (${workflowSurveyQuestions.length} per candidate)`);\n\n// Count qualifying vs informational survey questions\nconst qualifyingSurveyCount = surveyQuestionsData.filter(sq => sq.is_qualifying).length;\nconst informationalSurveyCount = surveyQuestionsData.filter(sq => !sq.is_qualifying).length;\n\nconsole.log(`  - Qualifying survey questions: ${qualifyingSurveyCount}`);\nconsole.log(`  - Informational survey questions: ${informationalSurveyCount}`);\n\n// \u2705 VALIDATE QUESTION UNIQUENESS\nconst questionsByCandidate = {};\nquestionsData.forEach(q => {\n  if (!questionsByCandidate[q.screening_id]) {\n    questionsByCandidate[q.screening_id] = [];\n  }\n  questionsByCandidate[q.screening_id].push(q.question_id);\n});\n\nconsole.log('\u2705 QUESTION DISTRIBUTION VERIFICATION:');\nObject.entries(questionsByCandidate).forEach(([screeningId, questionIds]) => {\n  console.log(`  ${screeningId}: ${questionIds.length} MCQ questions`);\n});\n\n// \u2705 VALIDATE SURVEY QUESTIONS DISTRIBUTION\nconst surveyQuestionsByCandidate = {};\nsurveyQuestionsData.forEach(sq => {\n  if (!surveyQuestionsByCandidate[sq.screening_id]) {\n    surveyQuestionsByCandidate[sq.screening_id] = [];\n  }\n  surveyQuestionsByCandidate[sq.screening_id].push(sq.question_id);\n});\n\nconsole.log('\u2705 SURVEY QUESTIONS DISTRIBUTION VERIFICATION:');\nObject.entries(surveyQuestionsByCandidate).forEach(([screeningId, questionIds]) => {\n  const qualifyingForThisCandidate = surveyQuestionsData.filter(sq => \n    sq.screening_id === screeningId && sq.is_qualifying\n  ).length;\n  console.log(`  ${screeningId}: ${questionIds.length} survey questions (${qualifyingForThisCandidate} qualifying)`);\n});\n\n// Return data in format expected by PostgreSQL nodes\nreturn [\n  {\n    json: {\n      // Summary for logging\n      summary: {\n        totalSessions: assessmentSessions.length,\n        totalQuestions: questionsData.length,\n        totalSurveyQuestions: surveyQuestionsData.length,\n        qualifyingSurveyQuestions: qualifyingSurveyCount,\n        informationalSurveyQuestions: informationalSurveyCount,\n        questionPoolSize: questionPoolSize,\n        questionsPerCandidate: questionsPerCandidate,\n        surveyQuestionsPerCandidate: workflowSurveyQuestions.length,\n        jobTitle: assessmentMetadata.jobTitle || 'Data Scientist',\n        requiredSkills: assessmentMetadata.requiredSkills || 'Various skills',\n        optionalSkills: assessmentMetadata.optionalSkills || 'None specified',\n        dataStorageMethod: 'postgresql_database_with_qualifying_surveys',\n        createdAt: new Date().toISOString()\n      },\n      \n      // Data for PostgreSQL nodes\n      candidatesData: candidatesData,\n      jobRequirementsData: jobRequirementsData,\n      questionsData: questionsData,\n      surveyQuestionsData: surveyQuestionsData,\n      \n      // Metadata\n      metadata: {\n        sessionsCreated: assessmentSessions.length,\n        questionsPerSession: questionsPerCandidate,\n        totalQuestionsStored: questionsData.length,\n        totalSurveyQuestionsStored: surveyQuestionsData.length,\n        qualifyingSurveyQuestionsStored: qualifyingSurveyCount,\n        informationalSurveyQuestionsStored: informationalSurveyCount,\n        questionPoolUtilized: true,\n        surveyQuestionsEnabled: surveyQuestionsData.length > 0,\n        qualifyingSurveyEnabled: qualifyingSurveyCount > 0,\n        dataStoredAt: new Date().toISOString(),\n        readyForDatabase: true,\n        uniqueQuestionsPerCandidate: true\n      },\n      \n      // Debug info\n      debugInfo: {\n        emailTasksProcessed: emailTasks.length,\n        candidatesFound: selectedCandidates.length,\n        questionPoolSize: mcqQuestions.length,\n        questionsSelectedPerCandidate: questionsPerCandidate,\n        surveyQuestionsProcessed: surveyQuestionsData.length,\n        qualifyingSurveyQuestionsProcessed: qualifyingSurveyCount,\n        informationalSurveyQuestionsProcessed: informationalSurveyCount,\n        firstScreeningId: assessmentSessions[0]?.screeningId || 'None',\n        sampleCandidate: assessmentSessions[0] ? {\n          name: assessmentSessions[0].candidate.name,\n          email: assessmentSessions[0].candidate.email,\n          screeningId: assessmentSessions[0].screeningId,\n          company: assessmentSessions[0].candidate.currentCompany,\n          uniqueQuestions: assessmentSessions[0].questions.length,\n          surveyQuestions: surveyQuestionsData.filter(sq => sq.screening_id === assessmentSessions[0].screeningId).length,\n          qualifyingSurveyQuestions: surveyQuestionsData.filter(sq => sq.screening_id === assessmentSessions[0].screeningId && sq.is_qualifying).length,\n          requiredSkills: assessmentSessions[0].jobRequirements.requiredSkills,\n          optionalSkills: assessmentSessions[0].jobRequirements.optionalSkills\n        } : null,\n        questionUniquenessVerified: true,\n        optionalSkillsSupported: true,\n        surveyQuestionsSupported: true,\n        qualifyingSurveySupported: true\n      },\n      \n      nextSteps: [\n        \"1. Data prepared for PostgreSQL storage with unique questions per candidate\",\n        \"2. Connect to PostgreSQL nodes to insert candidates, job_requirements, and questions\", \n        \"3. Survey questions will be stored with expected answers and qualifying flags\",\n        \"4. Each candidate will have different questions from the pool\",\n        \"5. Assessment platform will serve personalized questions per screening_id\",\n        \"6. Questions include both required and optional skills assessment\",\n        \"7. Survey responses will be validated against expected answers\",\n        \"8. Only candidates passing survey validation can access technical questions\"\n      ]\n    }\n  }\n];\n\n// Note: This node prepares the data with UNIQUE question selection per candidate including qualifying survey questions with expected answers."
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3872,
+        400
+      ],
+      "id": "3073f181-a602-453b-b891-d58bc3b8cfd7",
+      "name": "Store Assessment Data"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "candidatesData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        4176,
+        0
+      ],
+      "id": "e04a1f29-97a9-4e1f-bdca-2fe5da600fbd",
+      "name": "Split Candidates"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "candidates_v2",
+          "mode": "list",
+          "cachedResultName": "candidates_v2"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "screening_id",
+              "displayName": "screening_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "current_company",
+              "displayName": "current_company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "match_score",
+              "displayName": "match_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "required_skills",
+              "displayName": "required_skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "experience_level",
+              "displayName": "experience_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "salary_expectation",
+              "displayName": "salary_expectation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "expires_at",
+              "displayName": "expires_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "identity_verified",
+              "displayName": "identity_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "verification_required",
+              "displayName": "verification_required",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "verification_attempts",
+              "displayName": "verification_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_verification_attempt",
+              "displayName": "last_verification_attempt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "survey_validation_status",
+              "displayName": "survey_validation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "survey_completed_at",
+              "displayName": "survey_completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "technical_assessment_unlocked",
+              "displayName": "technical_assessment_unlocked",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resume_drive_id",
+              "displayName": "resume_drive_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resume_file_name",
+              "displayName": "resume_file_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resume_drive_url",
+              "displayName": "resume_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resume_text",
+              "displayName": "resume_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4384,
+        0
+      ],
+      "id": "7ada3e8b-bd36-4b2f-aa97-8c556db7fb0c",
+      "name": "Insert Candidates",
+      "credentials": {
+        "postgres": {
+          "id": "DO36tAj1RCJwb9XJ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "jobRequirementsData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        4080,
+        192
+      ],
+      "id": "d250b32a-478e-4125-a432-73a6b6d9b5d1",
+      "name": "Split Job Requirements"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "job_requirements_v2",
+          "mode": "list",
+          "cachedResultName": "job_requirements_v2"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "screening_id",
+              "displayName": "screening_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "required_skills",
+              "displayName": "required_skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "experience_level",
+              "displayName": "experience_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "salary_budget",
+              "displayName": "salary_budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_count",
+              "displayName": "question_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time_limit",
+              "displayName": "time_limit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "difficulty",
+              "displayName": "difficulty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "focus_areas",
+              "displayName": "focus_areas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "optional_skills",
+              "displayName": "optional_skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4288,
+        192
+      ],
+      "id": "da275d99-588b-4ebd-8fca-2e6da34f4e19",
+      "name": "Insert Job Requirements",
+      "credentials": {
+        "postgres": {
+          "id": "DO36tAj1RCJwb9XJ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "questionsData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        4080,
+        400
+      ],
+      "id": "9cd92885-046e-4106-8fb6-47ec2c2ab739",
+      "name": "Split Questions"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "assessment_questions_v2",
+          "mode": "list",
+          "cachedResultName": "assessment_questions_v2"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "id": 0,
+            "question_id": 0,
+            "time_limit": 0
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "screening_id",
+              "displayName": "screening_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_id",
+              "displayName": "question_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_text",
+              "displayName": "question_text",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "options",
+              "displayName": "options",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "correct_answer",
+              "displayName": "correct_answer",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "difficulty",
+              "displayName": "difficulty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "explanation",
+              "displayName": "explanation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time_limit",
+              "displayName": "time_limit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4288,
+        400
+      ],
+      "id": "271f9921-dbdd-4128-bdb0-d3e66fedf945",
+      "name": "Insert Questions",
+      "credentials": {
+        "postgres": {
+          "id": "DO36tAj1RCJwb9XJ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ENHANCED: Prepare HR Review Data Node with Survey Questions Support\n// This generates dynamic form fields with comprehensive analysis display + survey questions\n\nconst candidatesData = $input.all();\n\n// \u2705 NEW: Get survey questions from earlier workflow\nlet surveyQuestions = [];\nlet jobRequirements = {};\n\ntry {\n  // Get survey questions from \"Process Survey Questions\" node\n  const surveyData = $('Process Survey Questions').first().json;\n  surveyQuestions = surveyData.surveyQuestions || [];\n  jobRequirements = surveyData.jobRequirements || {};\n  \n  console.log('\u2705 Retrieved survey questions:', surveyQuestions.length);\n  console.log('Survey questions:', surveyQuestions.map(q => q.fieldLabel));\n} catch (error) {\n  console.log('Could not get survey questions, using defaults');\n  // Fallback: try to get from Resume Search Config\n  try {\n    const searchConfig = $('Resume Search Config').first().json;\n    jobRequirements = searchConfig.jobRequirements || {};\n  } catch (e) {\n    jobRequirements = {\n      title: 'Software Engineer',\n      requiredSkills: 'Programming',\n      optionalSkills: '',\n      experienceLevel: '2-5 years',\n      requestedCount: 5\n    };\n  }\n}\n\n// Extract and enrich candidate data (keep your existing logic)\nconst enrichedCandidates = candidatesData.map((candidateItem, index) => {\n  const candidate = candidateItem.json;\n  \n  // \u2705 IMPROVED: Better handling of AI analysis with fallbacks\n  const aiAnalysis = candidate.ai_analysis || {};\n  const keyStrengths = aiAnalysis.key_strengths || aiAnalysis.keyStrengths || ['Strong technical background'];\n  const concerns = aiAnalysis.concerns || ['Experience level assessment needed'];\n  const skillMatchPercentage = aiAnalysis.skill_match_percentage || aiAnalysis.skillMatchPercentage || 75;\n  const experienceFit = aiAnalysis.experience_fit || aiAnalysis.experienceFit || 'Good';\n  const recommendedAction = aiAnalysis.recommended_action || aiAnalysis.recommendedAction || 'Interview';\n  const reasoning = aiAnalysis.reasoning || `Strong candidate with ${candidate.experience_years || 0} years experience in ${candidate.job_title || 'relevant field'}`;\n  \n  // \u2705 IMPROVED: Enhanced experience level analysis\n  const targetExperienceYears = extractYearsFromExperience(jobRequirements.experienceLevel || '2-5 years');\n  const candidateYears = candidate.experience_years || 0;\n  const experienceGap = targetExperienceYears.min - candidateYears;\n  \n  let experienceAssessment = 'Perfect Match';\n  if (experienceGap > 1) {\n    experienceAssessment = 'Below Target';\n  } else if (experienceGap > 0) {\n    experienceAssessment = 'Slight Gap';\n  } else if (candidateYears > targetExperienceYears.max + 2) {\n    experienceAssessment = 'Overqualified';\n  }\n  \n  // \u2705 IMPROVED: Skills analysis\n  const candidateSkills = candidate.skills || [];\n  const requiredSkillsList = (jobRequirements.requiredSkills || '').split(',').map(s => s.trim().toLowerCase());\n  const optionalSkillsList = (jobRequirements.optionalSkills || '').split(',').map(s => s.trim().toLowerCase()).filter(s => s);\n  \n  const matchedRequiredSkills = candidateSkills.filter(skill => \n    requiredSkillsList.some(req => skill.toLowerCase().includes(req.toLowerCase()) || req.toLowerCase().includes(skill.toLowerCase()))\n  );\n  \n  const matchedOptionalSkills = candidateSkills.filter(skill => \n    optionalSkillsList.some(opt => skill.toLowerCase().includes(opt.toLowerCase()) || opt.toLowerCase().includes(skill.toLowerCase()))\n  );\n  \n  const requiredSkillsMatch = requiredSkillsList.length > 0 ? \n    Math.round((matchedRequiredSkills.length / requiredSkillsList.length) * 100) : skillMatchPercentage;\n  \n  return {\n    id: `candidate_${index + 1}`,\n    name: candidate.name || 'Unknown Name',\n    email: candidate.email || 'No email provided',\n    phone: candidate.phone || 'No phone provided',\n    location: candidate.location || 'Location not specified',\n    currentCompany: candidate.current_company || 'Company not specified',\n    jobTitle: candidate.job_title || 'Title not specified',\n    experienceYears: candidateYears,\n    skills: candidateSkills,\n    matchScore: candidate.match_score || 0,\n    salaryExpectation: candidate.salary_expectation || 'Not specified',\n    \n    // \u2705 ENHANCED AI Analysis\n    aiAnalysis: {\n      keyStrengths: keyStrengths,\n      concerns: concerns,\n      skillMatchPercentage: requiredSkillsMatch,\n      experienceFit: experienceAssessment,\n      recommendedAction: recommendedAction,\n      reasoning: reasoning,\n      \n      // \u2705 NEW: Additional analysis\n      experienceGap: experienceGap,\n      matchedRequiredSkills: matchedRequiredSkills,\n      matchedOptionalSkills: matchedOptionalSkills,\n      totalSkillsCount: candidateSkills.length,\n      requiredSkillsCoverage: `${matchedRequiredSkills.length}/${requiredSkillsList.length}`,\n      optionalSkillsBonus: matchedOptionalSkills.length\n    },\n    \n    bio: candidate.bio || 'No bio available',\n    availability: candidate.availability || 'Not specified',\n    portfolioUrl: candidate.portfolio_url || '',\n    profileUrl: candidate.profile_url || '',\n    \n    // \u2705 IMPROVED: Display fields\n    skillsDisplay: candidateSkills.slice(0, 3).join(', ') || 'Skills not specified',\n    truncatedBio: candidate.bio ? \n      (candidate.bio.length > 150 ? candidate.bio.substring(0, 150) + '...' : candidate.bio) : \n      'Professional with experience in technology',\n    \n    matchScoreColor: candidate.match_score >= 80 ? '#28a745' : \n                     candidate.match_score >= 60 ? '#ffc107' : '#dc3545',\n    matchScoreLabel: candidate.match_score >= 80 ? 'Excellent Match' :\n                     candidate.match_score >= 60 ? 'Good Match' : 'Average Match',\n    \n    recommendationColor: {\n      'Strong hire': '#28a745',\n      'Interview': '#17a2b8', \n      'Consider': '#ffc107',\n      'Pass': '#dc3545'\n    }[recommendedAction] || '#17a2b8',\n    \n    // \u2705 ENHANCED selection label with more info\n    selectionLabel: `${candidate.name || 'Unknown'} - ${candidate.match_score || 0}% match (${candidate.current_company || 'Unknown'}) | ${recommendedAction} | ${experienceAssessment} Experience | Required Skills: ${requiredSkillsMatch}%`,\n    selectionValue: `${candidate.name || 'unknown'}|${candidate.email || 'no-email'}|${index}`\n  };\n});\n\n// Helper function to extract years from experience string (keep existing)\nfunction extractYearsFromExperience(experienceStr) {\n  const matches = experienceStr.match(/(\\d+)(?:-(\\d+))?\\s*years?/i);\n  if (matches) {\n    const min = parseInt(matches[1]);\n    const max = matches[2] ? parseInt(matches[2]) : min;\n    return { min, max };\n  }\n  return { min: 2, max: 5 }; // default\n}\n\n// Sort candidates by match score (highest first)\nenrichedCandidates.sort((a, b) => b.matchScore - a.matchScore);\n\n// \u2705 ENHANCED summary statistics (keep existing logic)\nconst summaryStats = {\n  totalCandidates: enrichedCandidates.length,\n  excellentMatches: enrichedCandidates.filter(c => c.matchScore >= 80).length,\n  goodMatches: enrichedCandidates.filter(c => c.matchScore >= 60 && c.matchScore < 80).length,\n  averageMatches: enrichedCandidates.filter(c => c.matchScore < 60).length,\n  averageMatchScore: enrichedCandidates.length > 0 ? Math.round(enrichedCandidates.reduce((sum, c) => sum + c.matchScore, 0) / enrichedCandidates.length) : 0,\n  topSkills: getTopSkills(enrichedCandidates),\n  recommendationBreakdown: getRecommendationBreakdown(enrichedCandidates),\n  experienceBreakdown: getExperienceBreakdown(enrichedCandidates)\n};\n\n// Helper functions (keep existing)\nfunction getTopSkills(candidates) {\n  const skillCounts = {};\n  candidates.forEach(candidate => {\n    (candidate.skills || []).forEach(skill => {\n      skillCounts[skill] = (skillCounts[skill] || 0) + 1;\n    });\n  });\n  \n  return Object.entries(skillCounts)\n    .sort(([,a], [,b]) => b - a)\n    .slice(0, 8)\n    .map(([skill, count]) => ({ skill, count }));\n}\n\nfunction getRecommendationBreakdown(candidates) {\n  const breakdown = {};\n  candidates.forEach(candidate => {\n    const action = candidate.aiAnalysis.recommendedAction || 'Review';\n    breakdown[action] = (breakdown[action] || 0) + 1;\n  });\n  return breakdown;\n}\n\nfunction getExperienceBreakdown(candidates) {\n  const breakdown = {};\n  candidates.forEach(candidate => {\n    const fit = candidate.aiAnalysis.experienceFit || 'Unknown';\n    breakdown[fit] = (breakdown[fit] || 0) + 1;\n  });\n  return breakdown;\n}\n\n// \u2705 ENHANCED form analysis with survey questions\nconst generateFormAnalysis = () => {\n  let analysis = `\ud83c\udfaf AI CANDIDATE ANALYSIS RESULTS\\n\\n`;\n  \n  // Enhanced summary with more metrics\n  analysis += `\ud83d\udcca EXECUTIVE SUMMARY:\\n`;\n  analysis += `Total: ${summaryStats.totalCandidates} | Excellent (80%+): ${summaryStats.excellentMatches} | Good (60-79%): ${summaryStats.goodMatches} | Average Score: ${summaryStats.averageMatchScore}%\\n`;\n  analysis += `Recommendations: ${Object.entries(summaryStats.recommendationBreakdown).map(([action, count]) => `${action}(${count})`).join(', ')}\\n\\n`;\n  \n  // \u2705 NEW: Survey questions section\n  if (surveyQuestions.length > 0) {\n    analysis += `\ud83d\udccb SURVEY QUESTIONS FOR SELECTED CANDIDATES:\\n`;\n    surveyQuestions.forEach((q, i) => {\n      const typeLabel = q.fieldType === 'dropdown' ? 'Dropdown' : q.fieldType === 'text' ? 'Text Input' : q.fieldType;\n      analysis += `${i + 1}. ${q.fieldLabel} (${typeLabel})\\n`;\n      if (q.fieldOptions && q.fieldOptions.values) {\n        analysis += `   Options: ${q.fieldOptions.values.map(opt => opt.option).join(', ')}\\n`;\n      }\n    });\n    analysis += `\\n`;\n  }\n  \n  // Top skills with better formatting\n  if (summaryStats.topSkills.length > 0) {\n    analysis += `\ud83d\udee0\ufe0f SKILLS ANALYSIS: `;\n    analysis += summaryStats.topSkills.slice(0, 6).map(skill => `${skill.skill}(${skill.count})`).join(', ');\n    analysis += `\\n\\n`;\n  }\n  \n  // Job requirements context\n  analysis += `\ud83c\udfaf JOB REQUIREMENTS:\\n`;\n  analysis += `Position: ${jobRequirements.title} | Required: ${jobRequirements.requiredSkills}`;\n  if (jobRequirements.optionalSkills) {\n    analysis += ` | Optional: ${jobRequirements.optionalSkills}`;\n  }\n  analysis += ` | Experience: ${jobRequirements.experienceLevel}\\n\\n`;\n  \n  // \u2705 ENHANCED individual candidate analysis (keep existing logic)\n  analysis += `\ud83d\udc65 DETAILED CANDIDATE PROFILES:\\n`;\n  \n  enrichedCandidates.forEach((candidate, index) => {\n    const emoji = candidate.matchScore >= 80 ? '\ud83c\udf1f' : candidate.matchScore >= 60 ? '\u2b50' : '\ud83d\udccb';\n    \n    analysis += `${emoji} ${index + 1}. ${candidate.name} (${candidate.matchScore}% overall match)\\n`;\n    analysis += `   \ud83d\udccd ${candidate.currentCompany} | \ud83d\udcbc ${candidate.experienceYears} years experience | \ud83d\udce7 ${candidate.email}\\n`;\n    analysis += `   \ud83d\udee0\ufe0f Skills: ${candidate.skillsDisplay}\\n`;\n    analysis += `   \ud83c\udfaf Required Skills Coverage: ${candidate.aiAnalysis.requiredSkillsCoverage} (${candidate.aiAnalysis.skillMatchPercentage}%)\\n`;\n    \n    if (candidate.aiAnalysis.matchedOptionalSkills.length > 0) {\n      analysis += `   \u2b50 Optional Skills Bonus: ${candidate.aiAnalysis.matchedOptionalSkills.join(', ')}\\n`;\n    }\n    \n    analysis += `   \ud83c\udfc6 AI Recommendation: ${candidate.aiAnalysis.recommendedAction} | Experience Fit: ${candidate.aiAnalysis.experienceFit}\\n`;\n    \n    // Key strengths\n    if (candidate.aiAnalysis.keyStrengths && candidate.aiAnalysis.keyStrengths.length > 0) {\n      analysis += `   \ud83d\udcaa Strengths: ${candidate.aiAnalysis.keyStrengths.slice(0, 2).join(', ')}\\n`;\n    }\n    \n    // Concerns\n    if (candidate.aiAnalysis.concerns && candidate.aiAnalysis.concerns.length > 0) {\n      analysis += `   \u26a0\ufe0f Considerations: ${candidate.aiAnalysis.concerns.slice(0, 1).join(', ')}\\n`;\n    }\n    \n    // AI reasoning summary\n    if (candidate.aiAnalysis.reasoning) {\n      const shortReasoning = candidate.aiAnalysis.reasoning.length > 120 ? \n        candidate.aiAnalysis.reasoning.substring(0, 120) + '...' : \n        candidate.aiAnalysis.reasoning;\n      analysis += `   \ud83e\udd16 AI Analysis: ${shortReasoning}\\n`;\n    }\n    \n    if (index < enrichedCandidates.length - 1) {\n      analysis += `\\n`;\n    }\n  });\n  \n  // Enhanced instructions\n  analysis += `\\n`;\n  analysis += `\ud83d\udca1 SELECTION GUIDANCE:\\n`;\n  analysis += `\u2022 SELECT multiple candidates for Round 0 AI screening from the dropdown below\\n`;\n  analysis += `\u2022 Candidates are pre-ranked by AI match score (highest first)\\n`;\n  analysis += `\u2022 Consider both required skills coverage AND experience fit\\n`;\n  analysis += `\u2022 Optional skills provide bonus points but are not mandatory\\n`;\n  analysis += `\u2022 \"Strong hire\" and \"Interview\" recommendations are preferred choices\\n`;\n  analysis += `\u2022 Each selected candidate will receive unique assessment questions`;\n  \n  // \u2705 NEW: Add survey questions note\n  if (surveyQuestions.length > 0) {\n    analysis += `\\n\u2022 Selected candidates will also answer ${surveyQuestions.length} custom survey question(s) listed above`;\n  }\n  \n  return analysis;\n};\n\nconst formAnalysis = generateFormAnalysis();\n\n// Generate enhanced form title\nconst formTitle = `Candidate Review - ${jobRequirements.title || 'Position'} (${summaryStats.totalCandidates} candidates | Avg: ${summaryStats.averageMatchScore}% | ${summaryStats.excellentMatches} excellent)`;\n\nconsole.log(`\u2705 ENHANCED ANALYSIS GENERATED:`);\nconsole.log(`  - Candidates analyzed: ${enrichedCandidates.length}`);\nconsole.log(`  - Survey questions found: ${surveyQuestions.length}`);\nconsole.log(`  - Job: ${jobRequirements.title}`);\nconsole.log(`  - Top candidate: ${enrichedCandidates[0]?.name} (${enrichedCandidates[0]?.matchScore}%)`);\n\n// \u2705 Return enhanced formatted data with survey questions\nreturn [{\n  json: {\n    // Structured data for next nodes\n    candidates: enrichedCandidates,\n    summaryStats: summaryStats,\n    jobRequirements: jobRequirements,\n    \n    // \u2705 NEW: Include survey questions\n    surveyQuestions: surveyQuestions,\n    \n    // \u2705 Enhanced form configuration\n    formTitle: formTitle,\n    formDescription: formAnalysis,\n    \n    // Processing metadata\n    totalCandidates: enrichedCandidates.length,\n    processedAt: new Date().toISOString(),\n    readyForHRReview: true,\n    enhancedAnalysis: true,\n    \n    // Debug info\n    debugInfo: {\n      jobRequirements: jobRequirements,\n      candidateCount: enrichedCandidates.length,\n      surveyQuestionsCount: surveyQuestions.length, // \u2705 NEW\n      averageMatchScore: summaryStats.averageMatchScore,\n      topCandidate: enrichedCandidates[0]?.name || 'None',\n      analysisGenerated: true,\n      dropdownOptionsCount: enrichedCandidates.length,\n      formAnalysisLength: formAnalysis.length,\n      enhancementsApplied: true,\n      surveyQuestionsIncluded: surveyQuestions.length > 0 // \u2705 NEW\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        400
+      ],
+      "id": "1a9b8d77-c9e5-497f-80ee-12e056453f17",
+      "name": "Prepare HR Review Data"
+    },
+    {
+      "parameters": {
+        "defineForm": "json",
+        "jsonOutput": "=={{\n  JSON.stringify([\n    // Skills Filter Dropdown\n    {\n      \"fieldLabel\": \"\ud83d\udd0d Filter Candidates by Skill\",\n      \"fieldType\": \"dropdown\",\n      \"fieldOptions\": {\n        \"values\": [\n          { \"option\": \"All Candidates\" },\n          // Required skills from job requirements\n          ...$json.jobRequirements.requiredSkills.split(',').map(skill => ({ \n            option: skill.trim()\n          })),\n          // Optional skills if they exist\n          ...($json.jobRequirements.optionalSkills && $json.jobRequirements.optionalSkills !== 'None specified' && $json.jobRequirements.optionalSkills !== '' ? \n            $json.jobRequirements.optionalSkills.split(',').map(skill => ({ \n              option: skill.trim()\n            })) : []),\n          // Top skills from all candidates (most common first)\n          ...Array.from(new Set(\n            $json.candidates.flatMap(candidate => candidate.skills || [])\n          )).sort().slice(0, 10).map(skill => ({ \n            option: skill\n          }))\n        ]\n      },\n      \"multiselect\": false,\n      \"requiredField\": false,\n      \"placeholder\": \"Select any skill to filter candidates...\"\n    },\n    \n    // Match Score Filter\n    {\n      \"fieldLabel\": \"\ud83d\udcca Filter by Match Score\",\n      \"fieldType\": \"dropdown\", \n      \"fieldOptions\": {\n        \"values\": [\n          { \"option\": \"All Scores\" },\n          { \"option\": \"Excellent (80%+)\" },\n          { \"option\": \"Good (60-79%)\" },\n          { \"option\": \"Average (40-59%)\" },\n          { \"option\": \"Below Average (<40%)\" }\n        ]\n      },\n      \"multiselect\": false,\n      \"requiredField\": false,\n      \"placeholder\": \"Filter by candidate match scores...\"\n    },\n\n    // AI Recommendation Filter\n    {\n      \"fieldLabel\": \"\u2b50 Filter by AI Recommendation\",\n      \"fieldType\": \"dropdown\",\n      \"fieldOptions\": {\n        \"values\": [\n          { \"option\": \"All Recommendations\" },\n          { \"option\": \"Strong hire\" },\n          { \"option\": \"Interview\" },\n          { \"option\": \"Consider\" },\n          { \"option\": \"Pass\" }\n        ]\n      },\n      \"multiselect\": false,\n      \"requiredField\": false,\n      \"placeholder\": \"Filter by AI recommendations...\"\n    },\n\n    // Main candidate selection dropdown\n    {\n      \"fieldLabel\": \"Select Candidates for Round 0 AI Screening\",\n      \"fieldType\": \"dropdown\",\n      \"fieldOptions\": {\n        \"values\": $json.candidates.map(candidate => ({ option: candidate.selectionLabel }))\n      },\n      \"multiselect\": true,\n      \"requiredField\": true,\n      \"placeholder\": \"Choose candidates to proceed with assessment...\"\n    }\n  ]\n  // Add survey questions preview if they exist\n  .concat(\n    ($json.surveyQuestions && $json.surveyQuestions.length > 0) ? [\n      {\n        \"fieldLabel\": \"Survey Questions for Selected Candidates\",\n        \"fieldType\": \"text\", \n        \"placeholder\": $json.surveyQuestions.map(q => {\n          let optionsText = '';\n          if (q.fieldOptions && q.fieldOptions.values) {\n            optionsText = ` (Options: ${q.fieldOptions.values.map(opt => opt.option).join(', ')})`;\n          }\n          return `${q.fieldLabel}${optionsText}`;\n        }).join(' | '),\n        \"requiredField\": false\n      }\n    ] : []\n  ))\n}}",
+        "options": {
+          "formTitle": "={{ $json.formTitle }}",
+          "formDescription": "={{ $json.formDescription }}",
+          "customCss": ":root {\n    /* Enhanced Typography */\n    --font-family: 'Segoe UI', 'Inter', 'Open Sans', sans-serif;\n    --font-weight-normal: 400;\n    --font-weight-bold: 600;\n    \n    /* FIXED Colors - No More Blue Text Issues */\n    --color-background: #f8f9fa;\n    --color-text-primary: #2c3e50;\n    --color-text-secondary: #495057;\n    --color-text-muted: #6c757d;\n    --color-accent: #667eea;\n    --color-success: #28a745;\n    --color-warning: #ffc107;\n    --color-danger: #dc3545;\n    --color-info: #17a2b8;\n    \n    /* Layout and Components */\n    --color-card-bg: #ffffff;\n    --color-card-border: #e1e8ed;\n    --color-filter-bg: #e7f3ff;\n    --color-filter-border: #b3d9ff;\n    --color-analysis-bg: #ffffff;\n    --color-survey-bg: #fff3cd;\n    --color-survey-border: #ffeaa7;\n    \n    /* Form Elements */\n    --color-input-border: #e1e8ed;\n    --color-input-text: #495057;\n    --color-focus-border: #667eea;\n    --color-label: #2c3e50;\n    \n    /* Dimensions */\n    --border-radius: 8px;\n    --container-width: 1200px;\n    --spacing: 20px;\n    \n    /* Shadows */\n    --shadow-card: 0 2px 8px rgba(0,0,0,0.1);\n    --shadow-filter: 0 4px 12px rgba(102, 126, 234, 0.15);\n}\n\n/* CRITICAL: Fix form description (AI Analysis) */\n.form-description, \n[class*=\"description\"],\npre {\n    font-family: var(--font-family) !important;\n    font-size: 14px !important;\n    line-height: 1.6 !important;\n    color: var(--color-text-secondary) !important;\n    background: var(--color-analysis-bg) !important;\n    padding: 25px !important;\n    border-radius: var(--border-radius) !important;\n    border: 1px solid var(--color-card-border) !important;\n    white-space: pre-wrap !important;\n    word-wrap: break-word !important;\n    max-height: 500px !important;\n    overflow-y: auto !important;\n    margin-bottom: var(--spacing) !important;\n    box-shadow: var(--shadow-card) !important;\n}\n\n/* Enhanced Form Container */\n.container,\n.form-container,\n[class*=\"container\"] {\n    max-width: var(--container-width) !important;\n    width: 100% !important;\n    margin: 0 auto !important;\n    padding: var(--spacing) !important;\n}\n\n/* Form Title */\nh1, h2, .form-title {\n    color: var(--color-text-primary) !important;\n    font-weight: var(--font-weight-bold) !important;\n    margin-bottom: var(--spacing) !important;\n    text-align: center !important;\n    font-size: 24px !important;\n}\n\n/* FILTERS SECTION - Side by Side Layout */\n.filters-row {\n    display: grid !important;\n    grid-template-columns: 1fr 1fr 1fr !important;\n    gap: 15px !important;\n    background: var(--color-filter-bg) !important;\n    border: 2px solid var(--color-filter-border) !important;\n    border-radius: var(--border-radius) !important;\n    padding: 20px !important;\n    margin-bottom: 25px !important;\n    box-shadow: var(--shadow-filter) !important;\n}\n\n.filter-group {\n    display: flex !important;\n    flex-direction: column !important;\n}\n\n/* Enhanced Labels */\nlabel {\n    font-weight: var(--font-weight-bold) !important;\n    color: var(--color-label) !important;\n    margin-bottom: 8px !important;\n    font-size: 14px !important;\n    display: block !important;\n}\n\n/* Filter Labels - Special Styling */\n.filter-label {\n    background: white !important;\n    padding: 8px 12px !important;\n    border-radius: 6px !important;\n    border: 1px solid var(--color-filter-border) !important;\n    color: #0066cc !important;\n    font-weight: 600 !important;\n    font-size: 13px !important;\n    text-align: center !important;\n    margin-bottom: 10px !important;\n    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;\n}\n\n/* Enhanced Dropdowns */\nselect:not([multiple]) {\n    padding: 10px 12px !important;\n    font-size: 14px !important;\n    border: 2px solid var(--color-input-border) !important;\n    border-radius: var(--border-radius) !important;\n    background: white !important;\n    color: var(--color-input-text) !important;\n    width: 100% !important;\n    transition: all 0.3s ease !important;\n    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;\n}\n\nselect:not([multiple]):focus {\n    border-color: var(--color-focus-border) !important;\n    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;\n    outline: none !important;\n}\n\n/* Candidate Selection Dropdown */\nselect[multiple] {\n    min-height: 200px !important;\n    padding: 15px !important;\n    font-size: 14px !important;\n    line-height: 1.5 !important;\n    border: 2px solid var(--color-input-border) !important;\n    border-radius: var(--border-radius) !important;\n    background: white !important;\n    color: var(--color-input-text) !important;\n    margin-bottom: var(--spacing) !important;\n    box-shadow: var(--shadow-card) !important;\n    width: 100% !important;\n}\n\nselect[multiple]:focus {\n    border-color: var(--color-focus-border) !important;\n    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15) !important;\n    outline: none !important;\n}\n\n/* Candidate Selection Label */\n.main-selection-label {\n    background: var(--color-accent) !important;\n    color: white !important;\n    padding: 12px 20px !important;\n    border-radius: var(--border-radius) !important;\n    margin: 20px 0 15px 0 !important;\n    font-size: 16px !important;\n    font-weight: 600 !important;\n    text-align: center !important;\n    box-shadow: var(--shadow-card) !important;\n}\n\n/* Survey Section */\n.survey-section {\n    background: var(--color-survey-bg) !important;\n    border: 2px solid var(--color-survey-border) !important;\n    border-radius: var(--border-radius) !important;\n    padding: 15px !important;\n    margin: 15px 0 !important;\n}\n\n/* Submit Button */\nbutton[type=\"submit\"], \n.submit-button {\n    background: linear-gradient(135deg, var(--color-accent) 0%, #764ba2 100%) !important;\n    border: none !important;\n    padding: 15px 30px !important;\n    border-radius: var(--border-radius) !important;\n    font-size: 16px !important;\n    font-weight: var(--font-weight-bold) !important;\n    color: white !important;\n    transition: all 0.3s ease !important;\n    cursor: pointer !important;\n    margin-top: 25px !important;\n    width: 100% !important;\n    box-shadow: var(--shadow-card) !important;\n}\n\nbutton[type=\"submit\"]:hover {\n    transform: translateY(-2px) !important;\n    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3) !important;\n}\n\n/* Filter Info Messages */\n.filter-info {\n    background: #f8f9fa !important;\n    border: 1px solid #dee2e6 !important;\n    border-radius: 4px !important;\n    padding: 6px 10px !important;\n    font-size: 11px !important;\n    color: var(--color-text-muted) !important;\n    text-align: center !important;\n    margin-top: 8px !important;\n}\n\n.filter-info.active {\n    background: #d4edda !important;\n    border-color: #c3e6cb !important;\n    color: #155724 !important;\n    font-weight: 600 !important;\n}\n\n/* Candidate Counter */\n.candidate-counter {\n    background: var(--color-accent) !important;\n    color: white !important;\n    padding: 10px 20px !important;\n    border-radius: 20px !important;\n    font-size: 14px !important;\n    font-weight: 600 !important;\n    text-align: center !important;\n    margin: 15px 0 !important;\n    box-shadow: var(--shadow-card) !important;\n}\n\n.candidate-counter.filtered {\n    background: var(--color-success) !important;\n}\n\n/* Analysis Section Enhancement */\n.analysis-section {\n    background: var(--color-analysis-bg) !important;\n    border: 1px solid var(--color-card-border) !important;\n    border-radius: var(--border-radius) !important;\n    padding: 20px !important;\n    margin-bottom: var(--spacing) !important;\n    box-shadow: var(--shadow-card) !important;\n}\n\n/* Typography in Analysis */\n.form-description h1,\n.form-description h2,\n.form-description h3 {\n    color: var(--color-text-primary) !important;\n    margin: 15px 0 10px 0 !important;\n    font-weight: var(--font-weight-bold) !important;\n}\n\n.form-description strong {\n    color: var(--color-text-primary) !important;\n    font-weight: var(--font-weight-bold) !important;\n}\n\n/* Body Styling */\nbody {\n    background: var(--color-background) !important;\n    font-family: var(--font-family) !important;\n    color: var(--color-text-secondary) !important;\n    line-height: 1.5 !important;\n}\n\n/* Enhanced Option Styling */\nselect option {\n    padding: 8px !important;\n    color: var(--color-input-text) !important;\n}\n\n/* Responsive Design */\n@media (max-width: 768px) {\n    .filters-row {\n        grid-template-columns: 1fr !important;\n        gap: 10px !important;\n    }\n    \n    .container {\n        padding: 15px !important;\n    }\n}\n\n<script>\ndocument.addEventListener('DOMContentLoaded', function() {\n    console.log('\ud83c\udfa8 Enhanced Form: Initializing...');\n    \n    // Wait longer for n8n form to fully render\n    setTimeout(function() {\n        console.log('\ud83d\udd0d Starting form enhancement...');\n        \n        // Find all elements\n        const allLabels = document.querySelectorAll('label');\n        const allSelects = document.querySelectorAll('select');\n        \n        console.log(`Found ${allLabels.length} labels and ${allSelects.length} selects`);\n        \n        if (allSelects.length >= 4) {\n            // Identify elements\n            const skillFilter = allSelects[0];\n            const scoreFilter = allSelects[1];\n            const recommendationFilter = allSelects[2];\n            const candidateSelect = allSelects[3];\n            \n            // Get corresponding labels\n            const skillLabel = allLabels[0];\n            const scoreLabel = allLabels[1];\n            const recommendationLabel = allLabels[2];\n            const candidateLabel = allLabels[3];\n            \n            console.log('\u2705 Found all form elements');\n            \n            // Store original candidates\n            const allOptions = Array.from(candidateSelect.options);\n            console.log(`\ud83d\udcca Stored ${allOptions.length} candidate options`);\n            \n            // Create filters container\n            const filtersContainer = document.createElement('div');\n            filtersContainer.className = 'filters-row';\n            \n            // Create filter groups\n            function createFilterGroup(label, select, name) {\n                const group = document.createElement('div');\n                group.className = 'filter-group';\n                \n                // Enhanced label\n                const newLabel = document.createElement('div');\n                newLabel.className = 'filter-label';\n                newLabel.textContent = label.textContent;\n                \n                // Info div\n                const info = document.createElement('div');\n                info.className = 'filter-info';\n                info.textContent = `Filter by ${name}`;\n                \n                group.appendChild(newLabel);\n                group.appendChild(select);\n                group.appendChild(info);\n                \n                return group;\n            }\n            \n            // Create the three filter groups\n            const skillGroup = createFilterGroup(skillLabel, skillFilter, 'skills');\n            const scoreGroup = createFilterGroup(scoreLabel, scoreFilter, 'scores');\n            const recommendationGroup = createFilterGroup(recommendationLabel, recommendationFilter, 'recommendations');\n            \n            // Add groups to container\n            filtersContainer.appendChild(skillGroup);\n            filtersContainer.appendChild(scoreGroup);\n            filtersContainer.appendChild(recommendationGroup);\n            \n            // Insert filters container at the top\n            const formContainer = candidateSelect.closest('form') || document.body;\n            const firstElement = formContainer.querySelector('label, select, .form-description');\n            if (firstElement) {\n                firstElement.parentNode.insertBefore(filtersContainer, firstElement);\n            }\n            \n            // Remove original labels (they're now in the groups)\n            [skillLabel, scoreLabel, recommendationLabel].forEach(label => {\n                if (label && label.parentNode) {\n                    label.parentNode.removeChild(label);\n                }\n            });\n            \n            // Enhance candidate selection label\n            if (candidateLabel) {\n                candidateLabel.className = 'main-selection-label';\n            }\n            \n            // Add candidate counter\n            const counter = document.createElement('div');\n            counter.className = 'candidate-counter';\n            counter.textContent = `\ud83d\udc65 Showing ${allOptions.length} candidates`;\n            candidateSelect.parentNode.insertBefore(counter, candidateSelect);\n            \n            // Filter function\n            function applyFilters() {\n                const skillValue = skillFilter.value;\n                const scoreValue = scoreFilter.value;\n                const recommendationValue = recommendationFilter.value;\n                \n                console.log('\ud83c\udfaf Applying filters:', { skillValue, scoreValue, recommendationValue });\n                \n                candidateSelect.innerHTML = '';\n                let count = 0;\n                \n                allOptions.forEach(option => {\n                    let include = true;\n                    const text = option.textContent.toLowerCase();\n                    \n                    // Skill filter\n                    if (skillValue && skillValue !== 'All Candidates') {\n                        if (!text.includes(skillValue.toLowerCase())) {\n                            include = false;\n                        }\n                    }\n                    \n                    // Score filter\n                    if (scoreValue && scoreValue !== 'All Scores') {\n                        const scoreMatch = text.match(/(\\\\d+)% match/);\n                        if (scoreMatch) {\n                            const score = parseInt(scoreMatch[1]);\n                            switch(scoreValue) {\n                                case 'Excellent (80%+)':\n                                    if (score < 80) include = false;\n                                    break;\n                                case 'Good (60-79%)':\n                                    if (score < 60 || score >= 80) include = false;\n                                    break;\n                                case 'Average (40-59%)':\n                                    if (score < 40 || score >= 60) include = false;\n                                    break;\n                                case 'Below Average (<40%)':\n                                    if (score >= 40) include = false;\n                                    break;\n                            }\n                        }\n                    }\n                    \n                    // Recommendation filter\n                    if (recommendationValue && recommendationValue !== 'All Recommendations') {\n                        if (!text.includes(recommendationValue.toLowerCase())) {\n                            include = false;\n                        }\n                    }\n                    \n                    if (include) {\n                        candidateSelect.appendChild(option.cloneNode(true));\n                        count++;\n                    }\n                });\n                \n                // Update counter\n                counter.textContent = `\ud83d\udc65 Showing ${count} of ${allOptions.length} candidates`;\n                counter.className = count < allOptions.length ? 'candidate-counter filtered' : 'candidate-counter';\n                \n                // Clear selections\n                Array.from(candidateSelect.options).forEach(opt => opt.selected = false);\n                \n                // Update filter info\n                document.querySelectorAll('.filter-info').forEach((info, index) => {\n                    const values = [skillValue, scoreValue, recommendationValue];\n                    const defaults = ['All Candidates', 'All Scores', 'All Recommendations'];\n                    const names = ['skills', 'scores', 'recommendations'];\n                    \n                    if (values[index] && values[index] !== defaults[index]) {\n                        info.textContent = `Active: ${values[index]}`;\n                        info.classList.add('active');\n                    } else {\n                        info.textContent = `Filter by ${names[index]}`;\n                        info.classList.remove('active');\n                    }\n                });\n                \n                console.log(`\u2705 Showing ${count} candidates`);\n            }\n            \n            // Add event listeners\n            skillFilter.addEventListener('change', applyFilters);\n            scoreFilter.addEventListener('change', applyFilters);\n            recommendationFilter.addEventListener('change', applyFilters);\n            \n            console.log('\u2705 Form enhancement complete!');\n            \n        } else {\n            console.warn('\u26a0\ufe0f Not enough form elements found');\n        }\n        \n    }, 2000); // Increased timeout for n8n form loading\n});\n</script>"
+        }
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        400
+      ],
+      "id": "04039448-7d17-49b9-8b3b-372b61249527",
+      "name": "Candidate Selection Form",
+      "webhookId": "2ded4e36-223d-4769-9639-b71fd3b9855a"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: Process Survey Questions Code - Remove Overly Strict Validation\nconst inputData = $input.first().json;\n\nconsole.log('=== PROCESSING SURVEY QUESTIONS WITH EXPECTED ANSWERS (FIXED) ===');\n\n// The form data is nested in originalFormData\nconst formData = inputData.originalFormData || inputData;\nconsole.log('Form Data Keys:', Object.keys(formData));\n\n// Extract survey questions (up to 5) with expected answers\nconst surveyQuestions = [];\n\nfor (let i = 1; i <= 5; i++) {\n  const questionText = formData[`Survey Question ${i} (Optional)`];\n  const questionType = formData[`Survey Question ${i} Type`];\n  const questionOptions = formData[`Survey Question ${i} Options (For Multiple Choice)`];\n  const expectedAnswer = formData[`Survey Question ${i} - Expected Answer`]; // \u2705 FIXED: Use correct field name\n  \n  console.log(`Checking Survey Question ${i}:`, {\n    questionText,\n    questionType,\n    questionOptions,\n    expectedAnswer\n  });\n  \n  // Only process if question text exists and is not empty\n  if (questionText && questionText.trim() !== '') {\n    console.log(`\u2705 Processing Survey Question ${i}:`, questionText);\n    \n    let fieldConfig = {\n      fieldLabel: questionText.trim(),\n      requiredField: false,\n      isSurveyQuestion: true,\n      surveyQuestionId: i,\n      expectedAnswer: expectedAnswer ? expectedAnswer.trim() : null, // \u2705 PRESERVE expected answer\n      isQualifying: !!(expectedAnswer && expectedAnswer.trim()), // Qualifying if has expected answer\n      questionCategory: (expectedAnswer && expectedAnswer.trim()) ? 'qualifying' : 'informational',\n      validationType: (expectedAnswer && expectedAnswer.trim()) ? 'exact_match' : 'none'\n    };\n    \n    // Configure field type based on selection\n    switch (questionType) {\n      case 'Yes/No':\n        fieldConfig.fieldType = 'dropdown';\n        fieldConfig.fieldOptions = {\n          values: [\n            { option: 'Yes' },\n            { option: 'No' }\n          ]\n        };\n        fieldConfig.multiselect = false;\n        \n        // \u2705 FIXED: More lenient validation - don't nullify if invalid\n        if (fieldConfig.expectedAnswer && !['Yes', 'No', 'yes', 'no', 'YES', 'NO'].includes(fieldConfig.expectedAnswer)) {\n          console.warn(`Expected answer \"${fieldConfig.expectedAnswer}\" for Yes/No question ${i} - keeping as is for manual review`);\n          // Don't nullify - let it pass through for manual review\n        }\n        \n        console.log(`  \u2192 Configured as Yes/No dropdown, Expected: ${fieldConfig.expectedAnswer || 'None'}`);\n        break;\n        \n      case 'Multiple Choice':\n        fieldConfig.fieldType = 'dropdown';\n        if (questionOptions && questionOptions.trim() !== '') {\n          // Split options by comma and create dropdown values\n          const options = questionOptions.split(',').map(opt => ({\n            option: opt.trim()\n          })).filter(opt => opt.option !== '');\n          \n          fieldConfig.fieldOptions = { values: options };\n          \n          // \u2705 FIXED: More lenient validation for Multiple Choice\n          if (fieldConfig.expectedAnswer) {\n            const validOptions = options.map(opt => opt.option);\n            if (!validOptions.includes(fieldConfig.expectedAnswer)) {\n              console.warn(`Expected answer \"${fieldConfig.expectedAnswer}\" not in options [${validOptions.join(', ')}] for question ${i} - keeping as is for manual review`);\n              // Don't nullify - let it pass through\n            }\n          }\n          \n          console.log(`  \u2192 Configured as Multiple Choice with ${options.length} options, Expected: ${fieldConfig.expectedAnswer || 'None'}`);\n        } else {\n          // Default options if none provided\n          fieldConfig.fieldOptions = {\n            values: [\n              { option: 'Option 1' },\n              { option: 'Option 2' },\n              { option: 'Option 3' }\n            ]\n          };\n          // \u2705 FIXED: Don't nullify expected answer even for default options\n          console.log(`  \u2192 Using default Multiple Choice options, Expected: ${fieldConfig.expectedAnswer || 'None'}`);\n        }\n        fieldConfig.multiselect = false;\n        break;\n        \n      case 'Text Input':\n      default:\n        // Text input - always allow expected answer to pass through\n        fieldConfig.fieldType = 'text';\n        fieldConfig.placeholder = 'Please provide your answer...';\n        // \u2705 FIXED: Don't nullify expected answer for text inputs\n        console.log(`  \u2192 Configured as Text Input, Expected: ${fieldConfig.expectedAnswer || 'None'}`);\n        break;\n    }\n    \n    surveyQuestions.push(fieldConfig);\n  }\n}\n\n// Count qualifying vs informational questions\nconst qualifyingCount = surveyQuestions.filter(q => q.isQualifying).length;\nconst informationalCount = surveyQuestions.filter(q => !q.isQualifying).length;\n\nconsole.log(`\u2705 FINAL RESULT: Processed ${surveyQuestions.length} survey questions`);\nconsole.log(`  - Qualifying questions (with expected answers): ${qualifyingCount}`);\nconsole.log(`  - Informational questions: ${informationalCount}`);\n\nif (surveyQuestions.length > 0) {\n  console.log('Survey Questions Created:');\n  surveyQuestions.forEach((q, index) => {\n    console.log(`  ${index + 1}. ${q.fieldLabel} (${q.questionCategory}${q.expectedAnswer ? `, expects: \"${q.expectedAnswer}\"` : ''}) - Type: ${q.fieldType}`);\n  });\n}\n\n// Return the original data plus the processed survey questions\nreturn [{\n  json: {\n    // Keep all existing data from the input\n    ...inputData,\n    \n    // Add/update survey questions with expected answers\n    surveyQuestions: surveyQuestions,\n    \n    // Update survey metadata\n    surveyMetadata: {\n      totalQuestions: surveyQuestions.length,\n      qualifyingQuestions: qualifyingCount,\n      informationalQuestions: informationalCount,\n      questionTypes: surveyQuestions.map(q => q.fieldType),\n      expectedAnswers: surveyQuestions.filter(q => q.expectedAnswer).map(q => ({\n        question: q.fieldLabel,\n        expectedAnswer: q.expectedAnswer,\n        type: q.fieldType\n      })),\n      generatedAt: new Date().toISOString(),\n      rawFormData: formData\n    },\n    \n    // Update debug info\n    debugInfo: {\n      ...inputData.debugInfo,\n      surveyQuestionsFound: surveyQuestions.length,\n      qualifyingQuestionsFound: qualifyingCount,\n      informationalQuestionsFound: informationalCount,\n      surveyProcessingSuccess: true,\n      expectedAnswersConfigured: surveyQuestions.filter(q => q.expectedAnswer).length,\n      formDataSource: inputData.originalFormData ? 'originalFormData' : 'direct',\n      validationFixed: true\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        400
+      ],
+      "id": "81a88885-d8ac-4685-add9-0894ab4cc07e",
+      "name": "Process Survey Questions"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "surveyQuestionsData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        4080,
+        592
+      ],
+      "id": "9fcd3050-fec7-4e9f-853b-901bc31732fd",
+      "name": "Split Survey Questions"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "survey_questions",
+          "mode": "list",
+          "cachedResultName": "survey_questions"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "screening_id": "={{ $json.screening_id }}",
+            "question_id": "={{ $json.question_id }}",
+            "question_text": "={{ $json.question_text }}",
+            "question_type": "={{ $json.question_type }}",
+            "options": "={{ $json.options }}",
+            "created_at": "={{ $json.created_at }}",
+            "expected_answer": "={{ $json.expected_answer }}",
+            "is_qualifying": "={{ $json.is_qualifying }}",
+            "question_category": "={{ $json.question_category }}",
+            "validation_type": "={{ $json.validation_type }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "screening_id",
+              "displayName": "screening_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_id",
+              "displayName": "question_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_text",
+              "displayName": "question_text",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_type",
+              "displayName": "question_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "options",
+              "displayName": "options",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expected_answer",
+              "displayName": "expected_answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_qualifying",
+              "displayName": "is_qualifying",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "question_category",
+              "displayName": "question_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "validation_type",
+              "displayName": "validation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4304,
+        592
+      ],
+      "id": "a24499cc-2756-4d72-af0a-f55e9488787b",
+      "name": "Insert Survey Questions",
+      "credentials": {
+        "postgres": {
+          "id": "DO36tAj1RCJwb9XJ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toRecipients": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "bodyContent": "={{ $json.enhancedEmailBody }}",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        3664,
+        400
+      ],
+      "id": "3a01b879-099a-41a0-91da-4560c6770754",
+      "name": "Send a message",
+      "webhookId": "f7041949-0d39-4752-ad34-bb7e9760b190",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "PvjwAMwtGqIFHnu0",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "folderId": "01PQMN3I6B7FHVWHACGBHL4IIQZREFJRBJ"
+      },
+      "type": "n8n-nodes-base.microsoftOneDrive",
+      "typeVersion": 1,
+      "position": [
+        688,
+        400
+      ],
+      "id": "f7424736-6b08-42ab-bddc-32f8a4660e1b",
+      "name": "Get items in a folder",
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "X8eg1bHYnMOXEhV7",
+          "name": "Microsoft Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        2608,
+        672
+      ],
+      "id": "86e45b66-0c93-4ecc-86aa-31fb1925fb6b",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "yqIxZytIl3dYpppz",
+          "name": "Groq account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Generate Assessment Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Job Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Job Description": {
+      "main": [
+        [
+          {
+            "node": "Get items in a folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get items in a folder": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Prepare Dynamic AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Dynamic AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Resume Matcher": {
+      "main": [
+        [
+          {
+            "node": "Convert AI Output to Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert AI Output to Items": {
+      "main": [
+        [
+          {
+            "node": "Insert Candidates to Postgres",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare HR Review Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Selections & Generate MCQ": {
+      "main": [
+        [
+          {
+            "node": "MCQ Generation Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCQ Generation Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse MCQ & Prepare Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse MCQ & Prepare Emails": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Assessment Data": {
+      "main": [
+        [
+          {
+            "node": "Split Job Requirements",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Questions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Survey Questions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Add resume text to candidate table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Candidates": {
+      "main": [
+        [
+          {
+            "node": "Insert Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Job Requirements": {
+      "main": [
+        [
+          {
+            "node": "Insert Job Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Questions": {
+      "main": [
+        [
+          {
+            "node": "Insert Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare HR Review Data": {
+      "main": [
+        [
+          {
+            "node": "Candidate Selection Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Selection Form": {
+      "main": [
+        [
+          {
+            "node": "Process Selections & Generate MCQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Survey Questions": {
+      "main": [
+        [
+          {
+            "node": "Get items in a folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Survey Questions": {
+      "main": [
+        [
+          {
+            "node": "Insert Survey Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Store Assessment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "MCQ Generation Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

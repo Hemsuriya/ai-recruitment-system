@@ -1,0 +1,701 @@
+{
+  "name": "Fully Automated Candidate Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-assessment",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Generate Assessment Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM hr_assessments WHERE id = {{$json.body.assessment_id || 1}}::integer;",
+        "options": {}
+      },
+      "id": "fetch-jd",
+      "name": "Fetch Job Description",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        420,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "folderId": "01PQMN3I6B7FHVWHACGBHL4IIQZREFJRBJ"
+      },
+      "id": "get-items-folder",
+      "name": "Get items in a folder",
+      "type": "n8n-nodes-base.microsoftOneDrive",
+      "typeVersion": 1,
+      "position": [
+        640,
+        400
+      ],
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "2svF5z7XskA3Nzkt",
+          "name": "Microsoft Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{$json[\"@microsoft.graph.downloadUrl\"]}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftSharePointOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "http-request-sp",
+      "name": "HTTP Request3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        400
+      ],
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "aiOwKMCPoBQnW0YF",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "extract-pdf",
+      "name": "Extract from File",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const jdNodes = $('Fetch Job Description').all();\nconst jd = jdNodes.length > 0 ? jdNodes[0].json : {};\n\n// hr_assessments stores skills as Postgres text[] array e.g. {Node.js,PostgreSQL,Docker}\nlet skillsText = 'Programming';\ntry {\n  if (Array.isArray(jd.skills)) {\n    skillsText = jd.skills.join(', ');\n  } else if (typeof jd.skills === 'string') {\n    skillsText = jd.skills.replace(/[{}]/g, '');\n  }\n} catch(e) {}\n\n// Include full JD if available for richer context\nconst jobDescContext = jd.job_description ? `\\n\\n**FULL JOB DESCRIPTION:**\\n${jd.job_description}` : '';\n\nconst resumes = $input.all();\n\nlet combinedResumesText = '';\nresumes.forEach((r, idx) => {\n  combinedResumesText += `\\n\\n--- CANDIDATE RESUME ${idx + 1} ---\\n${r.json.text || 'Error extracting text'}`;\n});\n\nconst prompt = `You are an expert HR recruiter and resume analyst. Your job is to evaluate candidates fairly and identify the best potential matches.\n\n**DYNAMIC JOB REQUIREMENTS:**\n- **Position:** ${jd.role_title || 'Software Engineer'}\n- **Required Skills:** ${skillsText}\n- **Experience Level:** ${jd.experience_level || 'Not Specified'}\n- **Include Coding Assessment:** ${jd.include_coding ? 'Yes' : 'No'}${jobDescContext}\n\n**CANDIDATE RESUMES TO ANALYZE:**\n${combinedResumesText}\n\n**SCORING INSTRUCTIONS:**\nFor EACH candidate, extract and analyze:\n1. Basic info (name, email, phone, location).\n2. Professional background (current title, company, experience years).\n3. Skills match against required skills.\n4. **Match Score (1-100)** using this calibration:\n\n   **Score Calibration Guide:**\n   - 85-100: Strong match — has most required skills + relevant experience\n   - 70-84: Good match — has several required skills or strong transferable skills\n   - 50-69: Partial match — has some overlap or adjacent technology experience\n   - 30-49: Weak match — minimal skill overlap but has general dev experience\n   - 0-29: Poor match — no relevant skills or experience\n\n   **Scoring Weights:**\n   - Required Skills match (50%): Direct or closely related technology experience (e.g. Express.js counts for Node.js, MySQL counts partially for PostgreSQL)\n   - Transferable/Adjacent Skills (25%): Related frameworks, languages, or tools that demonstrate adaptability\n   - Experience & Trajectory (25%): Years of experience, project complexity, career growth, education\n\n   **IMPORTANT:** Be generous with transferable skills. A React developer has JavaScript knowledge relevant to Node.js. A developer using any SQL database has skills transferable to PostgreSQL. Score the POTENTIAL, not just exact keyword matches.\n\n**CRITICAL OUTPUT REQUIREMENTS:**\nEvaluate EVERY candidate provided above. You must return your analysis strictly as an object containing a \\\"candidates\\\" array matching the structured output tool schema. Include detailed key_strengths, concerns, and reasoning in ai_analysis.`;\n\nreturn {\n  json: {\n    aiPrompt: prompt,\n    job_id: jd.id,\n    role_title: jd.role_title || 'Software Engineer',\n    skills: skillsText,\n    experience_level: jd.experience_level || 'Not Specified',\n    jid: jd.jid || null,\n    include_coding: jd.include_coding || false,\n    mcq_time_limit: jd.mcq_time_limit || 30\n  }\n};\n"
+      },
+      "id": "prepare-prompt",
+      "name": "Prepare Dynamic AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.aiPrompt }}",
+        "options": {
+          "systemMessage": "You are a senior technical recruiter screening resumes. Follow the JSON Schema strictly and output the required object containing the candidates."
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Resume Matcher",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1520,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/llama3-70b-8192",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "groq-model",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        600
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "rOd6m7YG43wEg4fN",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"candidates\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": { \"type\": \"string\" },\n          \"email\": { \"type\": \"string\" },\n          \"phone\": { \"type\": \"string\" },\n          \"job_title\": { \"type\": \"string\" },\n          \"experience_years\": { \"type\": \"number\" },\n          \"match_score\": { \"type\": \"number\", \"description\": \"Score out of 100\" },\n          \"ai_analysis\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"key_strengths\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n              \"concerns\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n              \"reasoning\": { \"type\": \"string\" }\n            }\n          }\n        },\n        \"required\": [\"name\", \"email\", \"match_score\", \"ai_analysis\"]\n      }\n    }\n  },\n  \"required\": [\"candidates\"]\n}"
+      },
+      "id": "output-parser",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconsole.log('=== RAW AI OUTPUT KEYS ===', Object.keys(data));\n\n// The chainLlm + StructuredOutputParser can return data in multiple formats:\n// 1. data.text (raw text with JSON/markdown)\n// 2. data.output (structured object or string)\n// 3. data.candidates (directly parsed)\n// 4. data directly IS the parsed object\n\nlet candidates = [];\n\n// Strategy 1: Direct candidates array\nif (data.candidates && Array.isArray(data.candidates)) {\n  console.log('Found candidates directly in data.candidates');\n  candidates = data.candidates;\n}\n// Strategy 2: Nested in output object\nelse if (data.output) {\n  let outputData = data.output;\n  if (typeof outputData === 'string') {\n    try {\n      const cleaned = outputData.replace(/```(?:json)?([\\s\\S]*?)```/, '$1').trim();\n      outputData = JSON.parse(cleaned);\n    } catch(e) { console.log('Failed to parse output string'); }\n  }\n  if (outputData && outputData.candidates) {\n    candidates = outputData.candidates;\n    console.log('Found candidates in data.output.candidates');\n  } else if (Array.isArray(outputData)) {\n    candidates = outputData;\n    console.log('data.output is array of candidates');\n  }\n}\n// Strategy 3: Raw text with JSON\nelse if (data.text) {\n  let rawText = data.text;\n  const jsonMatch = rawText.match(/```(?:json)?([\\s\\S]*?)```/);\n  if (jsonMatch && jsonMatch[1]) rawText = jsonMatch[1].trim();\n  try {\n    const parsed = JSON.parse(rawText);\n    candidates = parsed.candidates || (Array.isArray(parsed) ? parsed : []);\n    console.log('Parsed candidates from text field');\n  } catch(e) {\n    console.log('Failed to parse text field');\n  }\n}\n\nif (!Array.isArray(candidates)) candidates = [candidates];\ncandidates = candidates.filter(c => c && c.name);\n\nconsole.log(`=== EXTRACTED ${candidates.length} CANDIDATES ===`);\ncandidates.forEach((c, i) => {\n  console.log(`  ${i+1}. ${c.name} | score: ${c.match_score} | email: ${c.email}`);\n});\n\n// Get job context from earlier node\nconst promptData = $('Prepare Dynamic AI Prompt').first().json;\n\nreturn candidates.map(candidate => {\n  // Explicitly extract and cast match_score to integer\n  let score = candidate.match_score || candidate.matchScore || candidate.score || 0;\n  if (typeof score === 'string') score = parseInt(score, 10);\n  score = Math.round(score);\n\n  return {\n    json: {\n      name: candidate.name || 'Unknown',\n      email: candidate.email || '',\n      phone: candidate.phone || '',\n      location: candidate.location || '',\n      current_company: candidate.current_company || candidate.currentCompany || '',\n      job_title: candidate.job_title || candidate.current_title || '',\n      experience_years: candidate.experience_years || candidate.experienceYears || 0,\n      match_score: score,\n      skills: candidate.skills || [],\n      ai_analysis: candidate.ai_analysis || candidate.aiAnalysis || {},\n      screening_id: 'scr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),\n      role_title: promptData.role_title || 'Software Engineer',\n      jid: promptData.jid || null\n    }\n  };\n});"
+      },
+      "id": "split-candidates",
+      "name": "Convert AI Output to Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "candidates_v2",
+          "mode": "list",
+          "cachedResultName": "candidates_v2"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "screening_id": "={{$json.screening_id}}",
+            "name": "={{$json.name}}",
+            "email": "={{$json.email}}",
+            "phone": "={{$json.phone}}",
+            "match_score": "={{$json.match_score}}",
+            "job_title": "={{$json.role_title}}",
+            "experience_level": "={{$('Prepare Dynamic AI Prompt').item.json.experience_level}}",
+            "location": "={{$json.location}}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "insert-candidates",
+      "name": "Insert Candidates to Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2000,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// AUTOMATED: Process Candidates & Generate MCQ Questions\n// Bypasses HR Form - automatically generates MCQs for top candidates from AI Resume Matcher\n\nconst candidateItems = $input.all();\n\n// Get job requirements from earlier in the workflow\nlet jobRequirements = {};\ntry {\n  const jdNodes = $('Fetch Job Description').all();\n  if (jdNodes.length > 0) {\n    jobRequirements = jdNodes[0].json;\n  }\n} catch (error) {\n  console.log('Could not get job requirements from DB');\n}\n\n// Extract configuration from JD or use defaults\n// Assumes focus_areas is stored in DB. If not, fallback to Comprehensive\nlet focusAreas = ['Comprehensive Assessment (All Areas)'];\ntry {\n  if (jobRequirements.skills) {\n    focusAreas = Array.isArray(jobRequirements.skills) ? jobRequirements.skills : [jobRequirements.skills];\n  }\n} catch (e) {}\n\nconst assessmentType = ['Standard MCQ Assessment']; // Automated default\nconst questionPoolSize = jobRequirements.question_count || 5;\nconst questionsPerCandidate = Math.min(3, questionPoolSize); // Example: 3 questions per candidate\n\nconsole.log('Focus Areas:', focusAreas);\nconsole.log(`Pool Size: ${questionPoolSize}, Per Candidate: ${questionsPerCandidate}`);\n\n// Process candidates\nconst selectedCandidates = candidateItems.map((item, index) => {\n  const c = item.json;\n  \n  // Use the screening_id generated by Convert AI Output to Items\n  const screeningId = c.screening_id || `screening_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n  \n  return {\n    id: `candidate_${index + 1}`,\n    name: c.name || 'Unknown',\n    email: c.email || 'no-email@example.com',\n    phone: c.phone || '',\n    location: c.location || '',\n    currentCompany: c.current_company || '',\n    jobTitle: c.job_title || jobRequirements.job_title || '',\n    experienceYears: c.experience_years || 0,\n    skills: c.skills || [],\n    matchScore: c.match_score || 0,\n    aiAnalysis: c.ai_analysis || {},\n    \n    screeningId: screeningId,\n    linkExpiration: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),\n    assessmentStatus: 'invited',\n    invitedAt: new Date().toISOString()\n  };\n});\n\nconsole.log(`Processing ${selectedCandidates.length} automatically selected candidates`);\n\nconst includeCoding = assessmentType.some(type => type.includes('coding challenge'));\nconst focusOnTechStack = assessmentType.some(type => type.includes('technology stack'));\n\n// Survey questions (Empty for automated flow unless pulled from DB)\nconst surveyQuestions = [];\n\nconst generateMCQPrompt = () => {\n  const jobTitle = jobRequirements.role_title || jobRequirements.job_title || 'Software Engineer';\n  const requiredSkills = jobRequirements.skills ? jobRequirements.skills.join(', ') : 'Programming skills';\n  const optionalSkills = jobRequirements.optional_skills || 'None';\n  const experienceLevel = jobRequirements.experience_level || '2-5 years';\n  \n  return `You are an expert Technical Assessment Designer. Create ${questionPoolSize} multiple-choice questions for a Round 0 AI Screening assessment QUESTION POOL.\n\n**JOB CONTEXT:**\n- **Position:** ${jobTitle}\n- **Experience Level:** ${experienceLevel}\n- **Required Skills:** ${requiredSkills}\n\n**ASSESSMENT FOCUS AREAS:**\n${focusAreas.join(', ')}\n\n**\u2b50 QUESTION POOL REQUIREMENTS:**\n- **Total Pool Size:** ${questionPoolSize} questions\n- **Question Types:** Multiple choice (4 options each)\n- **Difficulty:** Adjust based on ${experienceLevel} experience level\n- **Include Coding:** ${includeCoding ? 'Yes' : 'No'}\n\n**OUTPUT FORMAT:**\nReturn a JSON object with this exact structure:\n{\n  \"assessmentMetadata\": {\n    \"jobTitle\": \"${jobTitle}\",\n    \"estimatedDuration\": \"15 minutes\",\n    \"difficulty\": \"intermediate\"\n  },\n  \"questions\": [\n    {\n      \"id\": 1,\n      \"category\": \"Technical Skills\",\n      \"difficulty\": \"medium\",\n      \"question\": \"What is...\",\n      \"options\": { \"A\": \"...\", \"B\": \"...\", \"C\": \"...\", \"D\": \"...\" },\n      \"correctAnswer\": \"A\",\n      \"explanation\": \"Because...\",\n      \"timeLimit\": 90\n    }\n  ]\n}\n\nEnsure valid JSON output ONLY.`;\n};\n\nconst mcqPrompt = generateMCQPrompt();\n\nconst screeningLinks = selectedCandidates.map(candidate => ({\n  candidateId: candidate.screeningId,\n  candidateName: candidate.name,\n  candidateEmail: candidate.email,\n  screeningUrl: `http://localhost:5173/candidate/selfie-verification?id=${candidate.screeningId}`,\n  expiresAt: candidate.linkExpiration,\n  generatedAt: new Date().toISOString()\n}));\n\nconst emailTasks = selectedCandidates.map((candidate, index) => {\n  const screeningLink = screeningLinks[index];\n  \n  return {\n    to: candidate.email,\n    candidateName: candidate.name,\n    subject: `Technical Assessment Invitation - ${jobRequirements.role_title || 'Position'}`,\n    emailBody: `\n    <div style=\"font-family: Arial, sans-serif; padding: 20px;\">\n      <h2>\ud83c\udfaf Assessment Invitation</h2>\n      <p>Dear ${candidate.name},</p>\n      <p>Based on your resume match (Score: ${candidate.matchScore}/100) for the <strong>${jobRequirements.role_title || 'Position'}</strong> role, you have been invited to complete a technical assessment.</p>\n      <p>Please click the link below to verify your identity and begin:</p>\n      <a href=\"${screeningLink.screeningUrl}\" style=\"background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;\">Start Assessment</a>\n      <p>This link expires on ${new Date(candidate.linkExpiration).toLocaleDateString()}.</p>\n    </div>`,\n    screeningId: candidate.screeningId\n  };\n});\n\nreturn [{\n  json: {\n    mcqPrompt: mcqPrompt,\n    selectedCandidates: selectedCandidates,\n    candidateCount: selectedCandidates.length,\n    surveyQuestions: surveyQuestions,\n    jobRequirements: jobRequirements,\n    emailTasks: emailTasks,\n    assessmentConfig: {\n      questionPoolSize: questionPoolSize,\n      questionsPerCandidate: questionsPerCandidate,\n      estimatedDuration: 15\n    }\n  }\n}];\n"
+      },
+      "id": "automated-process-selections",
+      "name": "Process Selections & Generate MCQ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.mcqPrompt }}",
+        "options": {
+          "systemMessage": "You are an expert Technical Assessment Designer specializing in creating high-quality MCQ questions for technical interviews.\n \nCRITICAL: Return ONLY valid JSON in the exact format specified. Do not add any explanations, markdown formatting, or additional text outside the JSON structure.\n \nEnsure each question:\n\n- Tests practical knowledge relevant to the job role\n\n- Has exactly 4 options (A, B, C, D)\n\n- Has one clearly correct answer\n\n- Includes detailed explanations\n\n- Follows anti-cheating best practices\n "
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        400
+      ],
+      "id": "a2f54d7d-68e6-4d5e-aacc-3cdcdf0b2540",
+      "name": "MCQ Generation Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse MCQ Output & Prepare Email Data - FIXED VERSION\nconst mcqResponse = $input.first().json;\nconst mcqGenerationData = $('Process Selections & Generate MCQ').first().json;\n \n// Extract MCQ questions from AI response\nlet mcqQuestions = [];\nlet assessmentMetadata = {};\n \ntry {\n  const outputText = mcqResponse.output;\n  const cleanedOutput = outputText.replace(/```json\\n|\\n```|```/g, '').trim();\n  const parsedMCQ = JSON.parse(cleanedOutput);\n \n  mcqQuestions = parsedMCQ.questions || [];\n  assessmentMetadata = parsedMCQ.assessmentMetadata || {};\n \n  console.log(`Successfully parsed ${mcqQuestions.length} MCQ questions`);\n \n} catch (error) {\n  console.log('Error parsing MCQ JSON:', error.message);\n  return [{\n    json: {\n      error: 'Failed to parse MCQ questions',\n      details: error.message,\n      rawOutput: mcqResponse.output\n    }\n  }];\n}\n \nconst emailTasks = mcqGenerationData.emailTasks || [];\nconst selectedCandidates = mcqGenerationData.selectedCandidates || [];\n \nconst enhancedEmailTasks = emailTasks.map((emailTask, index) => {\n \n  const matchingCandidate = selectedCandidates.find(c => c.email === emailTask.to);\n  const screeningId = matchingCandidate?.screeningId || emailTask.screeningId;\n \n  // \u2705 ENHANCED: More aggressive removal of all instruction blocks\n  let updatedBody = emailTask.emailBody;\n  // Remove all variations of Important Instructions blocks\n  updatedBody = updatedBody.replace(/\u26a0\ufe0f\\s*Important Instructions[\\s\\S]*?(?=\ud83d\udd17|<a href|Assessment ID:|<\\/div>\\s*<\\/div>)/gi, '');\n  // Remove Two-Stage Assessment Process blocks\n  updatedBody = updatedBody.replace(/\ud83d\udccb\\s*Two-Stage Assessment Process[\\s\\S]*?(?=\ud83d\udd17|<a href|Assessment ID:|<\\/div>\\s*<\\/div>)/gi, '');\n  // Remove any orphaned instruction list items or divs\n  updatedBody = updatedBody.replace(/<div[^>]*>\\s*<h3[^>]*>\u26a0\ufe0f[^<]*Important Instructions[^<]*<\\/h3>[\\s\\S]*?<\\/div>/gi, '');\n  updatedBody = updatedBody.replace(/<div[^>]*>\\s*<h3[^>]*>\ud83d\udccb[^<]*Two-Stage[^<]*<\\/h3>[\\s\\S]*?<\\/div>/gi, '');\n  // Remove Proctoring line\n  updatedBody = updatedBody.replace(/<li>\\s*<strong>Proctoring:<\\/strong>.*?<\\/li>/gi, '');\n  updatedBody = updatedBody.replace(/\u2022?\\s*Proctoring:.*?Camera monitoring enabled for technical round\\s*/gi, '');\n  // Clean up multiple line breaks\n  updatedBody = updatedBody.replace(/\\n{3,}/g, '\\n\\n');\n  updatedBody = updatedBody.trim();\n \n  // Build fresh instructions block with proper bullet points in HTML\n  const instructionsBlock = `\n<div style=\"background: #e7f3ff; border: 2px solid #007bff; border-radius: 8px; padding: 20px; margin-bottom: 20px;\">\n<h3 style=\"margin: 0 0 15px 0; color: #0066cc;\">\u26a0\ufe0f Important Instructions</h3>\n<ul style=\"margin: 0; padding-left: 20px; color: #495057; line-height: 1.8;\">\n<li><strong>Two-Stage Process:</strong> Complete preference screening first, then technical assessment</li>\n<li><strong>Qualifying Questions:</strong> Must be passed to unlock technical exam</li>\n<li><strong>Camera Required:</strong> Ensure your camera works for the technical round</li>\n<li><strong>Stable Internet:</strong> Use a reliable internet connection</li>\n<li><strong>Quiet Environment:</strong> Choose a distraction-free location</li>\n<li><strong>No External Help:</strong> Assessment must be completed independently</li>\n<li><strong>Single Attempt:</strong> You can only take this assessment once</li>\n<li><strong>Time Limit:</strong> Complete within 3 days of receiving this email</li>\n</ul>\n</div>\n`;\n \n  // Insert instructions ONLY above the link section - try multiple markers\n  if (updatedBody.includes('\ud83d\udd17 Your Assessment Link')) {\n    updatedBody = updatedBody.replace('\ud83d\udd17 Your Assessment Link', `${instructionsBlock}\\n\ud83d\udd17 Your Assessment Link`);\n  } else if (updatedBody.includes('<h3')) {\n    // If no link marker found, insert before the first remaining h3 tag that contains \ud83d\udd17\n    updatedBody = updatedBody.replace(/(<h3[^>]*>\ud83d\udd17)/i, `${instructionsBlock}\\n$1`);\n  } else if (updatedBody.includes('Start Two-Stage Assessment')) {\n    updatedBody = updatedBody.replace('Start Two-Stage Assessment', `${instructionsBlock}\\n\\nStart Two-Stage Assessment`);\n  }\n \n  return {\n    ...emailTask,\n    screeningId,\n    enhancedEmailBody: updatedBody\n      .replace('Approximately 30 minutes', assessmentMetadata.estimatedDuration || '30 minutes')\n      .replace('Multiple Choice Questions (MCQ)', `${mcqQuestions.length} Multiple Choice Questions (MCQ)`),\n \n    mcqData: {\n      questionCount: mcqQuestions.length,\n      assessmentMetadata,\n      estimatedDuration: assessmentMetadata.estimatedDuration || '30 minutes',\n      difficulty: assessmentMetadata.difficulty || 'intermediate'\n    },\n \n    emailMetadata: {\n      hasValidMCQ: mcqQuestions.length > 0,\n      questionCount: mcqQuestions.length,\n      candidateName: emailTask.candidateName,\n      candidateEmail: emailTask.to,\n      screeningId,\n      readyToSend: true\n    }\n  };\n});\n \nconst assessmentData = {\n  assessmentId: `assessment_${Date.now()}`,\n  jobTitle: assessmentMetadata.jobTitle || 'Data Scientist',\n  createdAt: new Date().toISOString(),\n  expiresAt: selectedCandidates[0]?.linkExpiration || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),\n \n  metadata: assessmentMetadata,\n  questions: mcqQuestions,\n \n  candidates: selectedCandidates.map(candidate => ({\n    screeningId: candidate.screeningId,\n    name: candidate.name,\n    email: candidate.email,\n    status: 'invited',\n    invitedAt: candidate.invitedAt,\n    linkExpiration: candidate.linkExpiration\n  })),\n \n  configuration: {\n    questionCount: mcqQuestions.length,\n    timeLimit: assessmentMetadata.estimatedDuration || '30 minutes',\n    proctoring: true,\n    singleAttempt: true,\n    antiCheating: true\n  }\n};\n \nreturn [{\n  json: {\n    emailTasks: enhancedEmailTasks,\n    emailCount: enhancedEmailTasks.length,\n    mcqQuestions,\n    assessmentMetadata,\n    assessmentData,\n    success: mcqQuestions.length > 0 && enhancedEmailTasks.length > 0,\n    readyForEmailSending: true\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        400
+      ],
+      "id": "0414526a-76d7-42e6-b60c-ca2b8c4c1a02",
+      "name": "Parse MCQ & Prepare Emails"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "emailTasks",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        3424,
+        400
+      ],
+      "id": "1533a446-509f-435c-ba17-f3d08591cd87",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst emailData = $input.all();\nconsole.log('=== PREPARING GENERATED MCQs FOR DATABASE ===');\n\nlet mcqQuestions = [];\nlet assessmentMetadata = {};\nlet emailTasks = [];\nlet selectedCandidates = [];\n\ntry {\n  const mcqData = $('Parse MCQ & Prepare Emails').first().json;\n  mcqQuestions = mcqData.mcqQuestions || [];\n  assessmentMetadata = mcqData.assessmentMetadata || {};\n  emailTasks = mcqData.emailTasks || [];\n  \n  const selectionData = $('Process Selections & Generate MCQ').first().json;\n  selectedCandidates = selectionData.selectedCandidates || [];\n} catch (error) {\n  console.error('Error getting MCQ data:', error.message);\n}\n\nconst questionsData = [];\n\nemailTasks.forEach((emailTask) => {\n  const screeningId = emailTask.screeningId;\n  const targetQuestions = mcqQuestions.slice(0, 3); // 3 per candidate\n  \n  targetQuestions.forEach((question, qIndex) => {\n    questionsData.push({\n      screening_id: screeningId,\n      question_id: question.id || qIndex + 1,\n      question_text: question.question || `Question ${qIndex + 1}`,\n      options: JSON.stringify(question.options || {}),\n      correct_answer: question.correctAnswer || 'A',\n      category: question.category || 'General',\n      difficulty: question.difficulty || 'medium',\n      explanation: question.explanation || '',\n      time_limit: question.timeLimit || 90\n    });\n  });\n});\n\nreturn [{\n  json: {\n    summary: \"Prepared MCQs for Database Insertion\",\n    questionsData: questionsData\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3872,
+        400
+      ],
+      "id": "3073f181-a602-453b-b891-d58bc3b8cfd7",
+      "name": "Store Assessment Data"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "questionsData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        4080,
+        400
+      ],
+      "id": "9cd92885-046e-4106-8fb6-47ec2c2ab739",
+      "name": "Split Questions"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "assessment_questions_v2",
+          "mode": "list",
+          "cachedResultName": "assessment_questions_v2"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "id": 0,
+            "question_id": 0,
+            "time_limit": 0
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "screening_id",
+              "displayName": "screening_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_id",
+              "displayName": "question_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_text",
+              "displayName": "question_text",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "options",
+              "displayName": "options",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "correct_answer",
+              "displayName": "correct_answer",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "difficulty",
+              "displayName": "difficulty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "explanation",
+              "displayName": "explanation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time_limit",
+              "displayName": "time_limit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4288,
+        400
+      ],
+      "id": "271f9921-dbdd-4128-bdb0-d3e66fedf945",
+      "name": "Insert Questions",
+      "credentials": {
+        "postgres": {
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toRecipients": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "bodyContent": "={{ $json.enhancedEmailBody }}",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        3664,
+        400
+      ],
+      "id": "3a01b879-099a-41a0-91da-4560c6770754",
+      "name": "Send a message",
+      "webhookId": "f7041949-0d39-4752-ad34-bb7e9760b190",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "PvjwAMwtGqIFHnu0",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        2608,
+        672
+      ],
+      "id": "86e45b66-0c93-4ecc-86aa-31fb1925fb6b",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "yqIxZytIl3dYpppz",
+          "name": "Groq account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Generate Assessment Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Job Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Job Description": {
+      "main": [
+        [
+          {
+            "node": "Get items in a folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get items in a folder": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Prepare Dynamic AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Dynamic AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Resume Matcher": {
+      "main": [
+        [
+          {
+            "node": "Convert AI Output to Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert AI Output to Items": {
+      "main": [
+        [
+          {
+            "node": "Insert Candidates to Postgres",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Process Selections & Generate MCQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCQ Generation Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse MCQ & Prepare Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse MCQ & Prepare Emails": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Assessment Data": {
+      "main": [
+        [
+          {
+            "node": "Split Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Questions": {
+      "main": [
+        [
+          {
+            "node": "Insert Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Store Assessment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "MCQ Generation Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Selections & Generate MCQ": {
+      "main": [
+        [
+          {
+            "node": "MCQ Generation Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

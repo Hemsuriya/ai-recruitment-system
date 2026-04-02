@@ -1,0 +1,341 @@
+{
+  "name": "Testing Workflow 1: Dynamic Resume Matcher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-assessment",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Generate Assessment Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM job_requirements_v2 WHERE id = {{$json.body.job_id}}::integer;",
+        "options": {}
+      },
+      "id": "fetch-jd",
+      "name": "Fetch Job Description",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        420,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "folderId": "01PQMN3I6B7FHVWHACGBHL4IIQZREFJRBJ"
+      },
+      "id": "get-items-folder",
+      "name": "Get items in a folder",
+      "type": "n8n-nodes-base.microsoftOneDrive",
+      "typeVersion": 1,
+      "position": [
+        640,
+        400
+      ],
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "2svF5z7XskA3Nzkt",
+          "name": "Microsoft Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{$json[\"@microsoft.graph.downloadUrl\"]}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftSharePointOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "http-request-sp",
+      "name": "HTTP Request3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        400
+      ],
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "aiOwKMCPoBQnW0YF",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "extract-pdf",
+      "name": "Extract from File",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const jdNodes = $('Fetch Job Description').all();\nconst jd = jdNodes.length > 0 ? jdNodes[0].json : {};\n\nconst resumes = $input.all();\n\nlet combinedResumesText = \"\";\nresumes.forEach((r, idx) => {\n  combinedResumesText += `\\n\\n--- CANDIDATE RESUME ${idx + 1} ---\\n${r.json.text || 'Error extracting text'}`;\n});\n\nconst prompt = `You are an expert HR recruiter and resume analyst.\n\n**DYNAMIC JOB REQUIREMENTS:**\n- **Position:** ${jd.job_title || 'Software Engineer'}\n- **Required Skills:** ${jd.required_skills || 'Programming'}\n- **Optional Skills:** ${jd.optional_skills || 'None'}\n- **Experience Level:** ${jd.experience_level || 'Not Specified'}\n\n**CANDIDATE RESUMES TO ANALYZE:**\n${combinedResumesText}\n\n**ANALYSIS INSTRUCTIONS:**\nFor EACH candidate, extract and analyze the following information:\n1. Basic info (name, email, phone).\n2. Professional background (current title, experience years).\n3. Skills match against the required skills.\n4. **Match Score (1-100)** weighted precisely as:\n   - Heavy weight on REQUIRED SKILLS match (70% of score)\n   - Bonus points for matching OPTIONAL SKILLS (15% of score)\n   - Experience level, project quality, career trajectory (15% of score)\n\n**CRITICAL OUTPUT REQUIREMENTS:**\nEvaluate EVERY candidate provided above. You must return your analysis strictly as an object containing a \"candidates\" array matching the structured output tool schema.`;\n\nreturn {\n  json: {\n    aiPrompt: prompt,\n    job_id: jd.id\n  }\n};\n"
+      },
+      "id": "prepare-prompt",
+      "name": "Prepare Dynamic AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.aiPrompt }}",
+        "options": {
+          "systemMessage": "You are a senior technical recruiter screening resumes. Follow the JSON Schema strictly and output the required object containing the candidates."
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Resume Matcher",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1520,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/llama3-70b-8192",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "groq-model",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        600
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "placeholder_id",
+          "name": "Groq API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"candidates\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": { \"type\": \"string\" },\n          \"email\": { \"type\": \"string\" },\n          \"phone\": { \"type\": \"string\" },\n          \"job_title\": { \"type\": \"string\" },\n          \"experience_years\": { \"type\": \"number\" },\n          \"match_score\": { \"type\": \"number\", \"description\": \"Score out of 100\" },\n          \"ai_analysis\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"key_strengths\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n              \"concerns\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n              \"reasoning\": { \"type\": \"string\" }\n            }\n          }\n        },\n        \"required\": [\"name\", \"email\", \"match_score\", \"ai_analysis\"]\n      }\n    }\n  },\n  \"required\": [\"candidates\"]\n}"
+      },
+      "id": "output-parser",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let data = $input.first().json;\n\n// Handle Markdown-wrapped JSON from Basic LLM Chain\nlet parsedData = data;\nif (data.text) {\n  let rawText = data.text;\n  let jsonMatch = rawText.match(/```(?:json)?([\\s\\S]*?)```/);\n  if (jsonMatch && jsonMatch[1]) {\n    rawText = jsonMatch[1].trim();\n  }\n  try {\n    parsedData = JSON.parse(rawText);\n  } catch (e) {\n    parsedData = { candidates: [] };\n  }\n}\n\n// Extract nested outputs\nif (parsedData.output) parsedData = parsedData.output;\nlet candidates = parsedData.candidates || parsedData;\n\nif (!Array.isArray(candidates)) candidates = [candidates];\n\n// Generate a unique screening_id and format as individual n8n items for next steps\nreturn candidates.map(candidate => {\n  return {\n    json: {\n      ...candidate,\n      screening_id: 'scr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5)\n    }\n  };\n});"
+      },
+      "id": "split-candidates",
+      "name": "Convert AI Output to Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "candidates_v2",
+          "mode": "list",
+          "cachedResultName": "candidates_v2"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "screening_id": "={{$json.screening_id}}",
+            "name": "={{$json.name}}",
+            "email": "={{$json.email}}",
+            "phone": "={{$json.phone}}",
+            "match_score": "={{$json.match_score}}",
+            "job_title": "={{$('Prepare Dynamic AI Prompt').item.json.job_id}}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "insert-candidates",
+      "name": "Insert Candidates to Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2000,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "UhAHlp9GzutKOJdA",
+          "name": "ai_candidate_screening"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Generate Assessment Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Job Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Job Description": {
+      "main": [
+        [
+          {
+            "node": "Get items in a folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get items in a folder": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Prepare Dynamic AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Dynamic AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Resume Matcher",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Resume Matcher": {
+      "main": [
+        [
+          {
+            "node": "Convert AI Output to Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert AI Output to Items": {
+      "main": [
+        [
+          {
+            "node": "Insert Candidates to Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

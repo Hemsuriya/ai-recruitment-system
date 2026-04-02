@@ -45,3 +45,9 @@ id_cache/
 # Files
 folder_structure_plan.md
 next_steps.md
+
+# Platform documentation and audit files
+check docs/
+CLAUDE.md
+workflows/WORKFLOW_MIGRATION_GUIDE.md
+
