@@ -57,9 +57,9 @@ export default function CandidateFilters({
           />
         </div>
 
-        {/* Role Filter */}
+        {/* Job Title Filter */}
         <select className="select" value={roleFilter} onChange={(e) => onRole(e.target.value)}>
-          <option value="All Roles">All Roles</option>
+          <option value="All Roles">All Job Titles</option>
           {roles.map((r) => (
             <option key={r} value={r}>{r}</option>
           ))}

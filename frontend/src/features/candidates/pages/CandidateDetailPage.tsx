@@ -149,7 +149,7 @@ export default function CandidateDetailPage() {
                 <VerdictBadge verdict={c.verdict} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{c.role}</span>
+                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Job Title: {c.role}</span>
                 <span style={{ fontSize: 11, color: "var(--text-subtle)" }}>•</span>
                 <StatusBadge status={c.status} />
                 <span style={{ fontSize: 11, color: "var(--text-subtle)" }}>•</span>
@@ -236,6 +236,7 @@ export default function CandidateDetailPage() {
             <div style={{ marginBottom: 14 }}>
               <InfoRow label="Email"           value={c.email}    />
               <InfoRow label="Phone"           value="+1 (555) 234-5678" />
+              <InfoRow label="Job Title"       value={c.role}     />
               <InfoRow label="Location"        value={c.location} />
               <InfoRow label="Current Company" value={c.company}  />
               <InfoRow label="Experience"      value={c.experience} />

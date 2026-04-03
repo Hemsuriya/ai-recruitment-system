@@ -8,7 +8,7 @@ interface CandidateTableProps {
 
 const HEADERS = [
   { label: "Candidate", align: "left" as const },
-  { label: "Role / JID", align: "left" as const },
+  { label: "Job Title / JID", align: "left" as const },
   { label: "Interview",  align: "center" as const },
   { label: "Security",   align: "center" as const },
   { label: "Final",      align: "center" as const },

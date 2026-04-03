@@ -39,8 +39,9 @@ function formatTimeAgo(value) {
   return `${diffDays} days ago`;
 }
 
-exports.getSummary = async () => {
-  const summaryResult = await db.query(dashboardQueries.summaryQuery);
+exports.getSummary = async (filters = {}) => {
+  const query = dashboardQueries.summaryQuery(filters);
+  const summaryResult = await db.query(query.text, query.values);
   const summaryRow = summaryResult.rows[0] || {};
 
   return {
@@ -51,24 +52,27 @@ exports.getSummary = async () => {
   };
 };
 
-exports.getFunnel = async () => {
-  const funnelResult = await db.query(dashboardQueries.funnelQuery);
+exports.getFunnel = async (filters = {}) => {
+  const query = dashboardQueries.funnelQuery(filters);
+  const funnelResult = await db.query(query.text, query.values);
   return funnelResult.rows.map((row) => ({
     stage: row.stage,
     count: toNumber(row.count),
   }));
 };
 
-exports.getStageScores = async () => {
-  const stageScoresResult = await db.query(dashboardQueries.stageScoresQuery);
+exports.getStageScores = async (filters = {}) => {
+  const query = dashboardQueries.stageScoresQuery(filters);
+  const stageScoresResult = await db.query(query.text, query.values);
   return stageScoresResult.rows.map((row) => ({
     stage: row.stage,
     avgScore: toNumber(row.avgScore),
   }));
 };
 
-exports.getRecentCandidates = async () => {
-  const recentCandidatesResult = await db.query(dashboardQueries.recentCandidatesQuery);
+exports.getRecentCandidates = async (filters = {}) => {
+  const query = dashboardQueries.recentCandidatesQuery(filters);
+  const recentCandidatesResult = await db.query(query.text, query.values);
   return recentCandidatesResult.rows.map((row) => ({
     name: row.name,
     role: row.role || "",
@@ -79,8 +83,9 @@ exports.getRecentCandidates = async () => {
   }));
 };
 
-exports.getRecentActivity = async () => {
-  const recentActivityResult = await db.query(dashboardQueries.recentActivityQuery);
+exports.getRecentActivity = async (filters = {}) => {
+  const query = dashboardQueries.recentActivityQuery(filters);
+  const recentActivityResult = await db.query(query.text, query.values);
   return recentActivityResult.rows.map((row) => ({
     text: row.text,
     timeAgo: formatTimeAgo(row.event_time),
@@ -88,13 +93,13 @@ exports.getRecentActivity = async () => {
   }));
 };
 
-exports.getDashboard = async () => {
+exports.getDashboard = async (filters = {}) => {
   const [summary, funnel, stageScores, recentCandidates, recentActivity] = await Promise.all([
-    exports.getSummary(),
-    exports.getFunnel(),
-    exports.getStageScores(),
-    exports.getRecentCandidates(),
-    exports.getRecentActivity(),
+    exports.getSummary(filters),
+    exports.getFunnel(filters),
+    exports.getStageScores(filters),
+    exports.getRecentCandidates(filters),
+    exports.getRecentActivity(filters),
   ]);
 
   return { summary, funnel, stageScores, recentCandidates, recentActivity };

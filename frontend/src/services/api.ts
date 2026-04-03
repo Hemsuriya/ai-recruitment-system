@@ -294,9 +294,39 @@ export interface DashboardRecentActivity {
 }
 
 export const dashboardApi = {
-  getSummary: () => request<DashboardSummary>("/api/dashboard/summary"),
-  getFunnel: () => request<DashboardFunnelItem[]>("/api/dashboard/funnel"),
-  getStageScores: () => request<DashboardStageScoreItem[]>("/api/dashboard/stage-scores"),
-  getRecentCandidates: () => request<DashboardRecentCandidate[]>("/api/dashboard/recent-candidates"),
-  getRecentActivity: () => request<DashboardRecentActivity[]>("/api/dashboard/recent-activity"),
+  getSummary: (jid?: string, jobTitle?: string) =>
+    request<DashboardSummary>(
+      `/api/dashboard/summary${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
+  getFunnel: (jid?: string, jobTitle?: string) =>
+    request<DashboardFunnelItem[]>(
+      `/api/dashboard/funnel${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
+  getStageScores: (jid?: string, jobTitle?: string) =>
+    request<DashboardStageScoreItem[]>(
+      `/api/dashboard/stage-scores${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
+  getRecentCandidates: (jid?: string, jobTitle?: string) =>
+    request<DashboardRecentCandidate[]>(
+      `/api/dashboard/recent-candidates${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
+  getRecentActivity: (jid?: string, jobTitle?: string) =>
+    request<DashboardRecentActivity[]>(
+      `/api/dashboard/recent-activity${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
 };

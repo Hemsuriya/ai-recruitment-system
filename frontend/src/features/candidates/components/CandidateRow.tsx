@@ -33,11 +33,22 @@ export default function CandidateRow({ candidate: c }: CandidateRowProps) {
         </div>
       </td>
 
-      {/* Role / JID */}
+      {/* Job Title / JID */}
       <td style={{ padding: "18px 16px" }}>
+        <p
+          style={{
+            fontSize: 10,
+            color: "var(--text-subtle)",
+            textTransform: "uppercase",
+            letterSpacing: "0.4px",
+            marginBottom: 2,
+          }}
+        >
+          Job Title
+        </p>
         <span style={{ fontSize: 14, color: "var(--text-muted)" }}>{c.role}</span>
         {c.jid && (
-          <p style={{ fontSize: 11, color: "var(--text-subtle)", marginTop: 2 }}>{c.jid}</p>
+          <p style={{ fontSize: 11, color: "var(--text-subtle)", marginTop: 2 }}>Job ID: {c.jid}</p>
         )}
       </td>
 

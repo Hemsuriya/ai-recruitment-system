@@ -311,6 +311,8 @@ export default function DashboardPage() {
   }, [selectedRole]);
 
   useEffect(() => {
+    if (!selectedRole) return;
+
     let cancelled = false;
 
     async function loadDashboard() {
@@ -318,13 +320,15 @@ export default function DashboardPage() {
         setIsDashboardLoading(true);
         setDashboardError(null);
 
+        const activeJid = selectedJid || undefined;
+        const activeRole = selectedRole || undefined;
         const [summaryData, funnelData, stageScoreData, recentCandidatesData, recentActivityData] =
           await Promise.all([
-            dashboardApi.getSummary(),
-            dashboardApi.getFunnel(),
-            dashboardApi.getStageScores(),
-            dashboardApi.getRecentCandidates(),
-            dashboardApi.getRecentActivity(),
+            dashboardApi.getSummary(activeJid, activeRole),
+            dashboardApi.getFunnel(activeJid, activeRole),
+            dashboardApi.getStageScores(activeJid, activeRole),
+            dashboardApi.getRecentCandidates(activeJid, activeRole),
+            dashboardApi.getRecentActivity(activeJid, activeRole),
           ]);
 
         if (cancelled) return;
@@ -370,7 +374,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedRole, selectedJid]);
 
   // Persist JID selection changes
   useEffect(() => {
@@ -576,7 +580,7 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="text-sm text-gray-900">
                     <th className="pb-2 font-medium">Name</th>
-                    <th className="pb-2 font-medium">Role</th>
+                    <th className="pb-2 font-medium">Job Title</th>
                     <th className="pb-2 font-medium">Resume</th>
                     <th className="pb-2 font-medium">MCQ</th>
                     <th className="pb-2 font-medium">Video</th>
