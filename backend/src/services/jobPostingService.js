@@ -1,8 +1,16 @@
 const db = require("../config/db");
 
+const templateHeadcountSelect = `
+  CASE
+    WHEN COALESCE(jt.number_of_candidates, '') ~ '^[0-9]+$'
+      THEN jt.number_of_candidates::int
+    ELSE NULL
+  END AS headcount
+`;
+
 exports.getAllPostings = async () => {
   const result = await db.query(`
-    SELECT jp.*, jt.template_key, jt.required_skills
+    SELECT jp.*, jt.template_key, jt.required_skills, ${templateHeadcountSelect}
     FROM job_postings jp
     LEFT JOIN job_templates jt ON jp.template_id = jt.id
     ORDER BY jp.created_at DESC
@@ -12,7 +20,7 @@ exports.getAllPostings = async () => {
 
 exports.getPostingByJid = async (jid) => {
   const result = await db.query(
-    `SELECT jp.*, jt.template_key, jt.required_skills
+    `SELECT jp.*, jt.template_key, jt.required_skills, ${templateHeadcountSelect}
      FROM job_postings jp
      LEFT JOIN job_templates jt ON jp.template_id = jt.id
      WHERE jp.jid = $1`,
@@ -59,8 +67,11 @@ exports.getPostingsDropdown = async (jobTitle) => {
     filter += ` AND job_title = $${params.length}`;
   }
   const result = await db.query(
-    `SELECT jid, job_title, status, opens_at, closes_at, headcount
-     FROM job_postings ${filter} ORDER BY created_at DESC`,
+    `SELECT jp.jid, jp.job_title, jp.status, jp.opens_at, jp.closes_at, ${templateHeadcountSelect}
+     FROM job_postings jp
+     LEFT JOIN job_templates jt ON jp.template_id = jt.id
+     ${filter.replace("job_title", "jp.job_title").replace("status", "jp.status")}
+     ORDER BY jp.created_at DESC`,
     params
   );
   return result.rows;
@@ -85,13 +96,15 @@ exports.createAssessment = async (data) => {
           `UPDATE job_templates
            SET job_title = COALESCE($1, job_title),
                required_skills = COALESCE($2, required_skills),
-               survey_question_1 = COALESCE($3, survey_question_1),
-               survey_q1_expected_answer = COALESCE($4, survey_q1_expected_answer),
-               time_limit_minutes = COALESCE($5, time_limit_minutes),
+               number_of_candidates = COALESCE($3, number_of_candidates),
+               survey_question_1 = COALESCE($4, survey_question_1),
+               survey_q1_expected_answer = COALESCE($5, survey_q1_expected_answer),
+               time_limit_minutes = COALESCE($6, time_limit_minutes),
                updated_at = CURRENT_TIMESTAMP
-           WHERE id = $6`,
+           WHERE id = $7`,
           [
             data.job_title, data.required_skills,
+            data.headcount ? String(data.headcount) : null,
             data.survey_question_1, data.survey_q1_expected_answer,
             data.time_limit_minutes, templateId
           ]
@@ -99,9 +112,17 @@ exports.createAssessment = async (data) => {
       } else {
         // Create new with provided key
         const res = await client.query(
-          `INSERT INTO job_templates (template_key, job_title, required_skills, survey_question_1, survey_q1_expected_answer, time_limit_minutes)
-           VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-          [data.template_key, data.job_title, data.required_skills, data.survey_question_1, data.survey_q1_expected_answer, data.time_limit_minutes || 30]
+          `INSERT INTO job_templates (template_key, job_title, required_skills, number_of_candidates, survey_question_1, survey_q1_expected_answer, time_limit_minutes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+          [
+            data.template_key,
+            data.job_title,
+            data.required_skills,
+            data.headcount ? String(data.headcount) : null,
+            data.survey_question_1,
+            data.survey_q1_expected_answer,
+            data.time_limit_minutes || 30,
+          ]
         );
         templateId = res.rows[0].id;
       }
@@ -109,9 +130,17 @@ exports.createAssessment = async (data) => {
       // Auto-generate template_key
       const key = `Template_${Date.now()}`;
       const res = await client.query(
-        `INSERT INTO job_templates (template_key, job_title, required_skills, survey_question_1, survey_q1_expected_answer, time_limit_minutes)
-         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, template_key`,
-        [key, data.job_title, data.required_skills, data.survey_question_1, data.survey_q1_expected_answer, data.time_limit_minutes || 30]
+        `INSERT INTO job_templates (template_key, job_title, required_skills, number_of_candidates, survey_question_1, survey_q1_expected_answer, time_limit_minutes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, template_key`,
+        [
+          key,
+          data.job_title,
+          data.required_skills,
+          data.headcount ? String(data.headcount) : null,
+          data.survey_question_1,
+          data.survey_q1_expected_answer,
+          data.time_limit_minutes || 30,
+        ]
       );
       templateId = res.rows[0].id;
       data.template_key = res.rows[0].template_key;
@@ -153,8 +182,11 @@ exports.getDistinctRoles = async () => {
 
 exports.getPostingsByTemplateId = async (templateId) => {
   const result = await db.query(
-    `SELECT jid, job_title, status, opens_at, closes_at
-     FROM job_postings WHERE template_id = $1 ORDER BY created_at DESC`,
+    `SELECT jp.jid, jp.job_title, jp.status, jp.opens_at, jp.closes_at, ${templateHeadcountSelect}
+     FROM job_postings jp
+     LEFT JOIN job_templates jt ON jp.template_id = jt.id
+     WHERE jp.template_id = $1
+     ORDER BY jp.created_at DESC`,
     [templateId]
   );
   return result.rows;

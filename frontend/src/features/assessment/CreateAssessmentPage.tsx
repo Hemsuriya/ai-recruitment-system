@@ -207,7 +207,7 @@ function AssessmentDetails({
       <div className="space-y-4">
         <label className="block">
           <span className="app-field-label mb-2 block">
-            Role Title
+            Job Title
           </span>
           <input
             value={formData.roleTitle}
@@ -560,7 +560,7 @@ function AssessmentSummary({
 
       <div className="mb-5">
         <p className="mb-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-400">
-          Role
+          Job Title
         </p>
         <p className="app-field-label text-gray-900">
           {formData.roleTitle || "Not specified"}
@@ -861,7 +861,7 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
 
   const handleSubmit = async () => {
     if (!formData.roleTitle.trim()) {
-      alert("Role Title is required");
+      alert("Job Title is required");
       return;
     }
     setSaving(true);

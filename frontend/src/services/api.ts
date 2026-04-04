@@ -1,6 +1,31 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5002";
+const GET_CACHE_TTL_MS = 30_000;
+
+type CacheEntry = {
+  expiresAt: number;
+  value: unknown;
+};
+
+const inflightGetRequests = new Map<string, Promise<unknown>>();
+const resolvedGetCache = new Map<string, CacheEntry>();
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const method = options?.method?.toUpperCase() || "GET";
+  const cacheKey = `${method}:${path}`;
+
+  if (method === "GET") {
+    const cached = resolvedGetCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value as T;
+    }
+
+    const inflight = inflightGetRequests.get(cacheKey);
+    if (inflight) {
+      return inflight as Promise<T>;
+    }
+  }
+
+  const fetchPromise = (async () => {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
@@ -10,7 +35,28 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(body.error || `API error ${res.status}`);
   }
   const json = await res.json();
-  return json.data ?? json;
+    const value = json.data ?? json;
+
+    if (method === "GET") {
+      resolvedGetCache.set(cacheKey, {
+        value,
+        expiresAt: Date.now() + GET_CACHE_TTL_MS,
+      });
+    }
+
+    return value as T;
+  })();
+
+  if (method === "GET") {
+    inflightGetRequests.set(cacheKey, fetchPromise);
+    try {
+      return await fetchPromise;
+    } finally {
+      inflightGetRequests.delete(cacheKey);
+    }
+  }
+
+  return fetchPromise;
 }
 
 // ── HR Assessments ──────────────────────────────────────────
@@ -383,4 +429,76 @@ export const settingsApi = {
 
   deleteMember: (id: number) =>
     request<void>(`/api/settings/members/${id}`, { method: "DELETE" }),
+};
+
+// ── Dashboard ───────────────────────────────────────────────
+
+export interface DashboardSummary {
+  totalCandidates: number;
+  avgScore: number;
+  shortlisted: number;
+  pendingDecision: number;
+}
+
+export interface DashboardFunnelItem {
+  stage: "Resume" | "MCQ" | "Video" | "Final" | string;
+  count: number;
+}
+
+export interface DashboardStageScoreItem {
+  stage: "Resume" | "MCQ" | "Video" | "Final" | string;
+  avgScore: number;
+}
+
+export interface DashboardRecentCandidate {
+  name: string;
+  role: string;
+  resume: number;
+  mcq: number;
+  video: number;
+  verdict: string;
+}
+
+export interface DashboardRecentActivity {
+  text: string;
+  timeAgo: string;
+  type: string;
+}
+
+export const dashboardApi = {
+  getSummary: (jid?: string, jobTitle?: string) =>
+    request<DashboardSummary>(
+      `/api/dashboard/summary${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
+  getFunnel: (jid?: string, jobTitle?: string) =>
+    request<DashboardFunnelItem[]>(
+      `/api/dashboard/funnel${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
+  getStageScores: (jid?: string, jobTitle?: string) =>
+    request<DashboardStageScoreItem[]>(
+      `/api/dashboard/stage-scores${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
+  getRecentCandidates: (jid?: string, jobTitle?: string) =>
+    request<DashboardRecentCandidate[]>(
+      `/api/dashboard/recent-candidates${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
+  getRecentActivity: (jid?: string, jobTitle?: string) =>
+    request<DashboardRecentActivity[]>(
+      `/api/dashboard/recent-activity${jid || jobTitle ? `?${new URLSearchParams([
+        ...(jid ? [["jid", jid]] : []),
+        ...(jobTitle ? [["job_title", jobTitle]] : []),
+      ]).toString()}` : ""}`
+    ),
 };

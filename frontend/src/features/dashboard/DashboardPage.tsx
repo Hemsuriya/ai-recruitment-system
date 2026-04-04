@@ -9,93 +9,68 @@ import {
   Users,
 } from "lucide-react";
 import HrShell from "../../components/layouts/HrShell";
-import { jobPostingApi, type JobPostingDropdownItem } from "@/services/api";
+import {
+  dashboardApi,
+  jobPostingApi,
+  type DashboardFunnelItem,
+  type DashboardRecentActivity,
+  type DashboardRecentCandidate,
+  type DashboardStageScoreItem,
+  type DashboardSummary,
+  type JobPostingDropdownItem,
+} from "@/services/api";
 
-const funnelStages = [
-  { label: "Resume", value: 12, color: "var(--color-blue-500)" },
-  { label: "MCQ", value: 10, color: "var(--color-amber-500)" },
-  { label: "Video", value: 8, color: "var(--color-violet-500)" },
-  { label: "Final", value: 6, color: "var(--color-green-500)" },
-];
+const funnelPalette: Record<string, string> = {
+  Resume: "var(--color-blue-500)",
+  MCQ: "var(--color-amber-500)",
+  Video: "var(--color-violet-500)",
+  Final: "var(--color-green-500)",
+};
 
-const stageScores = [
-  { label: "Resume", value: 89, color: "bg-emerald-500" },
-  { label: "MCQ", value: 73, color: "bg-amber-500" },
-  { label: "Video", value: 78, color: "bg-indigo-500" },
-  { label: "Final", value: 81, color: "bg-indigo-500" },
-];
+const stageScorePalette: Record<string, string> = {
+  Resume: "bg-emerald-500",
+  MCQ: "bg-amber-500",
+  Video: "bg-indigo-500",
+  Final: "bg-indigo-500",
+};
 
-const recentActivity = [
-  { color: "bg-blue-500", text: "John Doe completed MCQ assessment", time: "2 min ago" },
-  { color: "bg-green-500", text: "Jane Smith passed resume screening", time: "15 min ago" },
-  { color: "bg-indigo-500", text: "Alex Johnson submitted video interview", time: "1 hour ago" },
-  { color: "bg-green-600", text: "Sarah Chen received Strong Hire verdict", time: "2 hours ago" },
-  { color: "bg-red-500", text: "David Park failed MCQ threshold", time: "3 hours ago" },
-  { color: "bg-cyan-500", text: "New application from Tom Brown", time: "4 hours ago" },
-];
+const activityPalette: Record<string, string> = {
+  resume: "bg-blue-500",
+  mcq: "bg-amber-500",
+  video: "bg-violet-500",
+  final: "bg-green-500",
+};
 
-const candidates = [
-  {
-    initials: "JD",
-    name: "John Doe",
-    role: "Senior Frontend Engineer",
-    resume: 92,
-    mcq: 88,
-    video: 85,
-    verdict: "Strong Hire",
-    verdictTone: "green",
-  },
-  {
-    initials: "JS",
-    name: "Jane Smith",
-    role: "Data Scientist",
-    resume: 88,
-    mcq: 91,
-    video: 78,
-    verdict: "Strong Hire",
-    verdictTone: "green",
-  },
-  {
-    initials: "AJ",
-    name: "Alex Johnson",
-    role: "Backend Engineer",
-    resume: 75,
-    mcq: 82,
-    video: 70,
-    verdict: "Hire",
-    verdictTone: "blue",
-  },
-  {
-    initials: "SC",
-    name: "Sarah Chen",
-    role: "ML Engineer",
-    resume: 95,
-    mcq: 93,
-    video: 90,
-    verdict: "Strong Hire",
-    verdictTone: "green",
-  },
-  {
-    initials: "MW",
-    name: "Mike Williams",
-    role: "Senior Frontend Engineer",
-    resume: 65,
-    mcq: 58,
-    video: 62,
-    verdict: "Maybe",
-    verdictTone: "amber",
-  },
-  {
-    initials: "ED",
-    name: "Emily Davis",
-    role: "Product Designer",
-    resume: 82,
-    mcq: 79,
-    video: 88,
-    verdict: "Hire",
-    verdictTone: "blue",
-  },
-];
+const emptySummary: DashboardSummary = {
+  totalCandidates: 0,
+  avgScore: 0,
+  shortlisted: 0,
+  pendingDecision: 0,
+};
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+}
+
+function getVerdictTone(verdict: string) {
+  const normalized = verdict.toLowerCase();
+  if (normalized === "hire" || normalized === "strong hire") return "green";
+  if (normalized === "maybe" || normalized === "pending") return "amber";
+  return "blue";
+}
+
+function getStageBarTone(stage: string) {
+  return stageScorePalette[stage] || "bg-indigo-500";
+}
+
+function getActivityTone(type: string) {
+  return activityPalette[type] || "bg-cyan-500";
+}
 
 function KpiCard({
   icon,
@@ -162,7 +137,17 @@ function VerdictPill({ verdict, tone }: { verdict: string; tone: string }) {
   );
 }
 
-function FunnelChart() {
+function FunnelChart({ funnelStages }: { funnelStages: Array<DashboardFunnelItem & { color: string }> }) {
+  const normalizedStages = [
+    { stage: "Resume", count: 0, color: funnelPalette.Resume },
+    { stage: "MCQ", count: 0, color: funnelPalette.MCQ },
+    { stage: "Video", count: 0, color: funnelPalette.Video },
+    { stage: "Final", count: 0, color: funnelPalette.Final },
+  ].map((fallbackStage) => {
+    const matched = funnelStages.find((stage) => stage.stage === fallbackStage.stage);
+    return matched || fallbackStage;
+  });
+
   const centerX = 280;
   const stageHeight = 52;
   const finalHeight = 50;
@@ -186,28 +171,28 @@ function FunnelChart() {
   const polygons = [
     {
       points: `${left(widths.resumeTop)},${y0} ${right(widths.resumeTop)},${y0} ${right(widths.resumeBottom)},${y1} ${left(widths.resumeBottom)},${y1}`,
-      color: funnelStages[0].color,
+      color: normalizedStages[0].color,
       label: "Resume",
       labelX: right(widths.resumeTop) + 12,
       labelY: (y0 + y1) / 2 + 6,
     },
     {
       points: `${left(widths.resumeBottom)},${y1} ${right(widths.resumeBottom)},${y1} ${right(widths.mcqBottom)},${y2} ${left(widths.mcqBottom)},${y2}`,
-      color: funnelStages[1].color,
+      color: normalizedStages[1].color,
       label: "MCQ",
       labelX: right(widths.resumeBottom) + 12,
       labelY: (y1 + y2) / 2 + 6,
     },
     {
       points: `${left(widths.mcqBottom)},${y2} ${right(widths.mcqBottom)},${y2} ${right(widths.videoBottom)},${y3} ${left(widths.videoBottom)},${y3}`,
-      color: funnelStages[2].color,
+      color: normalizedStages[2].color,
       label: "Video",
       labelX: right(widths.mcqBottom) + 12,
       labelY: (y2 + y3) / 2 + 6,
     },
     {
       points: `${left(widths.videoBottom)},${y3} ${right(widths.videoBottom)},${y3} ${centerX},${y4}`,
-      color: funnelStages[3].color,
+      color: normalizedStages[3].color,
       label: "Final",
       labelX: right(widths.videoBottom) + 12,
       labelY: y3 + finalHeight / 2 + 6,
@@ -248,14 +233,14 @@ function FunnelChart() {
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-6 pb-2 text-sm text-gray-500">
-        {funnelStages.map((stage) => (
-          <div key={stage.label} className="flex items-center gap-2">
+        {normalizedStages.map((stage) => (
+          <div key={stage.stage} className="flex items-center gap-2">
             <span
               className="h-3.5 w-3.5 rounded-full"
               style={{ backgroundColor: stage.color }}
             />
             <span>
-              {stage.label}: {stage.value}
+              {stage.stage}: {stage.count}
             </span>
           </div>
         ))}
@@ -269,34 +254,133 @@ export default function DashboardPage() {
   const [jobPostings, setJobPostings] = useState<JobPostingDropdownItem[]>([]);
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedJid, setSelectedJid] = useState("");
+  const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
+  const [funnelStages, setFunnelStages] = useState<Array<DashboardFunnelItem & { color: string }>>([]);
+  const [stageScores, setStageScores] = useState<Array<DashboardStageScoreItem & { color: string }>>([]);
+  const [recentActivity, setRecentActivity] = useState<Array<DashboardRecentActivity & { color: string }>>([]);
+  const [candidates, setCandidates] = useState<
+    Array<DashboardRecentCandidate & { initials: string; verdictTone: string }>
+  >([]);
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   // Fetch roles on mount → auto-select first
   useEffect(() => {
-    jobPostingApi.getRoles().then((data) => {
-      setRoles(data);
-      if (data.length > 0) setSelectedRole(data[0]);
-    }).catch(() => {});
+    jobPostingApi
+      .getRoles()
+      .then((data) => {
+        setRoles(data);
+
+        const storedRole = sessionStorage.getItem("dashboard_role");
+        if (storedRole && data.includes(storedRole)) {
+          setSelectedRole(storedRole);
+          return;
+        }
+
+        if (data.length > 0) {
+          setSelectedRole(data[0]);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // When role changes, fetch filtered postings → auto-select first JID
   useEffect(() => {
     if (!selectedRole) return;
     sessionStorage.setItem("dashboard_role", selectedRole);
-    jobPostingApi.getDropdown(selectedRole).then((data) => {
-      setJobPostings(data);
-      if (data.length > 0) {
-        setSelectedJid(data[0].jid);
-        sessionStorage.setItem("dashboard_jid", data[0].jid);
-      } else {
-        setSelectedJid("");
-        sessionStorage.removeItem("dashboard_jid");
-      }
-    }).catch(() => {});
+    jobPostingApi
+      .getDropdown(selectedRole)
+      .then((data) => {
+        setJobPostings(data);
+
+        const storedJid = sessionStorage.getItem("dashboard_jid");
+        if (storedJid && data.some((posting) => posting.jid === storedJid)) {
+          setSelectedJid(storedJid);
+          return;
+        }
+
+        if (data.length > 0) {
+          setSelectedJid(data[0].jid);
+          sessionStorage.setItem("dashboard_jid", data[0].jid);
+        } else {
+          setSelectedJid("");
+          sessionStorage.removeItem("dashboard_jid");
+        }
+      })
+      .catch(() => {});
   }, [selectedRole]);
+
+  useEffect(() => {
+    if (!selectedRole) return;
+
+    let cancelled = false;
+
+    async function loadDashboard() {
+      try {
+        setIsDashboardLoading(true);
+        setDashboardError(null);
+
+        const activeJid = selectedJid || undefined;
+        const activeRole = selectedRole || undefined;
+        const [summaryData, funnelData, stageScoreData, recentCandidatesData, recentActivityData] =
+          await Promise.all([
+            dashboardApi.getSummary(activeJid, activeRole),
+            dashboardApi.getFunnel(activeJid, activeRole),
+            dashboardApi.getStageScores(activeJid, activeRole),
+            dashboardApi.getRecentCandidates(activeJid, activeRole),
+            dashboardApi.getRecentActivity(activeJid, activeRole),
+          ]);
+
+        if (cancelled) return;
+
+        setSummary(summaryData);
+        setFunnelStages(
+          funnelData.map((item) => ({
+            ...item,
+            color: funnelPalette[item.stage] || "var(--color-cyan-500)",
+          }))
+        );
+        setStageScores(
+          stageScoreData.map((item) => ({
+            ...item,
+            color: getStageBarTone(item.stage),
+          }))
+        );
+        setRecentActivity(
+          recentActivityData.map((item) => ({
+            ...item,
+            color: getActivityTone(item.type),
+          }))
+        );
+        setCandidates(
+          recentCandidatesData.map((item) => ({
+            ...item,
+            initials: getInitials(item.name),
+            verdictTone: getVerdictTone(item.verdict),
+          }))
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setDashboardError(error instanceof Error ? error.message : "Failed to load dashboard");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsDashboardLoading(false);
+        }
+      }
+    }
+
+    loadDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRole, selectedJid]);
 
   // Persist JID selection changes
   useEffect(() => {
-    if (selectedJid) sessionStorage.setItem("dashboard_jid", selectedJid);
+    if (selectedJid) {
+      sessionStorage.setItem("dashboard_jid", selectedJid);
+    }
   }, [selectedJid]);
 
   return (
@@ -340,14 +424,20 @@ export default function DashboardPage() {
           </div>
 
           <div className="pt-5 text-sm font-semibold tracking-[0.15em] text-gray-400">
-            Last updated: just now
+            Last updated: {isDashboardLoading ? "loading..." : "just now"}
           </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-4">
+        {dashboardError ? (
+          <div className="rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-600">
+            {dashboardError}
+          </div>
+        ) : null}
+
+        <div className="grid gap-4 xl:grid-cols-5">
           <KpiCard
             icon={<Users className="h-5 w-5 text-indigo-500" />}
-            value="12"
+            value={String(summary.totalCandidates)}
             label="Total Candidates"
             trend="+12%"
             tone="bg-indigo-50"
@@ -355,7 +445,7 @@ export default function DashboardPage() {
           <KpiCard
             icon={<BriefcaseBusiness className="h-5 w-5 text-violet-500" />}
             value={(() => {
-              const jp = jobPostings.find((p) => p.jid === selectedJid);
+              const jp = jobPostings.find((posting) => posting.jid === selectedJid);
               return String(jp?.headcount ?? "—");
             })()}
             label="Positions to Fill"
@@ -363,15 +453,22 @@ export default function DashboardPage() {
             tone="bg-violet-50"
           />
           <KpiCard
+            icon={<TrendingUp className="h-5 w-5 text-blue-500" />}
+            value={String(summary.avgScore)}
+            label="Avg. Score"
+            trend="+5pts"
+            tone="bg-blue-50"
+          />
+          <KpiCard
             icon={<SearchCheck className="h-5 w-5 text-green-500" />}
-            value="7"
+            value={String(summary.shortlisted)}
             label="Shortlisted"
             trend="+4"
             tone="bg-green-50"
           />
           <KpiCard
             icon={<Clock3 className="h-5 w-5 text-amber-500" />}
-            value="3"
+            value={String(summary.pendingDecision)}
             label="Pending Decision"
             trend="+1"
             tone="bg-amber-50"
@@ -388,7 +485,7 @@ export default function DashboardPage() {
               Shows where candidates drop off in the hiring process
             </p>
 
-            <FunnelChart />
+            <FunnelChart funnelStages={funnelStages} />
           </section>
 
           <section className="flex min-h-130 flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -410,14 +507,14 @@ export default function DashboardPage() {
               </div>
 
               {stageScores.map((stage) => (
-                <div key={stage.label} className="flex flex-1 flex-col items-center justify-end gap-4">
+                <div key={stage.stage} className="flex flex-1 flex-col items-center justify-end gap-4">
                   <div className="flex h-56 items-end">
                     <div
                       className={`w-10 rounded-t-xl ${stage.color}`}
-                      style={{ height: `${stage.value * 2}px` }}
+                      style={{ height: `${stage.avgScore * 2}px` }}
                     />
                   </div>
-                  <span className="text-base text-gray-500">{stage.label}</span>
+                  <span className="text-base text-gray-500">{stage.stage}</span>
                 </div>
               ))}
             </div>
@@ -456,7 +553,7 @@ export default function DashboardPage() {
                   <span className={`mt-2 h-3 w-3 rounded-full ${item.color}`} />
                   <div>
                     <p className="text-base text-gray-700">{item.text}</p>
-                    <p className="mt-1 text-sm text-gray-400">{item.time}</p>
+                    <p className="mt-1 text-sm text-gray-400">{item.timeAgo}</p>
                   </div>
                 </div>
               ))}
@@ -483,7 +580,7 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="text-sm text-gray-900">
                     <th className="pb-2 font-medium">Name</th>
-                    <th className="pb-2 font-medium">Role</th>
+                    <th className="pb-2 font-medium">Job Title</th>
                     <th className="pb-2 font-medium">Resume</th>
                     <th className="pb-2 font-medium">MCQ</th>
                     <th className="pb-2 font-medium">Video</th>
