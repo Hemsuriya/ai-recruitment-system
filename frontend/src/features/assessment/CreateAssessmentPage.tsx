@@ -17,6 +17,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import HrShell from "../../components/layouts/HrShell";
 import {
   jobTemplateApi,
+  assessmentApi,
   settingsApi,
   type ApiDropdownTemplate,
   type AutopopulateResponse,
@@ -878,19 +879,31 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
         alert("Template updated successfully!");
         navigate("/hr/templates");
       } else {
-        const result = await jobTemplateApi.createAssessment({
-          job_title: formData.roleTitle,
+        const result = await assessmentApi.create({
+          role_title: formData.roleTitle,
+          experience_level: formData.experienceLevel || "Mid",
+          skills: formData.skills,
           template_key: selectedTemplateKey || undefined,
-          required_skills: formData.skills.join(", "),
-          survey_question_1: selectedQ[0]?.text || undefined,
-          time_limit_minutes: formData.timerMinutes,
-          headcount: formData.headcount,
-          closes_at: formData.closesAt || undefined,
-          department: formData.department || undefined,
-          hiring_manager: formData.hiringManager || undefined,
-          interviewer: options.manualInterview ? formData.interviewer || undefined : undefined,
+          questions: selectedQ.map((q, i) => ({
+            question_text: q.text,
+            is_default: !q.id.startsWith("custom-"),
+            is_selected: true,
+            sort_order: i,
+          })),
+          options: {
+            generate_ai_questions: options.generateAI,
+            include_coding: options.codingRound,
+            include_aptitude: options.aptitudeTest,
+            include_ai_interview: options.aiInterview,
+            include_manual_interview: options.manualInterview,
+          },
+          time_limits: {
+            mcq_time_limit: formData.timerMinutes,
+            video_time_limit: 15,
+            coding_time_limit: 45,
+          },
         });
-        alert(`Assessment created successfully!\n\nJob ID: ${result.jid}\nRole: ${formData.roleTitle}\nPositions: ${formData.headcount}`);
+        alert(`Assessment created & pipeline triggered!\n\nJob ID: ${result.jid}\nRole: ${formData.roleTitle}\n\nThe AI pipeline is now screening resumes and generating MCQ questions.`);
         navigate("/hr/dashboard");
       }
     } catch (err: unknown) {

@@ -50,10 +50,14 @@ exports.createAssessment = async (data) => {
 
     // 2. Create job posting (JID auto-generated)
     const postingRes = await client.query(
-      `INSERT INTO job_postings (template_id, job_title, status, created_by)
-       VALUES ($1, $2, 'open', $3)
+      `INSERT INTO job_postings (template_id, job_title, status, created_by, headcount, closes_at, department, hiring_manager, interviewer)
+       VALUES ($1, $2, 'open', $3, $4, $5, $6, $7, $8)
        RETURNING jid`,
-      [templateId, data.role_title, "HR Team"]
+      [
+        templateId, data.role_title, "HR Team",
+        data.headcount || 1, data.closes_at || null,
+        data.department || null, data.hiring_manager || null, data.interviewer || null
+      ]
     );
     const jid = postingRes.rows[0].jid;
 
@@ -96,8 +100,8 @@ exports.createAssessment = async (data) => {
 
     await client.query("COMMIT");
 
-    // Fire-and-forget: Trigger n8n webhook for JD generation
-    const n8nWebhookUrl = process.env.N8N_JD_WEBHOOK_URL || 'http://localhost:5678/webhook/generate-jd';
+    // Fire-and-forget: Trigger n8n pipeline for resume screening + MCQ generation
+    const n8nWebhookUrl = process.env.N8N_ASSESSMENT_WEBHOOK_URL || 'http://n8n:5678/webhook/generate-assessment';
     fetch(n8nWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

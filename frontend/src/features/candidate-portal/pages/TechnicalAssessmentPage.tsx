@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   AlarmClock,
   BookOpen,
@@ -6,11 +7,14 @@ import {
   ChevronRight,
   Circle,
   Flag,
+  Loader2,
   Menu,
   Mic,
   Signal,
   Video,
 } from "lucide-react";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 type QuestionStatus = "answered" | "current" | "flagged" | "unvisited";
 
@@ -18,142 +22,16 @@ type Question = {
   id: number;
   prompt: string;
   options: string[];
+  optionKeys: string[];
   selected: string;
   points: number;
   status: QuestionStatus;
 };
 
-const initialQuestions: Question[] = [
-  {
-    id: 1,
-    prompt: "Which hook is primarily used to trigger side effects in a React component?",
-    options: ["useState", "useMemo", "useEffect", "useContext"],
-    selected: "useEffect",
-    points: 3,
-    status: "answered",
-  },
-  {
-    id: 2,
-    prompt: "Which JavaScript method creates a new array with results of calling a function on every element?",
-    options: ["forEach", "reduce", "map", "filter"],
-    selected: "map",
-    points: 3,
-    status: "answered",
-  },
-  {
-    id: 3,
-    prompt: "Which CSS layout system is best suited for one-dimensional alignment of items?",
-    options: ["Grid", "Flexbox", "Float", "Position"],
-    selected: "Flexbox",
-    points: 3,
-    status: "answered",
-  },
-  {
-    id: 4,
-    prompt: "Which of the following is used to manage state in a React functional component?",
-    options: ["useState", "useEffect", "useContext", "useReducer"],
-    selected: "useState",
-    points: 3,
-    status: "current",
-  },
-  {
-    id: 5,
-    prompt: "Which command installs dependencies from `package.json` in a Node.js project?",
-    options: ["npm init", "npm install", "npm build", "npm start"],
-    selected: "",
-    points: 3,
-    status: "unvisited",
-  },
-  {
-    id: 6,
-    prompt: "Which HTTP status code indicates a resource was not found?",
-    options: ["200", "301", "404", "500"],
-    selected: "",
-    points: 3,
-    status: "flagged",
-  },
-  {
-    id: 7,
-    prompt: "What is the default branch name commonly used in modern Git repositories?",
-    options: ["master", "main", "root", "origin"],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-  {
-    id: 8,
-    prompt: "Which HTML element is semantically correct for the main navigation links?",
-    options: ["<section>", "<article>", "<nav>", "<aside>"],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-  {
-    id: 9,
-    prompt: "Which React Router component is used to redirect users declaratively?",
-    options: ["<Link>", "<Navigate>", "<Route>", "<Outlet>"],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-  {
-    id: 10,
-    prompt: "Which SQL keyword is used to sort query results?",
-    options: ["GROUP BY", "ORDER BY", "HAVING", "LIMIT"],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-  {
-    id: 11,
-    prompt: "Which data structure uses FIFO ordering?",
-    options: ["Stack", "Queue", "Tree", "Graph"],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-  {
-    id: 12,
-    prompt: "Which operator checks both value and type equality in JavaScript?",
-    options: ["==", "!=", "===", "="],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-  {
-    id: 13,
-    prompt: "Which HTML attribute improves accessibility by describing form controls?",
-    options: ["name", "for", "aria-label", "alt"],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-  {
-    id: 14,
-    prompt: "Which Git command updates your local branch with remote changes?",
-    options: ["git push", "git merge", "git fetch", "git pull"],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-  {
-    id: 15,
-    prompt: "What does API stand for?",
-    options: [
-      "Application Programming Interface",
-      "Automated Program Integration",
-      "Applied Protocol Internet",
-      "Advanced Program Instruction",
-    ],
-    selected: "",
-    status: "unvisited",
-    points: 3,
-  },
-];
-
 const statusClassMap: Record<QuestionStatus, string> = {
   answered: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  current: "bg-blue-600 text-white border-blue-600 shadow-[0_8px_22px_rgba(37,99,235,0.25)]",
+  current:
+    "bg-blue-600 text-white border-blue-600 shadow-[0_8px_22px_rgba(37,99,235,0.25)]",
   flagged: "bg-amber-100 text-amber-700 border-amber-200",
   unvisited: "bg-white text-slate-400 border-slate-200",
 };
@@ -166,51 +44,148 @@ const legendItems: Array<{ label: string; status: QuestionStatus }> = [
 ];
 
 export default function TechnicalAssessmentPage() {
-  const [questions, setQuestions] = useState(initialQuestions);
-  const [currentIndex, setCurrentIndex] = useState(3);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const screeningId = searchParams.get("id");
+
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [result, setResult] = useState<{
+    score: number;
+    total_questions: number;
+    correct_answers: number;
+    grade: string;
+    is_passed: boolean;
+  } | null>(null);
+
+  // Timer
+  const [timeLeft, setTimeLeft] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number>(Date.now());
+
+  // Fetch questions from backend
+  useEffect(() => {
+    if (!screeningId) {
+      setError("No screening ID provided. Please use the link from your invitation email.");
+      setLoading(false);
+      return;
+    }
+
+    const fetchQuestions = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/assessment/questions/${screeningId}`);
+        const json = await res.json();
+
+        if (!json.success || !json.data?.questions?.length) {
+          setError("No assessment questions found for your screening ID.");
+          setLoading(false);
+          return;
+        }
+
+        const mapped: Question[] = json.data.questions.map(
+          (q: { id: number; question_text: string; options: Record<string, string>; category: string; difficulty: string; time_limit: number }, i: number) => {
+            const optionKeys = Object.keys(q.options);
+            return {
+              id: q.id,
+              prompt: q.question_text,
+              options: optionKeys.map((k) => q.options[k]),
+              optionKeys,
+              selected: "",
+              points: q.difficulty === "hard" ? 5 : q.difficulty === "medium" ? 3 : 2,
+              status: i === 0 ? ("current" as QuestionStatus) : ("unvisited" as QuestionStatus),
+            };
+          }
+        );
+
+        setQuestions(mapped);
+        // Set timer based on job requirements or default 30 min
+        const timeLimitStr = json.data.jobRequirements?.time_limit || "30 minutes";
+        const minutes = parseInt(timeLimitStr) || 30;
+        setTimeLeft(minutes * 60);
+        startTimeRef.current = Date.now();
+        setLoading(false);
+      } catch (err) {
+        setError("Failed to load assessment. Please try again.");
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, [screeningId]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (loading || submitted || timeLeft <= 0) return;
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          handleSubmit();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, submitted]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   const currentQuestion = questions[currentIndex];
 
   const answeredCount = useMemo(
-    () => questions.filter((question) => question.status === "answered").length,
-    [questions],
+    () => questions.filter((q) => q.status === "answered").length,
+    [questions]
   );
 
   const selectQuestion = (index: number) => {
     setQuestions((prev) =>
-      prev.map((question, questionIndex) => {
-        if (questionIndex === currentIndex && question.status === "current") {
+      prev.map((question, qi) => {
+        if (qi === currentIndex && question.status === "current") {
           return {
             ...question,
             status: question.selected ? "answered" : "unvisited",
           };
         }
-
-        if (questionIndex === index) {
+        if (qi === index) {
           return { ...question, status: "current" };
         }
-
         return question;
-      }),
+      })
     );
     setCurrentIndex(index);
   };
 
-  const handleSelectOption = (option: string) => {
+  const handleSelectOption = (optionKey: string) => {
     setQuestions((prev) =>
       prev.map((question, index) =>
-        index === currentIndex ? { ...question, selected: option, status: "current" } : question,
-      ),
+        index === currentIndex
+          ? { ...question, selected: optionKey, status: "current" }
+          : question
+      )
     );
   };
 
   const handleFlagCurrent = () => {
-    const nextStatus = currentQuestion.status === "flagged" ? "current" : "flagged";
-
+    const nextStatus =
+      currentQuestion.status === "flagged" ? "current" : "flagged";
     setQuestions((prev) =>
       prev.map((question, index) =>
-        index === currentIndex ? { ...question, status: nextStatus } : question,
-      ),
+        index === currentIndex
+          ? { ...question, status: nextStatus }
+          : question
+      )
     );
   };
 
@@ -219,11 +194,125 @@ export default function TechnicalAssessmentPage() {
       direction === "prev"
         ? Math.max(currentIndex - 1, 0)
         : Math.min(currentIndex + 1, questions.length - 1);
-
-    if (nextIndex !== currentIndex) {
-      selectQuestion(nextIndex);
-    }
+    if (nextIndex !== currentIndex) selectQuestion(nextIndex);
   };
+
+  const handleSubmit = useCallback(async () => {
+    if (submitting || submitted) return;
+    setSubmitting(true);
+
+    // Build answers map: question_id -> selected option key
+    const answers: Record<number, string> = {};
+    questions.forEach((q) => {
+      if (q.selected) {
+        answers[q.id] = q.selected;
+      }
+    });
+
+    const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
+
+    try {
+      const res = await fetch(`${API_BASE}/assessment/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          screening_id: screeningId,
+          answers,
+          time_taken_seconds: timeTaken,
+        }),
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        setResult(json.data);
+        setSubmitted(true);
+      } else {
+        alert("Failed to submit assessment. Please try again.");
+      }
+    } catch {
+      alert("Network error. Please check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [questions, screeningId, submitting, submitted]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f9fc]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+          <p className="text-lg font-medium text-slate-600">
+            Loading your assessment...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f9fc]">
+        <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+          <h2 className="text-xl font-bold text-red-800">Assessment Error</h2>
+          <p className="mt-2 text-red-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Submitted state
+  if (submitted && result) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f9fc]">
+        <div className="max-w-lg rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-lg">
+          <div
+            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${result.is_passed ? "bg-emerald-100" : "bg-red-100"}`}
+          >
+            <span className="text-3xl font-bold ${result.is_passed ? 'text-emerald-600' : 'text-red-600'}">
+              {result.grade}
+            </span>
+          </div>
+          <h2 className="mt-6 text-2xl font-bold text-slate-900">
+            Assessment Complete
+          </h2>
+          <p className="mt-2 text-slate-500">
+            You scored {result.correct_answers} out of {result.total_questions}{" "}
+            ({result.score}%)
+          </p>
+          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-sm text-slate-500">Score</p>
+                <p className="text-xl font-bold text-slate-900">
+                  {result.score}%
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Grade</p>
+                <p className="text-xl font-bold text-slate-900">
+                  {result.grade}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Result</p>
+                <p
+                  className={`text-xl font-bold ${result.is_passed ? "text-emerald-600" : "text-red-600"}`}
+                >
+                  {result.is_passed ? "Passed" : "Failed"}
+                </p>
+              </div>
+            </div>
+          </div>
+          <p className="mt-6 text-sm text-slate-400">
+            Thank you for completing the assessment. You may now close this
+            window.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f9fc] text-slate-900">
@@ -247,15 +336,23 @@ export default function TechnicalAssessmentPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+            <div
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${
+                timeLeft < 120
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-blue-100 bg-blue-50 text-blue-700"
+              }`}
+            >
               <AlarmClock className="h-4 w-4" />
-              14:22
+              {formatTime(timeLeft)}
             </div>
             <button
               type="button"
-              className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)] transition hover:bg-blue-700"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)] transition hover:bg-blue-700 disabled:opacity-50"
             >
-              Submit Test
+              {submitting ? "Submitting..." : "Submit Test"}
             </button>
           </div>
         </div>
@@ -275,14 +372,17 @@ export default function TechnicalAssessmentPage() {
                 onClick={() => selectQuestion(index)}
                 className={`h-12 rounded-2xl border text-sm font-semibold transition hover:-translate-y-0.5 ${statusClassMap[question.status]}`}
               >
-                {question.id}
+                {index + 1}
               </button>
             ))}
           </div>
 
           <div className="mt-10 space-y-4 text-sm">
             {legendItems.map((item) => (
-              <div key={item.label} className="flex items-center gap-3 text-slate-600">
+              <div
+                key={item.label}
+                className="flex items-center gap-3 text-slate-600"
+              >
                 <span
                   className={`h-5 w-5 rounded-md border ${statusClassMap[item.status].replace("shadow-[0_8px_22px_rgba(37,99,235,0.25)]", "")}`}
                 />
@@ -296,7 +396,9 @@ export default function TechnicalAssessmentPage() {
             <div className="mt-3 h-2 rounded-full bg-slate-200">
               <div
                 className="h-full rounded-full bg-blue-600"
-                style={{ width: `${(answeredCount / questions.length) * 100}%` }}
+                style={{
+                  width: `${(answeredCount / questions.length) * 100}%`,
+                }}
               />
             </div>
             <p className="mt-3 text-sm text-slate-600">
@@ -310,12 +412,14 @@ export default function TechnicalAssessmentPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-600">
-                  Question {currentQuestion.id} of {questions.length}
+                  Question {currentIndex + 1} of {questions.length}
                 </p>
                 <div className="mt-3 h-2 w-[420px] max-w-full rounded-full bg-slate-200">
                   <div
                     className="h-full rounded-full bg-blue-600"
-                    style={{ width: `${(currentQuestion.id / questions.length) * 100}%` }}
+                    style={{
+                      width: `${((currentIndex + 1) / questions.length) * 100}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -344,9 +448,18 @@ export default function TechnicalAssessmentPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <StatusChip icon={<Mic className="h-4 w-4" />} label="Mic Level" />
-                  <StatusChip icon={<Video className="h-4 w-4" />} label="Video On" />
-                  <StatusChip icon={<Signal className="h-4 w-4" />} label="Stable" />
+                  <StatusChip
+                    icon={<Mic className="h-4 w-4" />}
+                    label="Mic Level"
+                  />
+                  <StatusChip
+                    icon={<Video className="h-4 w-4" />}
+                    label="Video On"
+                  />
+                  <StatusChip
+                    icon={<Signal className="h-4 w-4" />}
+                    label="Stable"
+                  />
                 </div>
               </div>
 
@@ -356,14 +469,15 @@ export default function TechnicalAssessmentPage() {
                 </h2>
 
                 <div className="mt-10 space-y-5">
-                  {currentQuestion.options.map((option) => {
-                    const isSelected = currentQuestion.selected === option;
+                  {currentQuestion.optionKeys.map((key, idx) => {
+                    const isSelected = currentQuestion.selected === key;
+                    const optionText = currentQuestion.options[idx];
 
                     return (
                       <button
-                        key={option}
+                        key={key}
                         type="button"
-                        onClick={() => handleSelectOption(option)}
+                        onClick={() => handleSelectOption(key)}
                         className={`flex w-full items-center gap-4 rounded-[22px] border bg-white px-7 py-6 text-left transition ${
                           isSelected
                             ? "border-blue-400 shadow-[0_0_0_4px_rgba(59,130,246,0.12)]"
@@ -377,7 +491,12 @@ export default function TechnicalAssessmentPage() {
                         ) : (
                           <Circle className="h-7 w-7 text-slate-300" />
                         )}
-                        <span className="text-[1.12rem] font-medium text-slate-700">{option}</span>
+                        <span className="text-[1.12rem] font-medium text-slate-700">
+                          <span className="mr-2 font-bold text-slate-400">
+                            {key}.
+                          </span>
+                          {optionText}
+                        </span>
                       </button>
                     );
                   })}
@@ -391,7 +510,8 @@ export default function TechnicalAssessmentPage() {
               <button
                 type="button"
                 onClick={() => moveQuestion("prev")}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                disabled={currentIndex === 0}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -409,7 +529,8 @@ export default function TechnicalAssessmentPage() {
               <button
                 type="button"
                 onClick={() => moveQuestion("next")}
-                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)] transition hover:bg-blue-700"
+                disabled={currentIndex === questions.length - 1}
+                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)] transition hover:bg-blue-700 disabled:opacity-50"
               >
                 Next Question
                 <ChevronRight className="h-4 w-4" />
@@ -422,7 +543,13 @@ export default function TechnicalAssessmentPage() {
   );
 }
 
-function StatusChip({ icon, label }: { icon: React.ReactNode; label: string }) {
+function StatusChip({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
     <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600">
       <span className="text-blue-600">{icon}</span>

@@ -51,3 +51,6 @@ check docs/
 CLAUDE.md
 workflows/WORKFLOW_MIGRATION_GUIDE.md
 
+
+# Claude Code
+.claude/

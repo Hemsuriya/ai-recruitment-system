@@ -1,41 +1,57 @@
 const db = require("../config/db");
 
 exports.getSurveyQuestions = async (screening_id) => {
-  // Try to get template-specific survey question first
-  const templateResult = await db.query(
-    `SELECT jt.survey_question_1
-     FROM candidates_v2 c
-     JOIN job_templates jt ON c.template_key = jt.template_key
-     WHERE c.screening_id = $1`,
+  // 1. Try per-candidate survey_questions first (inserted by n8n workflow)
+  const perCandidate = await db.query(
+    `SELECT id, question_id, question_text, question_type, options, is_qualifying, question_category
+     FROM survey_questions
+     WHERE screening_id = $1
+     ORDER BY question_id`,
     [screening_id]
   );
 
-  // If a template survey question exists, return it alongside generic questions
-  const genericResult = await db.query(
-    `SELECT id, question_text FROM survey_questions ORDER BY id`
-  );
-
-  const questions = genericResult.rows;
-
-  if (templateResult.rows.length > 0 && templateResult.rows[0].survey_question_1) {
-    // Prepend or override with template-specific question
-    questions.unshift({
-      id: 1,
-      question_text: templateResult.rows[0].survey_question_1,
-    });
+  if (perCandidate.rows.length > 0) {
+    return perCandidate.rows;
   }
 
-  return questions;
+  // 2. Fallback: get questions from hr_assessment_questions via candidate's JID
+  const hrQuestions = await db.query(
+    `SELECT haq.id, haq.question_text, haq.is_default, haq.sort_order
+     FROM hr_assessment_questions haq
+     JOIN hr_assessments ha ON ha.id = haq.assessment_id
+     JOIN candidates_v2 c ON c.jid = ha.jid
+     WHERE c.screening_id = $1
+     ORDER BY haq.sort_order`,
+    [screening_id]
+  );
+
+  if (hrQuestions.rows.length > 0) {
+    return hrQuestions.rows.map((q, i) => ({
+      id: q.id,
+      question_id: i + 1,
+      question_text: q.question_text,
+      question_type: "text",
+      options: null,
+      is_qualifying: false,
+      question_category: "informational",
+    }));
+  }
+
+  // 3. Last fallback: generic survey questions (no screening_id filter)
+  const generic = await db.query(
+    `SELECT id, question_text FROM survey_questions WHERE screening_id IS NULL ORDER BY id`
+  );
+
+  return generic.rows;
 };
 
 exports.submitSurveyAnswers = async (screening_id, answers) => {
   for (const answer of answers) {
-    const query = `
-      INSERT INTO survey_responses
-      (screening_id, question_id, response_text)
-      VALUES ($1, $2, $3)
-    `;
-    await db.query(query, [screening_id, answer.question_id, answer.answer]);
+    await db.query(
+      `INSERT INTO survey_responses (screening_id, question_id, response_text)
+       VALUES ($1, $2, $3)`,
+      [screening_id, answer.question_id, answer.answer]
+    );
   }
 
   return { message: "Survey answers saved successfully" };

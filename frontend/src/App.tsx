@@ -16,6 +16,7 @@ import AssessmentInstructions from "./features/candidate-portal/pages/Assessment
 import VideoInterviewPage from "./features/candidate-portal/pages/VideoInterviewPage";
 import CandidateInterviewPage from "./features/candidate-portal/pages/CandidateInterviewPage";
 import TechnicalAssessmentPage from "./features/candidate-portal/pages/TechnicalAssessmentPage";
+import PreScreeningSurveyPage from "./features/candidate-portal/pages/PreScreeningSurveyPage";
 
 function App() {
   return (
@@ -40,6 +41,10 @@ function App() {
         <Route
           path="/candidate-portal/assessment-instructions"
           element={<AssessmentInstructions/>}
+        />
+        <Route
+          path="/candidate-portal/pre-screening"
+          element={<PreScreeningSurveyPage />}
         />
         <Route
           path="/candidate-portal/video-interview"

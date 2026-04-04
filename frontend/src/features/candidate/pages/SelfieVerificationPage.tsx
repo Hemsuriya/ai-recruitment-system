@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Camera,
   CheckCircle2,
@@ -55,6 +56,10 @@ const tips = [
 
 /* ── page component ───────────────────────────────────── */
 export default function SelfieVerificationPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const screeningId = searchParams.get("id");
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -392,6 +397,7 @@ export default function SelfieVerificationPage() {
               </p>
               <button
                 type="button"
+                onClick={() => navigate(`/candidate-portal/assessment-instructions${screeningId ? `?id=${screeningId}` : ""}`)}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3 text-[14px] font-medium text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
               >
                 Continue to Assessment

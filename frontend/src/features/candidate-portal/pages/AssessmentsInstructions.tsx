@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ClipboardList,
   Camera,
@@ -13,6 +13,8 @@ import {
 
 export default function AssessmentInstructions() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const screeningId = searchParams.get("id");
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -120,7 +122,7 @@ export default function AssessmentInstructions() {
 
           <button
             type="button"
-            onClick={() => navigate("/candidate-portal/technical-assessment")}
+            onClick={() => navigate(`/candidate-portal/pre-screening${screeningId ? `?id=${screeningId}` : ""}`)}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2"
           >
             Start Assessment →
