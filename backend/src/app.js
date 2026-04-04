@@ -16,6 +16,7 @@ const settingsRoutes = require("./routes/settingsRoutes");
 const assessmentConfigRoutes = require("./routes/assessmentConfigRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const testRoutes = require("./routes/testRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 
 const app = express();
@@ -39,7 +40,7 @@ app.use(
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -64,6 +65,7 @@ app.use("/api/hr/assessments", assessmentConfigRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/test", testRoutes);
+app.use("/api/auth", authRoutes);
 
 // ─── Frontend Pages ─────────────────────────────────────────
 

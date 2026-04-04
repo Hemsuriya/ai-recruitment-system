@@ -11,16 +11,20 @@ const requiredEnv = [
   "N8N_GET_QUESTIONS_WEBHOOK",
   "N8N_UPDATE_STATUS_WEBHOOK",
   "N8N_SUBMIT_RESULTS_WEBHOOK",
-  "SMTP_HOST",
-  "SMTP_PORT",
-  "SMTP_USER",
-  "SMTP_PASS"
 ];
+
+const optionalEnv = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"];
 
 requiredEnv.forEach((env) => {
   if (!process.env[env]) {
     console.error(`❌ Missing environment variable: ${env}`);
     process.exit(1);
+  }
+});
+
+optionalEnv.forEach((env) => {
+  if (!process.env[env]) {
+    console.warn(`⚠️  Optional env variable missing: ${env} — email features will be disabled`);
   }
 });
 

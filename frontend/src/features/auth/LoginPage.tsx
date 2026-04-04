@@ -14,18 +14,13 @@ export default function HireAILogin() {
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Login failed");
-      // Save token if needed: localStorage.setItem('token', data.token);
+
+    // Simple auth — replace with backend auth in production
+    if (form.email === "admin@gmail.com" && form.password === "admin@123") {
+      localStorage.setItem("user", JSON.stringify({ email: form.email, role: "hr" }));
       navigate("/hr/dashboard");
-    } catch (err) {
-      setError((err as Error).message);
+    } else {
+      setError("Invalid email or password");
     }
   };
 
