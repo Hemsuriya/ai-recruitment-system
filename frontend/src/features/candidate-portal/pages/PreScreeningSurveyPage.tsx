@@ -83,24 +83,8 @@ export default function PreScreeningSurveyPage() {
         body: JSON.stringify({ screening_id: screeningId, answers: payload }),
       });
 
-      // Validate survey
-      const valRes = await fetch(`${API_BASE}/validation/validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ screening_id: screeningId }),
-      });
-      const valJson = await valRes.json();
-
-      if (valJson.success && valJson.data?.passed) {
-        navigate(`/candidate-portal/technical-assessment?id=${screeningId}`);
-      } else if (valJson.success && !valJson.data?.passed) {
-        setError(
-          "Unfortunately, you did not meet the qualifying criteria for this assessment. Thank you for your interest."
-        );
-      } else {
-        // No qualifying questions — just proceed
-        navigate(`/candidate-portal/technical-assessment?id=${screeningId}`);
-      }
+      // Answers stored — proceed to MCQ
+      navigate(`/candidate-portal/technical-assessment?id=${screeningId}`);
     } catch {
       // On error, still proceed to MCQ
       navigate(`/candidate-portal/technical-assessment?id=${screeningId}`);
