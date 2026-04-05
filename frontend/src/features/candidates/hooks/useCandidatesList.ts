@@ -14,6 +14,7 @@ export interface CandidateListRow {
   jid: string | null;
   appliedDate: string;
   finalScore: number;
+  mcqScore: number;
   interviewScore: number;
   securityScore: number;
   verdict: Verdict;
@@ -72,6 +73,7 @@ function deriveVerdict(row: ApiCandidateListItem): Verdict {
 }
 
 function deriveStatus(item: ApiCandidateListItem): PipelineStatus {
+  if (item.mcq_score != null && item.mcq_score > 0 && !item.interview_score) return "MCQ Complete";
   if (item.score > 0) return "Final Review";
   return "Interview Complete";
 }
@@ -91,6 +93,7 @@ function mapRow(row: ApiCandidateListItem): CandidateListRow {
     jid: row.jid,
     appliedDate: row.date,
     finalScore: row.score,
+    mcqScore: row.mcq_score ?? 0,
     interviewScore: row.interview_score ?? 0,
     securityScore: row.security_score ?? 0,
     verdict: deriveVerdict(row),

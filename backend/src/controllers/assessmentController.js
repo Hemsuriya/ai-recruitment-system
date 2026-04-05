@@ -131,12 +131,28 @@ exports.submitAssessmentResults = async (req, res) => {
       score >= 80 ? "A" : score >= 60 ? "B" : score >= 40 ? "C" : "F";
     const isPassed = score >= 40;
 
+    // Compute started_at from time_taken_seconds
+    const startedAt = time_taken_seconds
+      ? new Date(Date.now() - time_taken_seconds * 1000).toISOString()
+      : null;
+
+    // Count survey responses for this candidate
+    const surveyCount = await db.query(
+      "SELECT COUNT(*) AS cnt FROM survey_responses WHERE screening_id = $1",
+      [screening_id]
+    );
+    const surveyResponsesCount = parseInt(surveyCount.rows[0]?.cnt || "0", 10);
+
     // Store results in assessment_results_v2
     await db.query(
-      `INSERT INTO assessment_results_v2 (screening_id, answers, total_questions, correct_answers, score_percentage, is_passed, grade, time_spent, completed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+      `INSERT INTO assessment_results_v2
+         (screening_id, answers, total_questions, correct_answers, score_percentage,
+          is_passed, grade, time_spent, started_at, completed_at, survey_responses_count)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10)
        ON CONFLICT (screening_id) DO UPDATE SET
-         answers = $2, total_questions = $3, correct_answers = $4, score_percentage = $5, is_passed = $6, grade = $7, time_spent = $8, completed_at = CURRENT_TIMESTAMP`,
+         answers = $2, total_questions = $3, correct_answers = $4, score_percentage = $5,
+         is_passed = $6, grade = $7, time_spent = $8, started_at = COALESCE(assessment_results_v2.started_at, $9),
+         completed_at = CURRENT_TIMESTAMP, survey_responses_count = $10`,
       [
         screening_id,
         JSON.stringify(questionScores),
@@ -146,6 +162,8 @@ exports.submitAssessmentResults = async (req, res) => {
         isPassed,
         grade,
         time_taken_seconds || null,
+        startedAt,
+        surveyResponsesCount,
       ]
     );
 

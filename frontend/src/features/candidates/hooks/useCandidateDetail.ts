@@ -67,8 +67,9 @@ function deriveVerdict(row: ApiCandidateDetail): Verdict {
 
 function deriveStatus(row: ApiCandidateDetail): PipelineStatus {
   if (row.final_decision) return "Final Review";
-  if (row.final_score && row.final_score > 0) return "Final Review";
   if (row.interview_completed) return "Interview Complete";
+  if (row.mcq_score != null && row.mcq_score > 0 && !row.interview_completed) return "MCQ Complete";
+  if (row.final_score && row.final_score > 0) return "Final Review";
   if (row.interview_started) return "Assessment Pending";
   return "Screening";
 }
@@ -188,6 +189,13 @@ function mapDetail(row: ApiCandidateDetail): Candidate {
     proctoring: parseProctoring(row),
     speechAnalysis: parseSpeechAnalysis(row),
     transcript: parseTranscript(row.full_transcript),
+
+    mcqGrade: row.mcq_grade ?? null,
+    mcqTotalQuestions: row.mcq_total_questions ?? null,
+    mcqCorrectAnswers: row.mcq_correct_answers ?? null,
+    mcqTimeSpent: row.mcq_time_spent ?? null,
+
+    hasVideoInterview: !!(row.video_assessment_id || row.interview_completed),
   };
 }
 

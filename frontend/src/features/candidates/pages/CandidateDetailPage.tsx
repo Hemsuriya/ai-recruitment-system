@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, FileText, Brain, Video, ShieldCheck,
   User, BarChart2, CheckCircle, AlertCircle, MessageSquare,
-  ChevronDown, Loader2,
+  ChevronDown, Loader2, ClipboardList, Clock, Award, Target,
 } from "lucide-react";
 import HrShell from "../../../components/layouts/HrShell";
 import { useCandidateDetail } from "../hooks/useCandidateDetail";
@@ -244,7 +244,7 @@ export default function CandidateDetailPage() {
               <InfoRow label="Salary Expectation" value={c.salary} />
               <InfoRow label="Notice Period"   value={c.notice}   />
               <InfoRow label="Visa Status"     value={c.visa}     />
-              <InfoRow label="Job ID"          value={`JOB-2025-${c.role.split(' ')[0].toUpperCase()}-${c.id.padStart(3, '0')}`} />
+              <InfoRow label="Job ID"          value={c.jid || c.id} />
             </div>
 
             <div style={{ marginBottom: 14 }}>
@@ -275,52 +275,121 @@ export default function CandidateDetailPage() {
             </div>
           </Section>
 
-          {/* Assessment Analysis */}
-          <Section title="Assessment Analysis" icon={BarChart2}>
-            {/* Score breakdown bars */}
-            <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 10 }}>
-              <ScoreBar label="Communication"    score={c.communicationScore} />
-              <ScoreBar label="Confidence"        score={c.confidenceScore} />
-              <ScoreBar label="Technical Clarity" score={c.technicalClarity} />
-              <ScoreBar label="Skill Match"        score={c.skillMatch} />
-            </div>
+          {/* Assessment Analysis — MCQ or Video */}
+          {c.hasVideoInterview ? (
+            <Section title="Assessment Analysis" icon={BarChart2}>
+              <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+                <ScoreBar label="Communication"    score={c.communicationScore} />
+                <ScoreBar label="Confidence"        score={c.confidenceScore} />
+                <ScoreBar label="Technical Clarity" score={c.technicalClarity} />
+                <ScoreBar label="Skill Match"        score={c.skillMatch} />
+              </div>
 
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14, marginBottom: 14 }}>
-              {/* Strengths */}
-              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
-                <CheckCircle size={13} style={{ color: "var(--score-high)" }} /> Strengths
-              </p>
-              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
-                {c.strengths.map((s, i) => (
-                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "var(--text)" }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--score-high)", marginTop: 6, flexShrink: 0 }} />
-                    {s}
-                  </li>
-                ))}
-              </ul>
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14, marginBottom: 14 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
+                  <CheckCircle size={13} style={{ color: "var(--score-high)" }} /> Strengths
+                </p>
+                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+                  {c.strengths.map((s, i) => (
+                    <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "var(--text)" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--score-high)", marginTop: 6, flexShrink: 0 }} />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
 
-              {/* Weaknesses */}
-              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
-                <AlertCircle size={13} style={{ color: "var(--score-mid)" }} /> Weaknesses
-              </p>
-              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
-                {c.weaknesses.map((w, i) => (
-                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "var(--text)" }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--score-mid)", marginTop: 6, flexShrink: 0 }} />
-                    {w}
-                  </li>
-                ))}
-              </ul>
-            </div>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
+                  <AlertCircle size={13} style={{ color: "var(--score-mid)" }} /> Weaknesses
+                </p>
+                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
+                  {c.weaknesses.map((w, i) => (
+                    <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "var(--text)" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--score-mid)", marginTop: 6, flexShrink: 0 }} />
+                      {w}
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-            {/* Final verdict banner */}
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
-                Final Recommendation
-              </p>
-              <VerdictBadge verdict={c.verdict} />
-            </div>
-          </Section>
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
+                  Final Recommendation
+                </p>
+                <VerdictBadge verdict={c.verdict} />
+              </div>
+            </Section>
+          ) : (
+            <Section title="MCQ Assessment Results" icon={ClipboardList}>
+              {c.mcqScore > 0 ? (
+                <>
+                  {/* Grade + Score summary */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 18 }}>
+                    <div style={{ textAlign: "center", padding: "14px 8px", borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)" }}>
+                      <Award size={20} style={{ color: "var(--brand)", marginBottom: 4 }} />
+                      <p style={{ fontSize: 24, fontWeight: 700, color: "var(--text)" }}>{c.mcqGrade || "—"}</p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Grade</p>
+                    </div>
+                    <div style={{ textAlign: "center", padding: "14px 8px", borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)" }}>
+                      <Target size={20} style={{ color: "var(--score-high)", marginBottom: 4 }} />
+                      <p style={{ fontSize: 24, fontWeight: 700, color: "var(--text)" }}>
+                        {c.mcqCorrectAnswers ?? "—"}<span style={{ fontSize: 14, color: "var(--text-muted)" }}>/{c.mcqTotalQuestions ?? "—"}</span>
+                      </p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Correct</p>
+                    </div>
+                    <div style={{ textAlign: "center", padding: "14px 8px", borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)" }}>
+                      <Clock size={20} style={{ color: "var(--score-mid)", marginBottom: 4 }} />
+                      <p style={{ fontSize: 24, fontWeight: 700, color: "var(--text)" }}>
+                        {c.mcqTimeSpent ? `${Math.round(c.mcqTimeSpent / 60)}` : "—"}<span style={{ fontSize: 14, color: "var(--text-muted)" }}> min</span>
+                      </p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Time Spent</p>
+                    </div>
+                  </div>
+
+                  {/* Score bar */}
+                  <div style={{ marginBottom: 18 }}>
+                    <ScoreBar label="MCQ Score" score={c.mcqScore} />
+                    {c.resumeScore > 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        <ScoreBar label="Resume Match" score={c.resumeScore} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pass/Fail indicator */}
+                  <div style={{
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    background: c.mcqScore >= 40 ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)",
+                    border: `1px solid ${c.mcqScore >= 40 ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    marginBottom: 14,
+                  }}>
+                    {c.mcqScore >= 40 ? (
+                      <CheckCircle size={14} style={{ color: "var(--score-high)" }} />
+                    ) : (
+                      <AlertCircle size={14} style={{ color: "var(--score-low)" }} />
+                    )}
+                    <span style={{ fontSize: 12, fontWeight: 600, color: c.mcqScore >= 40 ? "var(--score-high)" : "var(--score-low)" }}>
+                      {c.mcqScore >= 40 ? "Passed" : "Failed"} — Score: {c.mcqScore}%
+                    </span>
+                  </div>
+
+                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
+                      Final Recommendation
+                    </p>
+                    <VerdictBadge verdict={c.verdict} />
+                  </div>
+                </>
+              ) : (
+                <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "20px 0", textAlign: "center" }}>
+                  MCQ assessment not yet completed.
+                </p>
+              )}
+            </Section>
+          )}
           </div>
 
           <div
@@ -328,96 +397,116 @@ export default function CandidateDetailPage() {
           >
           {/* Video Panel */}
           <Section title="Video Interview" icon={Video}>
-            {raw?.video_url ? (
-              <div style={{ borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
-                <video
-                  controls
-                  style={{ width: "100%", aspectRatio: "16/9", background: "#0F172A", borderRadius: 10 }}
-                  src={raw.video_url}
-                >
-                  Your browser does not support the video tag.
-                </video>
-              </div>
+            {c.hasVideoInterview ? (
+              <>
+                {raw?.video_url ? (
+                  <div style={{ borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
+                    <video
+                      controls
+                      style={{ width: "100%", aspectRatio: "16/9", background: "#0F172A", borderRadius: 10 }}
+                      src={raw.video_url}
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      background: "#0F172A",
+                      borderRadius: 10,
+                      aspectRatio: "16/9",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 12,
+                      gap: 8,
+                    }}
+                  >
+                    <Video size={36} style={{ color: "rgba(255,255,255,0.5)" }} />
+                    <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>No recording available</p>
+                  </div>
+                )}
+                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  Duration: {raw?.video_duration_seconds ? `${Math.round(raw.video_duration_seconds / 60)} min` : "N/A"}
+                  {" "}· Applied: {new Date(c.appliedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </p>
+              </>
             ) : (
-              <div
-                style={{
-                  background: "#0F172A",
-                  borderRadius: 10,
-                  aspectRatio: "16/9",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 12,
-                  gap: 8,
-                }}
-              >
-                <Video size={36} style={{ color: "rgba(255,255,255,0.5)" }} />
-                <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>No recording available</p>
+              <div style={{ textAlign: "center", padding: "32px 16px" }}>
+                <Video size={36} style={{ color: "var(--text-muted)", opacity: 0.3, marginBottom: 8 }} />
+                <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-muted)" }}>N/A</p>
+                <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>Video interview not attended yet</p>
               </div>
             )}
-            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              Duration: {raw?.video_duration_seconds ? `${Math.round(raw.video_duration_seconds / 60)} min` : "N/A"}
-              {" "}· Applied: {new Date(c.appliedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </p>
           </Section>
 
           {/* Proctoring */}
           <Section title="Proctoring Analysis" icon={ShieldCheck}>
-            {[
-              { label: "Head Orientation",   value: c.proctoring.headOrientation },
-              { label: "Dominant Emotion",    value: c.proctoring.dominantEmotion },
-              { label: "Pupil Orientation",   value: c.proctoring.pupilOrientation },
-              { label: "Integrity Score",     value: `${c.proctoring.integrityScore}/100` },
-              { label: "Speaking Confidence", value: `${c.proctoring.speakingConfidence}%` },
-            ].map(({ label, value }, i) => (
-              <div
-                key={i}
-                style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}
-              >
-                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{label}</span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{value}</span>
-              </div>
-            ))}
+            {c.hasVideoInterview ? (
+              <>
+                {[
+                  { label: "Head Orientation",   value: c.proctoring.headOrientation },
+                  { label: "Dominant Emotion",    value: c.proctoring.dominantEmotion },
+                  { label: "Pupil Orientation",   value: c.proctoring.pupilOrientation },
+                  { label: "Integrity Score",     value: `${c.proctoring.integrityScore}/100` },
+                  { label: "Speaking Confidence", value: `${c.proctoring.speakingConfidence}%` },
+                ].map(({ label, value }, i) => (
+                  <div
+                    key={i}
+                    style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}
+                  >
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{value}</span>
+                  </div>
+                ))}
 
-            <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Detailed Flags
-              </p>
-              {[
-                { label: "Out-of-window occurrences", value: String(c.proctoring.outOfWindowCount), ok: c.proctoring.outOfWindowCount === 0 },
-                { label: "Audio anomaly count",        value: String(c.proctoring.audioAnomalyCount), ok: c.proctoring.audioAnomalyCount <= 2 },
-                { label: "Session rejoins",            value: String(c.proctoring.sessionRejoins),    ok: c.proctoring.sessionRejoins === 0 },
-              ].map(({ label, value, ok }, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: ok ? "var(--score-high)" : "var(--score-mid)" }}>{value}</span>
+                <div style={{ marginTop: 12 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Detailed Flags
+                  </p>
+                  {[
+                    { label: "Out-of-window occurrences", value: String(c.proctoring.outOfWindowCount), ok: c.proctoring.outOfWindowCount === 0 },
+                    { label: "Audio anomaly count",        value: String(c.proctoring.audioAnomalyCount), ok: c.proctoring.audioAnomalyCount <= 2 },
+                    { label: "Session rejoins",            value: String(c.proctoring.sessionRejoins),    ok: c.proctoring.sessionRejoins === 0 },
+                  ].map(({ label, value, ok }, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{label}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: ok ? "var(--score-high)" : "var(--score-mid)" }}>{value}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            <div
-              style={{
-                marginTop: 14,
-                padding: "10px 12px",
-                borderRadius: 8,
-                background: c.proctoring.integrityVerdict === "Low risk" ? "rgba(34,197,94,0.08)" : c.proctoring.integrityVerdict === "Medium risk" ? "rgba(245,158,11,0.08)" : "rgba(239,68,68,0.08)",
-                border: `1px solid ${c.proctoring.integrityVerdict === "Low risk" ? "rgba(34,197,94,0.2)" : c.proctoring.integrityVerdict === "Medium risk" ? "rgba(245,158,11,0.2)" : "rgba(239,68,68,0.2)"}`,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <ShieldCheck size={14} style={{ color: c.proctoring.integrityVerdict === "Low risk" ? "var(--score-high)" : c.proctoring.integrityVerdict === "Medium risk" ? "var(--score-mid)" : "var(--score-low)", flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: c.proctoring.integrityVerdict === "Low risk" ? "var(--score-high)" : c.proctoring.integrityVerdict === "Medium risk" ? "var(--score-mid)" : "var(--score-low)" }}>
-                {c.proctoring.integrityVerdict} candidate
-              </span>
-            </div>
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    background: c.proctoring.integrityVerdict === "Low risk" ? "rgba(34,197,94,0.08)" : c.proctoring.integrityVerdict === "Medium risk" ? "rgba(245,158,11,0.08)" : "rgba(239,68,68,0.08)",
+                    border: `1px solid ${c.proctoring.integrityVerdict === "Low risk" ? "rgba(34,197,94,0.2)" : c.proctoring.integrityVerdict === "Medium risk" ? "rgba(245,158,11,0.2)" : "rgba(239,68,68,0.2)"}`,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <ShieldCheck size={14} style={{ color: c.proctoring.integrityVerdict === "Low risk" ? "var(--score-high)" : c.proctoring.integrityVerdict === "Medium risk" ? "var(--score-mid)" : "var(--score-low)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: c.proctoring.integrityVerdict === "Low risk" ? "var(--score-high)" : c.proctoring.integrityVerdict === "Medium risk" ? "var(--score-mid)" : "var(--score-low)" }}>
+                    {c.proctoring.integrityVerdict} candidate
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", padding: "32px 16px" }}>
+                <ShieldCheck size={36} style={{ color: "var(--text-muted)", opacity: 0.3, marginBottom: 8 }} />
+                <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-muted)" }}>N/A</p>
+                <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>Proctoring data available after video interview</p>
+              </div>
+            )}
           </Section>
           </div>
 
           {/* AI Insights Panel */}
-          {raw && (
+          {raw && c.hasVideoInterview && (
             <div style={{ marginBottom: 16 }}>
             <Section title="AI Insights — Emotion & Behavior Analysis" icon={Brain}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>

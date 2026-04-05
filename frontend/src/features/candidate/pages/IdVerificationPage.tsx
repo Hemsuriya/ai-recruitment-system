@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Camera,
   ChevronRight,
@@ -12,18 +13,14 @@ import {
   CheckCircle2,
   Upload,
   X,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 
-/* ── static mock data ─────────────────────────────────── */
-const MOCK_RESULT = {
-  name: "ADITYA VERMA",
-  dob: "15/08/1992",
-  idNumber: "XXXX XXXX 8823",
-  gender: "Male",
-};
+const ID_SERVICE_URL = import.meta.env.VITE_ID_SERVICE_URL || "http://localhost:8000";
 
 const instructions = [
-  { icon: Lightbulb, text: "Place your Aadhaar card on a flat surface with good lighting." },
+  { icon: Lightbulb, text: "Place your ID card on a flat surface with good lighting." },
   { icon: ScanLine, text: "Ensure all four corners of the card are visible within the frame." },
   { icon: Eye, text: "Avoid glare or reflections that might obscure the details." },
   { icon: Clock, text: "The verification process typically takes less than 60 seconds." },
@@ -32,16 +29,69 @@ const instructions = [
 
 /* ── page component ───────────────────────────────────── */
 export default function IdVerificationPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const screeningId = searchParams.get("id");
+
   const [preview, setPreview] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [verificationResult, setVerificationResult] = useState<{
+    name?: string;
+    dob?: string;
+    idNumber?: string;
+    gender?: string;
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback((file: File) => {
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    // simulate backend verification after a short delay
-    setTimeout(() => setVerified(true), 1200);
-  }, []);
+  const handleFile = useCallback(
+    (file: File) => {
+      setError(null);
+      const url = URL.createObjectURL(file);
+      setPreview(url);
+
+      // Convert to base64 and upload to AI service
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        setImageBase64(base64);
+        setVerifying(true);
+
+        try {
+          const res = await fetch(`${ID_SERVICE_URL}/upload-id`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              assessmentId: screeningId || "unknown",
+              imageBase64: base64,
+            }),
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            setVerified(true);
+            // If the service returns extracted data, use it
+            if (data.extracted) {
+              setVerificationResult(data.extracted);
+            } else {
+              // ID was stored successfully — extraction may happen during selfie verify
+              setVerificationResult(null);
+            }
+          } else {
+            setError(data.detail || "ID verification failed. Please try again.");
+          }
+        } catch {
+          setError("Unable to connect to verification service. Please try again.");
+        } finally {
+          setVerifying(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    },
+    [screeningId],
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -54,14 +104,22 @@ export default function IdVerificationPage() {
 
   const reset = () => {
     setPreview(null);
+    setImageBase64(null);
     setVerified(false);
+    setVerifying(false);
+    setError(null);
+    setVerificationResult(null);
+  };
+
+  const continueToSelfie = () => {
+    navigate(`/candidate/selfie-verification${screeningId ? `?id=${screeningId}` : ""}`);
   };
 
   return (
     <div className="min-h-screen bg-[#f0f4ff]">
       {/* ── top progress bar ── */}
       <div className="h-1.5 w-full bg-blue-100">
-        <div className="h-full w-1/2 rounded-r-full bg-blue-600 transition-all" />
+        <div className="h-full w-2/5 rounded-r-full bg-blue-600 transition-all" />
       </div>
 
       <div className="mx-auto max-w-[760px] px-4 py-8">
@@ -73,15 +131,15 @@ export default function IdVerificationPage() {
         </div>
 
         {/* ── heading ── */}
-        <h1 className="text-[28px] font-bold leading-tight text-gray-900">Verify Your Identity</h1>
+        <h1 className="text-[28px] font-bold leading-tight text-gray-900">Upload Your ID</h1>
         <div className="mt-0.5 flex items-center justify-between">
-          <p className="text-[14px] text-gray-500">Step 2 of 4: Documentation Submission</p>
-          <span className="text-[13px] font-semibold text-blue-600">50% Complete</span>
+          <p className="text-[14px] text-gray-500">Step 2 of 5: ID Document Upload</p>
+          <span className="text-[13px] font-semibold text-blue-600">40% Complete</span>
         </div>
 
         {/* ── progress track ── */}
         <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
-          <div className="h-full w-1/2 rounded-full bg-blue-600" />
+          <div className="h-full w-2/5 rounded-full bg-blue-600" />
         </div>
 
         {/* ── instructions card ── */}
@@ -106,6 +164,14 @@ export default function IdVerificationPage() {
           </div>
         </div>
 
+        {/* ── error message ── */}
+        {error && (
+          <div className="mt-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
+            <p className="text-[14px] text-red-600">{error}</p>
+          </div>
+        )}
+
         {/* ── capture / upload zone ── */}
         {!preview ? (
           <div
@@ -116,23 +182,16 @@ export default function IdVerificationPage() {
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50">
               <Camera className="h-7 w-7 text-blue-600" />
             </div>
-            <h3 className="text-[18px] font-bold text-gray-900">Capture Front Side</h3>
+            <h3 className="text-[18px] font-bold text-gray-900">Upload ID Document</h3>
             <p className="mt-1 max-w-xs text-[13.5px] text-gray-400">
-              Click to open camera or drag and drop your high-quality ID scan here.
+              Drag and drop your government-issued photo ID here, or click to upload.
             </p>
 
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-[14px] font-medium text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
-              >
-                <Camera className="h-4 w-4" />
-                Open Camera
-              </button>
-              <button
-                type="button"
                 onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-5 py-2.5 text-[14px] font-medium text-blue-600 transition hover:bg-blue-50"
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-[14px] font-medium text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
               >
                 <Upload className="h-4 w-4" />
                 Upload File
@@ -160,7 +219,7 @@ export default function IdVerificationPage() {
               {verified && (
                 <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow">
                   <CheckCircle2 className="h-3 w-3" />
-                  SHARP QUALITY
+                  ID UPLOADED
                 </span>
               )}
               <img
@@ -181,23 +240,25 @@ export default function IdVerificationPage() {
             {verified && (
               <div className="rounded-2xl border border-gray-200 bg-white p-5">
                 <div className="mb-1 flex items-center justify-between">
-                  <h3 className="text-[16px] font-bold text-gray-900">Verification Information</h3>
+                  <h3 className="text-[16px] font-bold text-gray-900">ID Uploaded Successfully</h3>
                   <span className="text-[12px] text-gray-400">
                     Captured {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
                 <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-green-600">
                   <CheckCircle2 className="h-3 w-3" />
-                  READY TO CONFIRM
+                  READY FOR SELFIE VERIFICATION
                 </span>
 
-                {/* extracted fields */}
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  <Field label="NAME" value={MOCK_RESULT.name} />
-                  <Field label="DATE OF BIRTH (DOB)" value={MOCK_RESULT.dob} />
-                  <Field label="ID NUMBER" value={MOCK_RESULT.idNumber} />
-                  <Field label="GENDER" value={MOCK_RESULT.gender} />
-                </div>
+                {/* extracted fields (if returned by API) */}
+                {verificationResult && (
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    {verificationResult.name && <Field label="NAME" value={verificationResult.name} />}
+                    {verificationResult.dob && <Field label="DATE OF BIRTH" value={verificationResult.dob} />}
+                    {verificationResult.idNumber && <Field label="ID NUMBER" value={verificationResult.idNumber} />}
+                    {verificationResult.gender && <Field label="GENDER" value={verificationResult.gender} />}
+                  </div>
+                )}
 
                 {/* action buttons */}
                 <div className="mt-6 grid grid-cols-2 gap-3">
@@ -207,24 +268,25 @@ export default function IdVerificationPage() {
                     className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-[14px] font-medium text-gray-600 transition hover:bg-gray-50"
                   >
                     <RefreshCw className="h-4 w-4" />
-                    Retake
+                    Re-upload
                   </button>
                   <button
                     type="button"
+                    onClick={continueToSelfie}
                     className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-[14px] font-medium text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
                   >
-                    <CheckCircle2 className="h-4 w-4" />
-                    Confirm &amp; Continue
+                    <ChevronRight className="h-4 w-4" />
+                    Continue to Selfie
                   </button>
                 </div>
               </div>
             )}
 
             {/* loading state */}
-            {!verified && (
+            {verifying && (
               <div className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white p-8">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                <span className="text-[14px] font-medium text-gray-600">Verifying your document…</span>
+                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <span className="text-[14px] font-medium text-gray-600">Uploading and verifying your document…</span>
               </div>
             )}
           </div>

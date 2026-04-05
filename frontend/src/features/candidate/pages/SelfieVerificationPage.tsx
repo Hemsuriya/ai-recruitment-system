@@ -12,7 +12,11 @@ import {
   Timer,
   User,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
+
+const ID_SERVICE_URL = import.meta.env.VITE_ID_SERVICE_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 /* ── types ────────────────────────────────────────────── */
 type CaptureStage =
@@ -70,6 +74,11 @@ export default function SelfieVerificationPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{
+    verified: boolean;
+    confidence_same_person_percent: number | null;
+  } | null>(null);
 
   /* ── start camera ── */
   const initCamera = useCallback(async () => {
@@ -156,13 +165,51 @@ export default function SelfieVerificationPage() {
   };
 
   /* ── confirm & continue ── */
-  const confirmAndContinue = () => {
+  const confirmAndContinue = async () => {
+    if (!capturedImage) return;
     setVerifying(true);
-    // simulate verification API call
-    setTimeout(() => {
-      setStage("verified");
+    setVerifyError(null);
+
+    try {
+      const res = await fetch(`${ID_SERVICE_URL}/verify-selfie`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assessmentId: screeningId || "unknown",
+          selfieBase64: capturedImage,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.verified) {
+        setVerifyResult({
+          verified: true,
+          confidence_same_person_percent: data.confidence_same_person_percent,
+        });
+        setStage("verified");
+
+        // Persist identity_verified to backend DB
+        try {
+          await fetch(`${API_BASE}/candidate/identity-verified`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ screening_id: screeningId, verified: true }),
+          });
+        } catch {
+          // Non-blocking — verification result is already shown to user
+        }
+      } else {
+        setVerifyError(
+          `Face verification failed${data.confidence_same_person_percent != null ? ` (${data.confidence_same_person_percent.toFixed(1)}% match)` : ""}. Please retake your selfie and ensure it matches your ID.`
+        );
+        setStage("preview");
+      }
+    } catch {
+      setVerifyError("Unable to connect to verification service. Please try again.");
+      setStage("preview");
+    } finally {
       setVerifying(false);
-    }, 2000);
+    }
   };
 
   return (
@@ -203,7 +250,7 @@ export default function SelfieVerificationPage() {
           Selfie Verification
         </h1>
         <p className="mt-1 text-center text-[14px] text-gray-500">
-          Final Step: Facial Recognition
+          Step 3 of 5: Facial Recognition
         </p>
 
         {/* ── camera / preview area ── */}
@@ -361,6 +408,13 @@ export default function SelfieVerificationPage() {
                 </div>
               )}
 
+              {verifyError && (
+                <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
+                  <p className="text-[13px] text-red-600">{verifyError}</p>
+                </div>
+              )}
+
               {!verifying && (
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -392,15 +446,19 @@ export default function SelfieVerificationPage() {
                 Identity Verified
               </h3>
               <p className="mt-1 text-[14px] text-gray-500">
-                Your selfie has been verified successfully. Proceeding to the
-                next stage.
+                Your selfie has been verified successfully.
+                {verifyResult?.confidence_same_person_percent != null && (
+                  <span className="block mt-1 font-semibold text-green-600">
+                    Match confidence: {verifyResult.confidence_same_person_percent.toFixed(1)}%
+                  </span>
+                )}
               </p>
               <button
                 type="button"
-                onClick={() => navigate(`/candidate-portal/assessment-instructions${screeningId ? `?id=${screeningId}` : ""}`)}
+                onClick={() => navigate(`/candidate/verification-confirm${screeningId ? `?id=${screeningId}` : ""}`)}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3 text-[14px] font-medium text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
               >
-                Continue to Assessment
+                Continue to Confirmation
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>

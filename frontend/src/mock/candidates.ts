@@ -680,6 +680,7 @@ export function getStatusColor(status: string): { color: string; bg: string } {
     case "Interview Complete":  return { color: "var(--status-complete)", bg: "var(--status-complete-bg)" };
     case "Assessment Pending":  return { color: "var(--status-pending)",  bg: "var(--status-pending-bg)" };
     case "Screening":           return { color: "var(--status-screening)",bg: "var(--status-screening-bg)" };
+    case "MCQ Complete":        return { color: "#7c3aed",               bg: "rgba(124,58,237,0.1)" };
     default:                    return { color: "#64748b",               bg: "rgba(100,116,139,0.1)" };
   }
 }
@@ -697,4 +698,4 @@ export const ALL_ROLES = [
 ] as const;
 
 export const ALL_VERDICTS = ["All Verdicts", "Strong Hire", "Hire", "Maybe", "Reject"] as const;
-export const ALL_STATUSES = ["All Statuses", "Screening", "Assessment Pending", "Interview Complete", "Final Review"] as const;
+export const ALL_STATUSES = ["All Statuses", "Screening", "Assessment Pending", "MCQ Complete", "Interview Complete", "Final Review"] as const;

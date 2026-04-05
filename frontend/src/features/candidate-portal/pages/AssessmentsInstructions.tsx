@@ -27,7 +27,7 @@ export default function AssessmentInstructions() {
         </div>
 
         <div className="flex items-center gap-6">
-          <span className="text-sm text-gray-500">Step 1 of 10</span>
+          <span className="text-sm text-gray-500">Step 1 of 5</span>
           <button className="px-4 py-1.5 bg-gray-100 rounded-md text-sm">
             Help
           </button>
@@ -37,9 +37,9 @@ export default function AssessmentInstructions() {
       <div className="px-6 pt-4">
         <div className="text-xs text-gray-500 mb-1">OVERALL PROGRESS</div>
         <div className="w-full h-2 bg-gray-200 rounded-full">
-          <div className="w-[10%] h-2 bg-blue-600 rounded-full"></div>
+          <div className="w-[20%] h-2 bg-blue-600 rounded-full"></div>
         </div>
-        <div className="text-right text-xs text-blue-600 mt-1">10%</div>
+        <div className="text-right text-xs text-blue-600 mt-1">20%</div>
       </div>
 
       <div className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
@@ -55,9 +55,11 @@ export default function AssessmentInstructions() {
         <div className="flex items-center gap-6 mb-10 flex-wrap md:flex-nowrap">
           <Step active title="1. ID Upload" subtitle="Government issued photo ID" />
           <Divider />
-          <Step title="2. Selfie with ID" subtitle="Match your face to the ID" />
+          <Step title="2. Selfie Verification" subtitle="Match your face to the ID" />
           <Divider />
-          <Step title="3. Technical Assessment" subtitle="Coding and logic evaluation" />
+          <Step title="3. Confirmation" subtitle="Verify ID & selfie match" />
+          <Divider />
+          <Step title="4. MCQ Assessment" subtitle="Technical evaluation" />
         </div>
 
         <div className="mb-6 flex items-center gap-2 text-lg font-semibold">
@@ -122,10 +124,10 @@ export default function AssessmentInstructions() {
 
           <button
             type="button"
-            onClick={() => navigate(`/candidate-portal/pre-screening${screeningId ? `?id=${screeningId}` : ""}`)}
+            onClick={() => navigate(`/candidate/id-verification${screeningId ? `?id=${screeningId}` : ""}`)}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2"
           >
-            Start Assessment →
+            Start Verification →
           </button>
         </div>
       </div>

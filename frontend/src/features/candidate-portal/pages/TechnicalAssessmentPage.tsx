@@ -108,6 +108,13 @@ export default function TechnicalAssessmentPage() {
         setTimeLeft(minutes * 60);
         startTimeRef.current = Date.now();
         setLoading(false);
+
+        // Mark candidate as in_progress
+        fetch(`${API_BASE}/assessment/status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ candidateId: screeningId, status: "in_progress" }),
+        }).catch(() => {});
       } catch (err) {
         setError("Failed to load assessment. Please try again.");
         setLoading(false);
@@ -526,15 +533,26 @@ export default function TechnicalAssessmentPage() {
                 Flag for Review
               </button>
 
-              <button
-                type="button"
-                onClick={() => moveQuestion("next")}
-                disabled={currentIndex === questions.length - 1}
-                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)] transition hover:bg-blue-700 disabled:opacity-50"
-              >
-                Next Question
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              {currentIndex < questions.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={() => moveQuestion("next")}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)] transition hover:bg-blue-700"
+                >
+                  Next Question
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(16,185,129,0.25)] transition hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {submitting ? "Submitting..." : "Submit Test"}
+                  {!submitting && <ChevronRight className="h-4 w-4" />}
+                </button>
+              )}
             </div>
           </footer>
         </main>

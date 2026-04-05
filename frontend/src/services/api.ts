@@ -225,6 +225,7 @@ export interface ApiCandidateDetail {
   mcq_grade: string | null;
   mcq_total_questions: number | null;
   mcq_correct_answers: number | null;
+  mcq_time_spent: number | null;
   current_company: string | null;
   experience_level: string | null;
   salary_expectation: string | null;

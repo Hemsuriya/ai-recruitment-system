@@ -52,6 +52,11 @@ export default function CandidateRow({ candidate: c }: CandidateRowProps) {
         )}
       </td>
 
+      {/* MCQ */}
+      <td style={{ padding: "18px 16px", textAlign: "center" }}>
+        <ScoreChip score={c.mcqScore} label="MCQ" />
+      </td>
+
       {/* Interview */}
       <td style={{ padding: "18px 16px", textAlign: "center" }}>
         <ScoreChip score={c.interviewScore} label="Interview" />

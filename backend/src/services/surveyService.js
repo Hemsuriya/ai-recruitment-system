@@ -46,6 +46,7 @@ exports.getSurveyQuestions = async (screening_id) => {
 };
 
 exports.submitSurveyAnswers = async (screening_id, answers) => {
+  // Store each answer
   for (const answer of answers) {
     await db.query(
       `INSERT INTO survey_responses (screening_id, question_id, response_text)
@@ -54,5 +55,57 @@ exports.submitSurveyAnswers = async (screening_id, answers) => {
     );
   }
 
-  return { message: "Survey answers saved successfully" };
+  // Validate qualifying questions against expected answers
+  const qualifyingQuestions = await db.query(
+    `SELECT question_id, expected_answer, question_text
+     FROM survey_questions
+     WHERE screening_id = $1 AND is_qualifying = true AND expected_answer IS NOT NULL`,
+    [screening_id]
+  );
+
+  let validationStatus = "passed";
+  let correctCount = 0;
+  const failedQuestions = [];
+
+  if (qualifyingQuestions.rows.length > 0) {
+    const answerMap = {};
+    answers.forEach((a) => { answerMap[a.question_id] = a.answer; });
+
+    for (const q of qualifyingQuestions.rows) {
+      const candidateAnswer = (answerMap[q.question_id] || "").trim().toLowerCase();
+      const expected = (q.expected_answer || "").trim().toLowerCase();
+      if (candidateAnswer === expected) {
+        correctCount++;
+      } else {
+        failedQuestions.push({
+          question_id: q.question_id,
+          question_text: q.question_text,
+          expected: q.expected_answer,
+          given: answerMap[q.question_id] || "",
+        });
+      }
+    }
+
+    if (failedQuestions.length > 0) {
+      validationStatus = "failed";
+    }
+  }
+
+  // Update candidate survey status
+  await db.query(
+    `UPDATE candidates_v2
+     SET survey_validation_status = $1,
+         survey_completed_at = CURRENT_TIMESTAMP,
+         technical_assessment_unlocked = $2
+     WHERE screening_id = $3`,
+    [validationStatus, validationStatus === "passed", screening_id]
+  );
+
+  return {
+    message: "Survey answers saved successfully",
+    validation_status: validationStatus,
+    qualifying_total: qualifyingQuestions.rows.length,
+    qualifying_passed: correctCount,
+    failed_questions: failedQuestions,
+  };
 };

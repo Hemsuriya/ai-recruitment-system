@@ -9,6 +9,7 @@ interface CandidateTableProps {
 const HEADERS = [
   { label: "Candidate", align: "left" as const },
   { label: "Job Title / JID", align: "left" as const },
+  { label: "MCQ",        align: "center" as const },
   { label: "Interview",  align: "center" as const },
   { label: "Security",   align: "center" as const },
   { label: "Final",      align: "center" as const },
@@ -48,7 +49,7 @@ export default function CandidateTable({ candidates }: CandidateTableProps) {
               ))
             ) : (
               <tr>
-                <td colSpan={8} style={{ padding: "64px 24px", textAlign: "center" }}>
+                <td colSpan={9} style={{ padding: "64px 24px", textAlign: "center" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
                     <Users size={36} style={{ color: "var(--text-muted)", opacity: 0.25 }} />
                     <p style={{ fontSize: 14, color: "var(--text-muted)" }}>No candidates match your filters</p>

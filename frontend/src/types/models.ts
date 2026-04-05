@@ -7,6 +7,7 @@ export type PipelineStatus =
   | "Screening"
   | "Assessment Pending"
   | "Interview Complete"
+  | "MCQ Complete"
   | "Final Review";
 
 export interface ProctoringData {
@@ -85,4 +86,13 @@ export interface Candidate {
   proctoring: ProctoringData;
   speechAnalysis: SpeechAnalysis;
   transcript: TranscriptEntry[];
+
+  // MCQ detail fields
+  mcqGrade: string | null;
+  mcqTotalQuestions: number | null;
+  mcqCorrectAnswers: number | null;
+  mcqTimeSpent: number | null;
+
+  // Whether candidate has video interview data
+  hasVideoInterview: boolean;
 }
