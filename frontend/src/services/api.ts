@@ -9,6 +9,35 @@ type CacheEntry = {
 const inflightGetRequests = new Map<string, Promise<unknown>>();
 const resolvedGetCache = new Map<string, CacheEntry>();
 
+async function parseResponseBody(res: Response): Promise<unknown> {
+  // 204/205 intentionally return no response body.
+  if (res.status === 204 || res.status === 205) {
+    return undefined;
+  }
+
+  const text = await res.text();
+  if (!text) {
+    return undefined;
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  const looksLikeJson = contentType.includes("application/json");
+
+  if (looksLikeJson) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return undefined;
+    }
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const method = options?.method?.toUpperCase() || "GET";
   const cacheKey = `${method}:${path}`;
@@ -26,16 +55,30 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   const fetchPromise = (async () => {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `API error ${res.status}`);
-  }
-  const json = await res.json();
-    const value = json.data ?? json;
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+
+    const body = await parseResponseBody(res);
+
+    if (!res.ok) {
+      const apiError =
+        typeof body === "object" &&
+        body !== null &&
+        "error" in body &&
+        typeof (body as { error?: unknown }).error === "string"
+          ? (body as { error: string }).error
+          : undefined;
+      throw new Error(apiError || `API error ${res.status}`);
+    }
+
+    const value =
+      typeof body === "object" &&
+      body !== null &&
+      "data" in body
+        ? (body as { data: unknown }).data
+        : body;
 
     if (method === "GET") {
       resolvedGetCache.set(cacheKey, {
