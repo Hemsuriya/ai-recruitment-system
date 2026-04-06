@@ -1,0 +1,8 @@
+
+@import "tailwindcss";
+@source "../src";
+
+@theme {
+  --default-ring-width: 3px;
+  --default-ring-color: #3b82f6;
+}

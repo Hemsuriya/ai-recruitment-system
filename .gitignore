@@ -1,9 +1,56 @@
+# Environment
 .env
+*.env.local
+
+# Dependencies
 node_modules/
+
+# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
-id_cache/
-*.log
+
+# Build output
+dist/
+build/
+.vite/
+
+# OS files
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# DB backups and dumps (large, change constantly — share via other means)
+database/backups/
+database/*.pgerd
+database/*.pgerd.png
+database/overalldbbackup.sql
+database/n8n_db_dump.sql
+database/job_templates_db.sql
+database/*.png
+
+# Cache
+id_cache/
+
+# Files
+folder_structure_plan.md
+next_steps.md
+
+# Platform documentation and audit files
+check docs/
+CLAUDE.md
+workflows/WORKFLOW_MIGRATION_GUIDE.md
+
+
+# Claude Code
+.claude/
