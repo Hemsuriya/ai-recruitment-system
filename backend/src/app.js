@@ -120,4 +120,61 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ─── Startup migrations ───────────────────────────────────────
+(async () => {
+  try {
+    await db.query(`
+      ALTER TABLE job_templates
+        ADD COLUMN IF NOT EXISTS pre_screening_questions text[];
+    `);
+    await db.query(`
+      ALTER TABLE hr_members
+        ADD COLUMN IF NOT EXISTS department_id integer
+          REFERENCES departments(id) ON DELETE SET NULL;
+    `);
+    console.log("✅ Startup migrations applied");
+
+    // ─── Seed departments + members (only if tables are empty) ───
+    const { rows: deptRows } = await db.query(`SELECT COUNT(*) FROM departments`);
+    if (parseInt(deptRows[0].count, 10) === 0) {
+      await db.query(`
+        INSERT INTO departments (name) VALUES
+          ('Data Science'),
+          ('Engineering'),
+          ('Product'),
+          ('Marketing'),
+          ('Finance')
+        ON CONFLICT DO NOTHING
+      `);
+      console.log("✅ Seeded departments");
+    }
+
+    const { rows: memberRows } = await db.query(`SELECT COUNT(*) FROM hr_members`);
+    if (parseInt(memberRows[0].count, 10) === 0) {
+      await db.query(`
+        INSERT INTO hr_members (name, email, role, department_id)
+        SELECT m.name, m.email, m.role, d.id
+        FROM (VALUES
+          ('Arjun Sharma',    'arjun@company.com',    'Manager',  'Data Science'),
+          ('Ankith Verma',    'ankith@company.com',   'Lead',     'Data Science'),
+          ('Priya Nair',      'priya@company.com',    'Manager',  'Engineering'),
+          ('Rahul Mehta',     'rahul@company.com',    'Lead',     'Engineering'),
+          ('Sneha Iyer',      'sneha@company.com',    'Manager',  'Product'),
+          ('Karthik Rao',     'karthik@company.com',  'Director', 'Product'),
+          ('Divya Pillai',    'divya@company.com',    'Manager',  'Marketing'),
+          ('Rohan Gupta',     'rohan@company.com',    'HR',       'Finance')
+        ) AS m(name, email, role, dept_name)
+        JOIN departments d ON d.name = m.dept_name
+        ON CONFLICT DO NOTHING
+      `);
+      console.log("✅ Seeded HR members");
+    } else {
+      // Existing members with no department_id: assign to matching dept if name hints
+      // (safe no-op if already assigned)
+    }
+  } catch (err) {
+    console.error("⚠️  Startup migration error:", err.message);
+  }
+})();
+
 module.exports = app;

@@ -134,7 +134,7 @@ export default function SettingsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [members, setMembers] = useState<HrMember[]>([]);
   const [newDept, setNewDept] = useState("");
-  const [newMember, setNewMember] = useState({ name: "", email: "", role: "HR" });
+  const [newMember, setNewMember] = useState<{ name: string; email: string; role: string; department_id: number | null }>({ name: "", email: "", role: "HR", department_id: null });
 
   useEffect(() => {
     if (activeTab === "organization") {
@@ -168,7 +168,7 @@ export default function SettingsPage() {
     try {
       const member = await settingsApi.createMember(newMember);
       setMembers((prev) => [...prev, member].sort((a, b) => a.name.localeCompare(b.name)));
-      setNewMember({ name: "", email: "", role: "HR" });
+      setNewMember({ name: "", email: "", role: "HR", department_id: null });
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to add member");
     }
@@ -420,26 +420,36 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500">People available as hiring managers and interviewers</p>
               </div>
               <div className="px-6 pt-2 pb-6 space-y-4">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input
                     value={newMember.name}
                     onChange={(e) => setNewMember((prev) => ({ ...prev, name: e.target.value }))}
                     placeholder="Name"
-                    className={INPUT_CLASS + " flex-1"}
+                    className={INPUT_CLASS + " flex-1 min-w-[120px]"}
                   />
                   <input
                     value={newMember.email}
                     onChange={(e) => setNewMember((prev) => ({ ...prev, email: e.target.value }))}
                     placeholder="Email (optional)"
-                    className={INPUT_CLASS + " flex-1"}
+                    className={INPUT_CLASS + " flex-1 min-w-[140px]"}
                   />
                   <select
                     value={newMember.role}
                     onChange={(e) => setNewMember((prev) => ({ ...prev, role: e.target.value }))}
-                    className="h-10 w-32 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                    className="h-10 w-28 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
                   >
                     {MEMBER_ROLES.map((r) => (
                       <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={newMember.department_id ?? ""}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, department_id: e.target.value ? Number(e.target.value) : null }))}
+                    className="h-10 w-36 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  >
+                    <option value="">No department</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
                   </select>
                   <button
@@ -463,7 +473,10 @@ export default function SettingsPage() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-800">{m.name}</p>
-                          <p className="text-xs text-gray-400">{m.email || "No email"} · {m.role}</p>
+                          <p className="text-xs text-gray-400">
+                            {m.email || "No email"} · {m.role}
+                            {m.department_id ? ` · ${departments.find((d) => d.id === m.department_id)?.name ?? ""}` : ""}
+                          </p>
                         </div>
                       </div>
                       <button

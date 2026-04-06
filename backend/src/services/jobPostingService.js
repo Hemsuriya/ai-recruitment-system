@@ -1,11 +1,14 @@
 const db = require("../config/db");
 
 const templateHeadcountSelect = `
-  CASE
-    WHEN COALESCE(jt.number_of_candidates, '') ~ '^[0-9]+$'
-      THEN jt.number_of_candidates::int
-    ELSE NULL
-  END AS headcount
+  COALESCE(
+    jp.headcount,
+    CASE
+      WHEN COALESCE(jt.number_of_candidates, '') ~ '^[0-9]+$'
+        THEN jt.number_of_candidates::int
+      ELSE NULL
+    END
+  ) AS headcount
 `;
 
 exports.getAllPostings = async () => {

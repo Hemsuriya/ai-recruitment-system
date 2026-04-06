@@ -136,7 +136,9 @@ exports.autopopulateAssessment = async (req, res) => {
         : template.skills
         ? template.skills.split(",").map((s) => s.trim())
         : [],
-      pre_screening_questions: Array.isArray(workflowData.pre_screening_questions)
+      pre_screening_questions: Array.isArray(template.pre_screening_questions) && template.pre_screening_questions.length > 0
+        ? template.pre_screening_questions
+        : Array.isArray(workflowData.pre_screening_questions)
         ? workflowData.pre_screening_questions
         : workflowData.survey_question_1
         ? [workflowData.survey_question_1]

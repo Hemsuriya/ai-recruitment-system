@@ -135,6 +135,11 @@ export interface CreateAssessmentPayload {
   options: AssessmentOptions;
   time_limits: AssessmentTimeLimits;
   job_description?: string;
+  headcount?: number;
+  closes_at?: string;
+  department?: string;
+  hiring_manager?: string;
+  interviewer?: string;
 }
 
 export interface AssessmentRecord {
@@ -345,6 +350,7 @@ export interface ApiJobTemplate {
   survey_question_1: string | null;
   survey_q1_expected_answer: string | null;
   time_limit_minutes: number | null;
+  pre_screening_questions: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -449,6 +455,7 @@ export interface HrMember {
   name: string;
   email: string | null;
   role: string;
+  department_id: number | null;
 }
 
 export const settingsApi = {
@@ -465,7 +472,7 @@ export const settingsApi = {
 
   getMembers: () => request<HrMember[]>("/api/settings/members"),
 
-  createMember: (data: { name: string; email?: string; role?: string }) =>
+  createMember: (data: { name: string; email?: string; role?: string; department_id?: number | null }) =>
     request<HrMember>("/api/settings/members", {
       method: "POST",
       body: JSON.stringify(data),

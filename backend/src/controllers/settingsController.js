@@ -52,11 +52,11 @@ exports.getMembers = async (req, res) => {
 
 exports.createMember = async (req, res) => {
   try {
-    const { name, email, role } = req.body;
+    const { name, email, role, department_id } = req.body;
     if (!name?.trim()) {
       return res.status(400).json({ success: false, message: "Name is required" });
     }
-    const member = await settingsService.createMember({ name, email, role });
+    const member = await settingsService.createMember({ name, email, role, department_id });
     res.status(201).json({ success: true, data: member });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

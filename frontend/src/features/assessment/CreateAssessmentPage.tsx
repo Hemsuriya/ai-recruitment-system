@@ -311,6 +311,8 @@ function AssessmentDetails({
                   setFormData((current) => ({
                     ...current,
                     department: event.target.value,
+                    // Reset hiring manager when department changes
+                    hiringManager: "",
                   }))
                 }
                 className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
@@ -331,23 +333,35 @@ function AssessmentDetails({
               Hiring Manager
             </span>
             <div className="relative">
-              <select
-                value={formData.hiringManager}
-                onChange={(event) =>
-                  setFormData((current) => ({
-                    ...current,
-                    hiringManager: event.target.value,
-                  }))
-                }
-                className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
-              >
-                <option value="">Select manager</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.name}>
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-              </select>
+              {(() => {
+                const selectedDept = departments.find((d) => d.name === formData.department);
+                const filteredManagers = selectedDept
+                  ? members.filter((m) => m.department_id === selectedDept.id)
+                  : members;
+                return (
+                  <select
+                    value={formData.hiringManager}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        hiringManager: event.target.value,
+                      }))
+                    }
+                    className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">
+                      {selectedDept && filteredManagers.length === 0
+                        ? "No managers in this dept"
+                        : "Select manager"}
+                    </option>
+                    {filteredManagers.map((m) => (
+                      <option key={m.id} value={m.name}>
+                        {m.name} ({m.role})
+                      </option>
+                    ))}
+                  </select>
+                );
+              })()}
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             </div>
           </label>
@@ -748,13 +762,19 @@ export default function CreateAssessmentPage() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const defaultClosesAt = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().split("T")[0];
+  })();
+
   const [formData, setFormData] = useState<FormData>({
     roleTitle: "",
     experienceLevel: "",
     skills: [],
     timerMinutes: 30,
     headcount: 1,
-    closesAt: "",
+    closesAt: defaultClosesAt,
     department: "",
     hiringManager: "",
     interviewer: "",
@@ -803,17 +823,21 @@ useEffect(() => {
 }, [location.search]);
 
 const applyAutopopulateData = (data: AutopopulateResponse) => {
-  setFormData({
+  const oneMonthOut = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().split("T")[0];
+  })();
+
+  setFormData((current) => ({
+    ...current,
     roleTitle: data.role_title || "",
     experienceLevel: data.experience_level || "",
     skills: data.skills_required || [],
     timerMinutes: 30,
-    headcount: 1,
-    closesAt: "",
-    department: "",
-    hiringManager: "",
-    interviewer: "",
-  });
+    headcount: data.number_of_candidates ?? 1,
+    closesAt: current.closesAt || oneMonthOut,
+  }));
 
   const incomingQuestions: Question[] =
     (data.pre_screening_questions || []).map((text, index) => ({
@@ -875,6 +899,7 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
           survey_question_1: selectedQ[0]?.text || null,
           survey_q1_expected_answer: null,
           time_limit_minutes: formData.timerMinutes,
+          pre_screening_questions: selectedQ.map((q) => q.text),
         });
         alert("Template updated successfully!");
         navigate("/hr/templates");
@@ -902,6 +927,11 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
             video_time_limit: 15,
             coding_time_limit: 45,
           },
+          headcount: formData.headcount,
+          closes_at: formData.closesAt || undefined,
+          department: formData.department || undefined,
+          hiring_manager: formData.hiringManager || undefined,
+          interviewer: formData.interviewer || undefined,
         });
         alert(`Assessment created & pipeline triggered!\n\nJob ID: ${result.jid}\nRole: ${formData.roleTitle}\n\nThe AI pipeline is now screening resumes and generating MCQ questions.`);
         navigate("/hr/dashboard");

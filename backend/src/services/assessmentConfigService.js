@@ -5,7 +5,11 @@ exports.createAssessment = async (data) => {
   try {
     await client.query("BEGIN");
 
-    // 1. Create or update template (same logic as before)
+    // 1. Create or update template
+    const preScreeningQs = (data.questions || [])
+      .filter(q => q.is_selected !== false)
+      .map(q => q.question_text);
+
     let templateId = null;
     let finalTemplateKey = data.template_key;
     if (data.template_key) {
@@ -20,32 +24,58 @@ exports.createAssessment = async (data) => {
            SET job_title = COALESCE($1, job_title),
                required_skills = COALESCE($2, required_skills),
                time_limit_minutes = COALESCE($3, time_limit_minutes),
+               pre_screening_questions = COALESCE($4, pre_screening_questions),
                updated_at = CURRENT_TIMESTAMP
-           WHERE id = $4`,
+           WHERE id = $5`,
           [
             data.role_title,
             data.skills ? data.skills.join(", ") : null,
             data.time_limits?.mcq_time_limit || 30,
+            preScreeningQs.length > 0 ? preScreeningQs : null,
             templateId
           ]
         );
       } else {
         const res = await client.query(
-          `INSERT INTO job_templates (template_key, job_title, required_skills, time_limit_minutes)
-           VALUES ($1,$2,$3,$4) RETURNING id`,
-          [data.template_key, data.role_title, data.skills ? data.skills.join(", ") : null, data.time_limits?.mcq_time_limit || 30]
+          `INSERT INTO job_templates (template_key, job_title, required_skills, time_limit_minutes, pre_screening_questions)
+           VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+          [data.template_key, data.role_title, data.skills ? data.skills.join(", ") : null, data.time_limits?.mcq_time_limit || 30, preScreeningQs.length > 0 ? preScreeningQs : null]
         );
         templateId = res.rows[0].id;
       }
     } else {
-      const key = `Template_${Date.now()}`;
-      const res = await client.query(
-        `INSERT INTO job_templates (template_key, job_title, required_skills, time_limit_minutes)
-         VALUES ($1,$2,$3,$4) RETURNING id, template_key`,
-        [key, data.role_title, data.skills ? data.skills.join(", ") : null, data.time_limits?.mcq_time_limit || 30]
+      // Upsert by job_title: reuse existing template if same title exists
+      const byTitle = await client.query(
+        `SELECT id, template_key FROM job_templates WHERE job_title = $1 LIMIT 1`,
+        [data.role_title]
       );
-      templateId = res.rows[0].id;
-      finalTemplateKey = res.rows[0].template_key;
+      if (byTitle.rows.length > 0) {
+        templateId = byTitle.rows[0].id;
+        finalTemplateKey = byTitle.rows[0].template_key;
+        await client.query(
+          `UPDATE job_templates
+           SET required_skills = COALESCE($1, required_skills),
+               time_limit_minutes = COALESCE($2, time_limit_minutes),
+               pre_screening_questions = COALESCE($3, pre_screening_questions),
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $4`,
+          [
+            data.skills ? data.skills.join(", ") : null,
+            data.time_limits?.mcq_time_limit || 30,
+            preScreeningQs.length > 0 ? preScreeningQs : null,
+            templateId
+          ]
+        );
+      } else {
+        const key = `Template_${Date.now()}`;
+        const res = await client.query(
+          `INSERT INTO job_templates (template_key, job_title, required_skills, time_limit_minutes, pre_screening_questions)
+           VALUES ($1,$2,$3,$4,$5) RETURNING id, template_key`,
+          [key, data.role_title, data.skills ? data.skills.join(", ") : null, data.time_limits?.mcq_time_limit || 30, preScreeningQs.length > 0 ? preScreeningQs : null]
+        );
+        templateId = res.rows[0].id;
+        finalTemplateKey = res.rows[0].template_key;
+      }
     }
 
     // 2. Create job posting (JID auto-generated)

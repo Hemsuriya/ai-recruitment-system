@@ -29,15 +29,15 @@ exports.deleteDepartment = async (id) => {
 
 exports.getAllMembers = async () => {
   const result = await db.query(
-    `SELECT id, name, email, role FROM hr_members ORDER BY name ASC`
+    `SELECT id, name, email, role, department_id FROM hr_members ORDER BY name ASC`
   );
   return result.rows;
 };
 
-exports.createMember = async ({ name, email, role }) => {
+exports.createMember = async ({ name, email, role, department_id }) => {
   const result = await db.query(
-    `INSERT INTO hr_members (name, email, role) VALUES ($1, $2, $3) RETURNING *`,
-    [name.trim(), email?.trim() || null, role?.trim() || "HR"]
+    `INSERT INTO hr_members (name, email, role, department_id) VALUES ($1, $2, $3, $4) RETURNING *`,
+    [name.trim(), email?.trim() || null, role?.trim() || "HR", department_id || null]
   );
   return result.rows[0];
 };
