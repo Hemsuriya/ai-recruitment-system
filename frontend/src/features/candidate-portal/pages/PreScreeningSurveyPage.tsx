@@ -24,6 +24,12 @@ export default function PreScreeningSurveyPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const screeningId = searchParams.get("id");
+  const flow = searchParams.get("flow");
+  const isVideoFlow = flow === "video";
+
+  const nextRoute = isVideoFlow
+    ? `/candidate-portal/video-interview?id=${encodeURIComponent(screeningId || "")}`
+    : `/candidate-portal/technical-assessment?id=${encodeURIComponent(screeningId || "")}`;
 
   const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -45,11 +51,8 @@ export default function PreScreeningSurveyPage() {
         if (json.success && json.data?.length > 0) {
           setQuestions(json.data);
         } else {
-          // No survey questions — skip directly to MCQ
-          navigate(
-            `/candidate-portal/technical-assessment?id=${screeningId}`,
-            { replace: true }
-          );
+          // No survey questions: skip directly to next stage for this flow
+          navigate(nextRoute, { replace: true });
           return;
         }
       } catch {
@@ -60,7 +63,7 @@ export default function PreScreeningSurveyPage() {
     };
 
     fetchQuestions();
-  }, [screeningId, navigate]);
+  }, [screeningId, navigate, nextRoute]);
 
   const allAnswered = questions.every(
     (q) => answers[q.question_id || q.id]?.trim()
@@ -83,11 +86,11 @@ export default function PreScreeningSurveyPage() {
         body: JSON.stringify({ screening_id: screeningId, answers: payload }),
       });
 
-      // Answers stored — proceed to MCQ
-      navigate(`/candidate-portal/technical-assessment?id=${screeningId}`);
+      // Answers stored: proceed to next stage for this flow
+      navigate(nextRoute);
     } catch {
-      // On error, still proceed to MCQ
-      navigate(`/candidate-portal/technical-assessment?id=${screeningId}`);
+      // On error, still proceed
+      navigate(nextRoute);
     } finally {
       setSubmitting(false);
     }
@@ -122,7 +125,6 @@ export default function PreScreeningSurveyPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f9fc]">
-      {/* Header */}
       <header className="border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
@@ -139,12 +141,11 @@ export default function PreScreeningSurveyPage() {
             </div>
           </div>
           <span className="text-sm text-slate-400">
-            Step 1 of 2 — Complete to unlock technical assessment
+            Step 1 of 2 - Complete to unlock {isVideoFlow ? "video interview" : "technical assessment"}
           </span>
         </div>
       </header>
 
-      {/* Progress */}
       <div className="px-6 pt-4">
         <div className="h-2 w-full rounded-full bg-slate-200">
           <div
@@ -159,11 +160,9 @@ export default function PreScreeningSurveyPage() {
         </p>
       </div>
 
-      {/* Questions */}
       <div className="mx-auto max-w-2xl px-6 py-8">
         <p className="mb-6 text-slate-500">
-          Please answer the following questions before proceeding to the
-          technical assessment.
+          Please answer the following questions before proceeding to the {isVideoFlow ? "video interview" : "technical assessment"}.
         </p>
 
         <div className="space-y-6">
@@ -211,7 +210,6 @@ export default function PreScreeningSurveyPage() {
           })}
         </div>
 
-        {/* Submit */}
         <div className="mt-8 flex justify-end">
           <button
             type="button"
@@ -226,7 +224,7 @@ export default function PreScreeningSurveyPage() {
               </>
             ) : (
               <>
-                Continue to Assessment
+                {isVideoFlow ? "Continue to Video Interview" : "Continue to Assessment"}
                 <ChevronRight className="h-4 w-4" />
               </>
             )}

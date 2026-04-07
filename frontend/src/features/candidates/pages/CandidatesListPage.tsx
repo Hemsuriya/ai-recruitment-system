@@ -83,7 +83,7 @@ export default function CandidatesListPage() {
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 64 }}>
             <Loader2 size={24} style={{ color: "var(--brand)", animation: "spin 1s linear infinite" }} />
-            <span style={{ marginLeft: 10, color: "var(--text-muted)", fontSize: 14 }}>Loading candidates…</span>
+            <span style={{ marginLeft: 10, color: "var(--text-muted)", fontSize: 14 }}>Loading candidates...</span>
           </div>
         ) : error ? (
           <div className="card" style={{ padding: 32, textAlign: "center" }}>

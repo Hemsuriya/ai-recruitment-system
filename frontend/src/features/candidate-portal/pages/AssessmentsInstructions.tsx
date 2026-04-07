@@ -15,6 +15,8 @@ export default function AssessmentInstructions() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const screeningId = searchParams.get("id");
+  const flow = searchParams.get("flow");
+  const flowQuery = flow ? `&flow=${encodeURIComponent(flow)}` : "";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -124,7 +126,11 @@ export default function AssessmentInstructions() {
 
           <button
             type="button"
-            onClick={() => navigate(`/candidate/id-verification${screeningId ? `?id=${screeningId}` : ""}`)}
+            onClick={() =>
+              navigate(
+                `/candidate/id-verification${screeningId ? `?id=${screeningId}${flowQuery}` : ""}`
+              )
+            }
             className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2"
           >
             Start Verification →

@@ -63,6 +63,8 @@ export default function SelfieVerificationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const screeningId = searchParams.get("id");
+  const flow = searchParams.get("flow");
+  const flowQuery = flow ? `&flow=${encodeURIComponent(flow)}` : "";
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -214,7 +216,7 @@ export default function SelfieVerificationPage() {
   }, []);
 
   /* ── confirm & continue ── */
-  const CONFIDENCE_THRESHOLD = 60;
+  const CONFIDENCE_THRESHOLD = 30;
 
   const confirmAndContinue = async () => {
     if (!capturedImage) return;
@@ -511,7 +513,7 @@ export default function SelfieVerificationPage() {
               </p>
               <button
                 type="button"
-                onClick={() => navigate(`/candidate/verification-confirm${screeningId ? `?id=${screeningId}` : ""}`)}
+                onClick={() => navigate(`/candidate/verification-confirm${screeningId ? `?id=${screeningId}${flowQuery}` : ""}`)}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3 text-[14px] font-medium text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
               >
                 Continue to Confirmation

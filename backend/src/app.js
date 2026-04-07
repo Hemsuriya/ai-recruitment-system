@@ -17,6 +17,7 @@ const assessmentConfigRoutes = require("./routes/assessmentConfigRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const testRoutes = require("./routes/testRoutes");
 const authRoutes = require("./routes/authRoutes");
+const videoInterviewRoutes = require("./routes/videoInterviewRoutes");
 
 
 const app = express();
@@ -56,6 +57,7 @@ app.use("/candidate", candidateRoutes);
 app.use("/survey", surveyRoutes);
 app.use("/validation", validationRoutes);
 app.use("/assessment", assessmentRoutes);
+app.use("/assessment", videoInterviewRoutes);
 
 // ─── HR Portal routes ─────────────────────────────────────────
 app.use("/api/job-templates", jobTemplateRoutes);

@@ -6,13 +6,15 @@ export interface InterviewControlsProps {
   isCameraOn: boolean;
   toggleMute: () => void;
   toggleCamera: () => void;
+  openSettings: () => void;
 }
 
 export const InterviewControls: React.FC<InterviewControlsProps> = ({
   isMuted,
   isCameraOn,
   toggleMute,
-  toggleCamera
+  toggleCamera,
+  openSettings,
 }) => {
   return (
     <div className="flex flex-col items-center pb-16">
@@ -42,7 +44,7 @@ export const InterviewControls: React.FC<InterviewControlsProps> = ({
           </span>
         </button>
 
-        <button className="flex flex-col items-center gap-2 group">
+        <button type="button" onClick={openSettings} className="flex flex-col items-center gap-2 group">
           <div className="w-14 h-14 bg-white shadow-sm border border-gray-100 text-gray-500 rounded-full flex items-center justify-center group-hover:bg-gray-50 transition-all">
             <Settings className="w-5 h-5" />
           </div>

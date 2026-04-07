@@ -32,6 +32,8 @@ export default function IdVerificationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const screeningId = searchParams.get("id");
+  const flow = searchParams.get("flow");
+  const flowQuery = flow ? `&flow=${encodeURIComponent(flow)}` : "";
 
   const [preview, setPreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -112,7 +114,7 @@ export default function IdVerificationPage() {
   };
 
   const continueToSelfie = () => {
-    navigate(`/candidate/selfie-verification${screeningId ? `?id=${screeningId}` : ""}`);
+    navigate(`/candidate/selfie-verification${screeningId ? `?id=${screeningId}${flowQuery}` : ""}`);
   };
 
   return (

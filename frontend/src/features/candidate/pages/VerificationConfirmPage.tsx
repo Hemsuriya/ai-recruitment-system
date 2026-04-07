@@ -11,11 +11,14 @@ export default function VerificationConfirmPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const screeningId = searchParams.get("id");
+  const flow = searchParams.get("flow");
+  const isVideoFlow = flow === "video";
+  const flowQuery = flow ? `&flow=${encodeURIComponent(flow)}` : "";
 
   const proceedToAssessment = () => {
-    // Go to pre-screening first (it auto-skips to MCQ if no survey questions)
+    // Go to pre-screening first. It will route to MCQ or Video based on flow.
     navigate(
-      `/candidate-portal/pre-screening${screeningId ? `?id=${screeningId}` : ""}`
+      `/candidate-portal/pre-screening${screeningId ? `?id=${screeningId}${flowQuery}` : ""}`
     );
   };
 
@@ -84,7 +87,7 @@ export default function VerificationConfirmPage() {
           onClick={proceedToAssessment}
           className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-[15px] font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 hover:shadow-xl"
         >
-          Proceed to MCQ Assessment
+          {isVideoFlow ? "Proceed to Video Interview" : "Proceed to MCQ Assessment"}
           <ChevronRight className="h-5 w-5" />
         </button>
 

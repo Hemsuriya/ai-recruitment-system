@@ -64,11 +64,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
     if (!res.ok) {
       const apiError =
-        typeof body === "object" &&
-        body !== null &&
-        "error" in body &&
-        typeof (body as { error?: unknown }).error === "string"
-          ? (body as { error: string }).error
+        typeof body === "object" && body !== null
+          ? (typeof (body as { message?: unknown }).message === "string"
+              ? (body as { message: string }).message
+              : typeof (body as { error?: unknown }).error === "string"
+                ? (body as { error: string }).error
+                : undefined)
           : undefined;
       throw new Error(apiError || `API error ${res.status}`);
     }
@@ -480,6 +481,89 @@ export const settingsApi = {
 
   deleteMember: (id: number) =>
     request<void>(`/api/settings/members/${id}`, { method: "DELETE" }),
+};
+
+// ── Video Interview ─────────────────────────────────────────
+
+export interface VideoQuestion {
+  id: number;
+  text: string;
+  type: string;
+  category: string | null;
+  difficulty: string | null;
+  time_limit: number;
+}
+
+export interface VideoQuestionsResponse {
+  candidate: {
+    video_assessment_id: string;
+    name: string;
+    email: string;
+  };
+  questions: VideoQuestion[];
+  total_duration: number;
+  total_questions: number;
+}
+
+export const videoInterviewApi = {
+  getQuestions: (assessmentId: string) =>
+    request<VideoQuestionsResponse>(
+      `/assessment/video-questions/${encodeURIComponent(assessmentId)}`
+    ),
+
+  logProctoringEvent: async (
+    videoAssessmentId: string,
+    eventType: string,
+    questionIndex?: number,
+    metadata?: Record<string, unknown>
+  ): Promise<void> => {
+    const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    await fetch(`${base}/assessment/proctor-event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        video_assessment_id: videoAssessmentId,
+        event_type: eventType,
+        question_index: questionIndex,
+        metadata: metadata ?? {},
+      }),
+    }).catch(() => {
+      // Best-effort — never block the interview on a logging failure
+    });
+  },
+
+  submitVideos: async (
+    videoAssessmentId: string,
+    blobs: Map<number, Blob>,
+    metadata: Array<{
+      question_id: number;
+      question_index: number;
+      duration: number;
+    }>
+  ): Promise<{ success: boolean; data: { video_assessment_id: string; files_uploaded: number } }> => {
+    const formData = new FormData();
+    formData.append("video_assessment_id", videoAssessmentId);
+    formData.append("metadata", JSON.stringify(metadata));
+
+    blobs.forEach((blob, index) => {
+      formData.append("videos", blob, `question_${index}.webm`);
+    });
+
+    const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    const res = await fetch(`${base}/assessment/video-submit`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(
+        body.message || body.error || `Upload failed (${res.status})`
+      );
+    }
+
+    return res.json();
+  },
 };
 
 // ── Dashboard ───────────────────────────────────────────────
