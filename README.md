@@ -602,11 +602,7 @@ docker exec acs_postgres pg_dump -U postgres ai_candidate_screening > database/b
 
 | Branch | Purpose |
 | ------ | ------- |
-| `main` | Production-ready code |
-| `hem-updates` | Hemsuriya — Candidates detail, API integration, JID system |
-| `Don_changes` | Don — Frontend layouts, templates, dashboard |
-| `pkw_changes` | PKW — Settings, selfie verification, UI fixes |
-| `sd_candidate` | SD — Candidate portal pages |
+| `main` | Single production branch — all features consolidated |
 
 ---
 

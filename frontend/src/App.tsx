@@ -15,7 +15,6 @@ import ResetPasswordPage from "./features/auth/ResetPasswordPage";
 
 import AssessmentInstructions from "./features/candidate-portal/pages/AssessmentsInstructions";
 import VideoInterviewPage from "./features/candidate-portal/pages/VideoInterviewPage";
-import CandidateInterviewPage from "./features/candidate-portal/pages/CandidateInterviewPage";
 import TechnicalAssessmentPage from "./features/candidate-portal/pages/TechnicalAssessmentPage";
 import PreScreeningSurveyPage from "./features/candidate-portal/pages/PreScreeningSurveyPage";
 
@@ -55,10 +54,6 @@ function App() {
         <Route
           path="/candidate-portal/technical-assessment"
           element={<TechnicalAssessmentPage />}
-        />
-        <Route
-          path="/candidate-portal/interview"
-          element={<CandidateInterviewPage />}
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

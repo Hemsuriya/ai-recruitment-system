@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   AlarmClock,
   BookOpen,
@@ -45,7 +45,6 @@ const legendItems: Array<{ label: string; status: QuestionStatus }> = [
 
 export default function TechnicalAssessmentPage() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const screeningId = searchParams.get("id");
 
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -221,6 +220,7 @@ export default function TechnicalAssessmentPage() {
     try {
       const res = await fetch(`${API_BASE}/assessment/submit`, {
         method: "POST",
+        keepalive: true,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           screening_id: screeningId,

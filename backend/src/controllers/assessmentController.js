@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { triggerVideoInterviewWorkflow } = require("../services/n8nService");
 
 // GET assessment questions for a candidate (by screening_id)
 exports.getAssessmentQuestions = async (req, res) => {
@@ -15,6 +16,20 @@ exports.getAssessmentQuestions = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Candidate not found",
+      });
+    }
+
+    if (!candidate.rows[0].technical_assessment_unlocked) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Pre-screening is required before starting the technical assessment.",
+        data: {
+          screening_id: candidate.rows[0].screening_id,
+          survey_validation_status: candidate.rows[0].survey_validation_status,
+          technical_assessment_unlocked:
+            candidate.rows[0].technical_assessment_unlocked,
+        },
       });
     }
 
@@ -127,9 +142,12 @@ exports.submitAssessmentResults = async (req, res) => {
     });
 
     const score = Math.round((correctCount / totalQuestions) * 100);
+    const passThreshold = Number(
+      process.env.MCQ_PASS_THRESHOLD || process.env.VIDEO_INVITE_MIN_SCORE || 80
+    );
     const grade =
       score >= 80 ? "A" : score >= 60 ? "B" : score >= 40 ? "C" : "F";
-    const isPassed = score >= 40;
+    const isPassed = score >= passThreshold;
 
     // Compute started_at from time_taken_seconds
     const startedAt = time_taken_seconds
@@ -172,6 +190,37 @@ exports.submitAssessmentResults = async (req, res) => {
       "UPDATE candidates_v2 SET status = 'completed' WHERE screening_id = $1",
       [screening_id]
     );
+
+    // Trigger video workflow only for strong MCQ performers.
+    // Default threshold is 80% and can be overridden by VIDEO_INVITE_MIN_SCORE.
+    const videoInviteMinScore = Number(
+      process.env.VIDEO_INVITE_MIN_SCORE || passThreshold
+    );
+    if (score >= videoInviteMinScore) {
+      try {
+        const candidateRes = await db.query(
+          "SELECT jid FROM candidates_v2 WHERE screening_id = $1 LIMIT 1",
+          [screening_id]
+        );
+        const jobPositionId = candidateRes.rows[0]?.jid;
+        if (jobPositionId) {
+          await triggerVideoInterviewWorkflow({
+            jobPositionId,
+            appBaseUrl: process.env.FRONTEND_BASE_URL || "http://localhost:5173",
+            minMcqScore: videoInviteMinScore,
+          });
+          console.log(
+            `[n8n video trigger] success: screening_id=${screening_id}, jid=${jobPositionId}, score=${score}`
+          );
+        } else {
+          console.warn(
+            `[n8n video trigger] skipped: jid not found for screening_id=${screening_id}`
+          );
+        }
+      } catch (err) {
+        console.warn("[n8n video trigger] query failed silently:", err.message);
+      }
+    }
 
     res.status(200).json({
       success: true,

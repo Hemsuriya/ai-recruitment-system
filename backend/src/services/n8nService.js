@@ -2,16 +2,14 @@ const axios = require("axios");
 
 const BASE = process.env.N8N_BASE_URL;
 
-// ─── Axios client with global config ─────────────────────────
 const axiosClient = axios.create({
   baseURL: BASE,
-  timeout: 60000, // 60 seconds — n8n AI workflows can be slow
+  timeout: 60000,
   headers: {
-    "Content-Type": "application/json"
-  }
+    "Content-Type": "application/json",
+  },
 });
 
-// ─── GET assessment questions ─────────────────────────────────
 const getAssessmentQuestions = async (candidateId) => {
   try {
     const endpoint = process.env.N8N_GET_QUESTIONS_WEBHOOK;
@@ -24,12 +22,11 @@ const getAssessmentQuestions = async (candidateId) => {
 
     return response.data;
   } catch (error) {
-    console.error("❌ N8N GET QUESTIONS ERROR:", error.response?.data || error.message);
+    console.error("N8N GET QUESTIONS ERROR:", error.response?.data || error.message);
     throw new Error("Failed to fetch assessment questions from n8n");
   }
 };
 
-// ─── UPDATE assessment status ─────────────────────────────────
 const updateAssessmentStatus = async (candidateId, status) => {
   try {
     const endpoint = process.env.N8N_UPDATE_STATUS_WEBHOOK;
@@ -41,12 +38,11 @@ const updateAssessmentStatus = async (candidateId, status) => {
 
     return response.data;
   } catch (error) {
-    console.error("❌ N8N UPDATE STATUS ERROR:", error.response?.data || error.message);
+    console.error("N8N UPDATE STATUS ERROR:", error.response?.data || error.message);
     throw new Error("Failed to update assessment status via n8n");
   }
 };
 
-// ─── SUBMIT assessment results ────────────────────────────────
 const submitAssessmentResults = async (payload) => {
   try {
     const endpoint = process.env.N8N_SUBMIT_RESULTS_WEBHOOK;
@@ -55,12 +51,38 @@ const submitAssessmentResults = async (payload) => {
 
     return response.data;
   } catch (error) {
-    console.error("❌ N8N SUBMIT RESULTS ERROR:", error.response?.data || error.message);
+    console.error("N8N SUBMIT RESULTS ERROR:", error.response?.data || error.message);
     throw new Error("Failed to submit assessment results to n8n");
   }
 };
 
-// ─── FETCH OR CREATE JOB TEMPLATE VIA N8N ─────────────────────
+const triggerVideoInterviewWorkflow = async ({
+  jobPositionId,
+  appBaseUrl,
+  minMcqScore,
+}) => {
+  try {
+    const endpoint =
+      process.env.N8N_VIDEO_INTERVIEW_WEBHOOK ||
+      "/webhook/generate-video-interview-from-mcq";
+
+    const response = await axiosClient.post(endpoint, {
+      jobPositionId,
+      appBaseUrl:
+        appBaseUrl || process.env.FRONTEND_BASE_URL || "http://localhost:5173",
+      minMcqScore: Number(minMcqScore || process.env.VIDEO_INVITE_MIN_SCORE || 80),
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "N8N VIDEO INTERVIEW TRIGGER ERROR:",
+      error.response?.data || error.message
+    );
+    throw new Error("Failed to trigger video interview workflow");
+  }
+};
+
 const fetchOrCreateJobTemplate = async ({
   jobId,
   jobDescription,
@@ -81,17 +103,17 @@ const fetchOrCreateJobTemplate = async ({
     return response.data;
   } catch (error) {
     console.error(
-      "❌ N8N JOB TEMPLATE ERROR:",
+      "N8N JOB TEMPLATE ERROR:",
       error.response?.data || error.message
     );
     throw new Error("Failed to fetch or create job template from n8n");
   }
 };
 
-// ─── Export functions ─────────────────────────────────────────
 module.exports = {
   getAssessmentQuestions,
   updateAssessmentStatus,
   submitAssessmentResults,
+  triggerVideoInterviewWorkflow,
   fetchOrCreateJobTemplate,
 };

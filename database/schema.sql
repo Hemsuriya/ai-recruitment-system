@@ -131,13 +131,55 @@ COMMENT ON COLUMN public.survey_questions.expected_answer IS 'Expected answer fo
 COMMENT ON COLUMN public.survey_questions.is_qualifying IS 'TRUE if this question requires validation to proceed to technical assessment';
 COMMENT ON COLUMN public.survey_questions.question_category IS 'Category: qualifying or informational';
 
+CREATE TABLE public.hr_pre_screening_questions (
+    id              serial PRIMARY KEY,
+    assessment_id   integer NOT NULL REFERENCES public.hr_assessments(id) ON DELETE CASCADE,
+    question_text   text NOT NULL,
+    answer_type     character varying(20) NOT NULL,
+    options         jsonb,
+    is_mandatory    boolean DEFAULT false,
+    expected_answer text,
+    optional_weight numeric(6,2),
+    optional_score_map jsonb,
+    sort_order      integer DEFAULT 0,
+    created_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT check_hr_prescreen_answer_type CHECK (
+        answer_type IN ('yes_no', 'mcq', 'text')
+    )
+);
+
+CREATE INDEX idx_hr_prescreen_assessment_id ON public.hr_pre_screening_questions USING btree (assessment_id);
+CREATE INDEX idx_hr_prescreen_sort_order ON public.hr_pre_screening_questions USING btree (assessment_id, sort_order);
+
+CREATE TABLE public.hr_assessment_skill_mappings (
+    id              serial PRIMARY KEY,
+    assessment_id   integer NOT NULL REFERENCES public.hr_assessments(id) ON DELETE CASCADE,
+    skill_name      text NOT NULL,
+    is_mandatory    boolean NOT NULL DEFAULT true,
+    weight          numeric(8,2) NOT NULL DEFAULT 1,
+    sort_order      integer NOT NULL DEFAULT 0,
+    created_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT hr_assessment_skill_mappings_unique UNIQUE (assessment_id, skill_name)
+);
+
+CREATE INDEX idx_hr_assessment_skill_mappings_assessment
+    ON public.hr_assessment_skill_mappings USING btree (assessment_id, sort_order);
+
 
 CREATE TABLE public.survey_responses (
     id              serial PRIMARY KEY,
     screening_id    character varying(50),
+    candidate_id    character varying(50),
+    assessment_id   integer,
+    jid             character varying(20),
     question_id     integer,
     response_text   text,
+    matched_expected boolean,
     created_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT survey_responses_assessment_id_fkey
+        FOREIGN KEY (assessment_id) REFERENCES public.hr_assessments(id),
     CONSTRAINT survey_responses_screening_id_fkey
         FOREIGN KEY (screening_id) REFERENCES public.candidates_v2(screening_id)
 );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircle,
@@ -14,22 +14,47 @@ type SurveyQuestion = {
   id: number;
   question_id: number;
   question_text: string;
-  question_type: string;
+  question_type: "yes_no" | "mcq" | "text" | string;
   options: unknown;
   is_qualifying: boolean;
+  is_mandatory?: boolean;
   question_category: string;
 };
+
+type SubmissionResult = {
+  validation_status: "passed" | "failed";
+  failed_questions?: Array<{
+    question_id: number;
+    question_text: string;
+    expected: string;
+    given: string;
+  }>;
+};
+
+function toOptionsArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v)).filter(Boolean);
+  }
+  return [];
+}
 
 export default function PreScreeningSurveyPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const screeningId = searchParams.get("id");
+  const flow = searchParams.get("flow");
+  const isVideoFlow = flow === "video";
+
+  const nextRoute = isVideoFlow
+    ? `/candidate-portal/video-interview?id=${encodeURIComponent(screeningId || "")}`
+    : `/candidate-portal/technical-assessment?id=${encodeURIComponent(screeningId || "")}`;
 
   const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<SubmissionResult | null>(null);
 
   useEffect(() => {
     if (!screeningId) {
@@ -45,11 +70,7 @@ export default function PreScreeningSurveyPage() {
         if (json.success && json.data?.length > 0) {
           setQuestions(json.data);
         } else {
-          // No survey questions — skip directly to MCQ
-          navigate(
-            `/candidate-portal/technical-assessment?id=${screeningId}`,
-            { replace: true }
-          );
+          navigate(nextRoute, { replace: true });
           return;
         }
       } catch {
@@ -60,11 +81,17 @@ export default function PreScreeningSurveyPage() {
     };
 
     fetchQuestions();
-  }, [screeningId, navigate]);
+  }, [screeningId, navigate, nextRoute]);
 
-  const allAnswered = questions.every(
-    (q) => answers[q.question_id || q.id]?.trim()
+  const mandatoryQuestions = useMemo(
+    () => questions.filter((q) => q.is_mandatory || q.is_qualifying),
+    [questions]
   );
+
+  const allMandatoryAnswered = mandatoryQuestions.every((q) => {
+    const qId = q.question_id || q.id;
+    return String(answers[qId] || "").trim().length > 0;
+  });
 
   const handleSubmit = async () => {
     if (!screeningId || submitting) return;
@@ -76,18 +103,29 @@ export default function PreScreeningSurveyPage() {
     }));
 
     try {
-      // Submit answers
-      await fetch(`${API_BASE}/survey/submit`, {
+      const response = await fetch(`${API_BASE}/survey/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ screening_id: screeningId, answers: payload }),
       });
+      const json = await response.json();
 
-      // Answers stored — proceed to MCQ
-      navigate(`/candidate-portal/technical-assessment?id=${screeningId}`);
+      if (!json.success) {
+        setError(json.error || "Failed to submit survey.");
+        return;
+      }
+
+      const submitResult: SubmissionResult = {
+        validation_status: json.validation_status,
+        failed_questions: json.failed_questions,
+      };
+      setResult(submitResult);
+
+      if (submitResult.validation_status === "passed") {
+        navigate(nextRoute);
+      }
     } catch {
-      // On error, still proceed to MCQ
-      navigate(`/candidate-portal/technical-assessment?id=${screeningId}`);
+      setError("Unable to submit right now. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -112,7 +150,7 @@ export default function PreScreeningSurveyPage() {
         <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
           <AlertTriangle className="mx-auto h-10 w-10 text-red-500" />
           <h2 className="mt-4 text-xl font-bold text-red-800">
-            Survey Not Passed
+            Survey Not Available
           </h2>
           <p className="mt-2 text-red-600">{error}</p>
         </div>
@@ -120,9 +158,34 @@ export default function PreScreeningSurveyPage() {
     );
   }
 
+  if (result?.validation_status === "failed") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f9fc]">
+        <div className="max-w-xl rounded-2xl border border-amber-200 bg-amber-50 p-8">
+          <AlertTriangle className="h-10 w-10 text-amber-600" />
+          <h2 className="mt-4 text-xl font-bold text-amber-900">
+            Application On Hold
+          </h2>
+          <p className="mt-2 text-amber-800">
+            Your pre-screening responses did not meet the required criteria for
+            this role.
+          </p>
+          {result.failed_questions && result.failed_questions.length > 0 ? (
+            <div className="mt-4 space-y-2 rounded-xl border border-amber-200 bg-white p-4">
+              {result.failed_questions.slice(0, 3).map((f, idx) => (
+                <p key={`${f.question_id}-${idx}`} className="text-sm text-slate-700">
+                  {idx + 1}. {f.question_text}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f7f9fc]">
-      {/* Header */}
       <header className="border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
@@ -139,18 +202,17 @@ export default function PreScreeningSurveyPage() {
             </div>
           </div>
           <span className="text-sm text-slate-400">
-            Step 1 of 2 — Complete to unlock technical assessment
+            Step 1 of 2 - Complete to unlock {isVideoFlow ? "video interview" : "technical assessment"}
           </span>
         </div>
       </header>
 
-      {/* Progress */}
       <div className="px-6 pt-4">
         <div className="h-2 w-full rounded-full bg-slate-200">
           <div
             className="h-full rounded-full bg-blue-600 transition-all"
             style={{
-              width: `${(Object.keys(answers).length / questions.length) * 100}%`,
+              width: `${(Object.keys(answers).length / Math.max(questions.length, 1)) * 100}%`,
             }}
           />
         </div>
@@ -159,16 +221,15 @@ export default function PreScreeningSurveyPage() {
         </p>
       </div>
 
-      {/* Questions */}
       <div className="mx-auto max-w-2xl px-6 py-8">
         <p className="mb-6 text-slate-500">
-          Please answer the following questions before proceeding to the
-          technical assessment.
+          Please complete pre-screening before proceeding to the {isVideoFlow ? "video interview" : "technical assessment"}.
         </p>
 
         <div className="space-y-6">
           {questions.map((q, idx) => {
             const qId = q.question_id || q.id;
+            const options = toOptionsArray(q.options);
             return (
               <div
                 key={qId}
@@ -181,25 +242,54 @@ export default function PreScreeningSurveyPage() {
                   <div className="flex-1">
                     <p className="text-[15px] font-medium text-slate-800">
                       {q.question_text}
-                      {q.is_qualifying && (
+                      {(q.is_mandatory || q.is_qualifying) && (
                         <span className="ml-2 text-xs font-semibold text-red-500">
                           Required
                         </span>
                       )}
                     </p>
                     <div className="mt-4">
-                      <input
-                        type="text"
-                        placeholder="Type your answer..."
-                        value={answers[qId] || ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [qId]: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                      />
+                      {q.question_type === "yes_no" ? (
+                        <select
+                          value={answers[qId] || ""}
+                          onChange={(e) =>
+                            setAnswers((prev) => ({ ...prev, [qId]: e.target.value }))
+                          }
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">Select an answer</option>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                        </select>
+                      ) : q.question_type === "mcq" || q.question_type === "dropdown" ? (
+                        <select
+                          value={answers[qId] || ""}
+                          onChange={(e) =>
+                            setAnswers((prev) => ({ ...prev, [qId]: e.target.value }))
+                          }
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">Select an option</option>
+                          {options.map((option, optionIndex) => (
+                            <option key={`${qId}-option-${optionIndex}`} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder="Type your answer..."
+                          value={answers[qId] || ""}
+                          onChange={(e) =>
+                            setAnswers((prev) => ({
+                              ...prev,
+                              [qId]: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                        />
+                      )}
                     </div>
                   </div>
                   {answers[qId]?.trim() && (
@@ -211,12 +301,11 @@ export default function PreScreeningSurveyPage() {
           })}
         </div>
 
-        {/* Submit */}
         <div className="mt-8 flex justify-end">
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!allAnswered || submitting}
+            disabled={!allMandatoryAnswered || submitting}
             className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 disabled:opacity-50 disabled:shadow-none"
           >
             {submitting ? (
@@ -226,7 +315,7 @@ export default function PreScreeningSurveyPage() {
               </>
             ) : (
               <>
-                Continue to Assessment
+                Submit Pre-Screening
                 <ChevronRight className="h-4 w-4" />
               </>
             )}

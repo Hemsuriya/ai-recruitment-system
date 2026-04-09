@@ -23,12 +23,13 @@ import {
   type AutopopulateResponse,
   type Department,
   type HrMember,
+  type PreScreeningAnswerType,
 } from "@/services/api";
 
 type FormData = {
   roleTitle: string;
   experienceLevel: string;
-  skills: string[];
+  skills: SkillEntry[];
   timerMinutes: number;
   headcount: number;
   closesAt: string;
@@ -37,10 +38,21 @@ type FormData = {
   interviewer: string;
 };
 
+type SkillEntry = {
+  name: string;
+  is_mandatory: boolean;
+  weight: number;
+};
+
 type Question = {
   id: string;
-  text: string;
-  checked: boolean;
+  question_text: string;
+  answer_type: PreScreeningAnswerType;
+  options: string[];
+  is_mandatory: boolean;
+  expected_answer: string;
+  optional_weight?: number | null;
+  optional_score_map?: Record<string, number> | null;
 };
 
 type Options = {
@@ -57,22 +69,60 @@ const cardClassName =
 // templateOptions removed — now fetched from API
 
 const defaultQuestions: Question[] = [
-  { id: "relocate", text: "Are you willing to relocate?", checked: true },
+  {
+    id: "relocate",
+    question_text: "Are you willing to relocate?",
+    answer_type: "yes_no",
+    options: ["Yes", "No"],
+    is_mandatory: true,
+    expected_answer: "Yes",
+    optional_weight: null,
+    optional_score_map: null,
+  },
   {
     id: "auth",
-    text: "Are you a US Citizen or authorized to work in the US?",
-    checked: true,
+    question_text: "Are you a US Citizen or authorized to work in the US?",
+    answer_type: "yes_no",
+    options: ["Yes", "No"],
+    is_mandatory: true,
+    expected_answer: "Yes",
+    optional_weight: null,
+    optional_score_map: null,
   },
-  { id: "visa", text: "What is your current visa status?", checked: true },
-  { id: "salary", text: "What is your expected salary range?", checked: true },
+  {
+    id: "visa",
+    question_text: "What is your current visa status?",
+    answer_type: "text",
+    options: [],
+    is_mandatory: false,
+    expected_answer: "",
+    optional_weight: 1,
+    optional_score_map: null,
+  },
+  {
+    id: "salary",
+    question_text: "What is your expected salary range?",
+    answer_type: "text",
+    options: [],
+    is_mandatory: false,
+    expected_answer: "",
+    optional_weight: 1,
+    optional_score_map: null,
+  },
   {
     id: "start-date",
-    text: "Are you available to start within 30 days?",
-    checked: true,
+    question_text: "Are you available to start within 30 days?",
+    answer_type: "yes_no",
+    options: ["Yes", "No"],
+    is_mandatory: true,
+    expected_answer: "Yes",
+    optional_weight: null,
+    optional_score_map: null,
   },
 ];
 
 const experienceLevels = ["Select level", "Junior", "Mid", "Senior", "Lead"];
+const DEFAULT_OPTIONAL_SKILL_WEIGHT = 0.5;
 
 
 const optionConfig: Array<{
@@ -190,9 +240,9 @@ function AssessmentDetails({
 
     setFormData((current) => ({
       ...current,
-      skills: current.skills.includes(trimmed)
+      skills: current.skills.some((s) => s.name.toLowerCase() === trimmed.toLowerCase())
         ? current.skills
-        : [...current.skills, trimmed],
+        : [...current.skills, { name: trimmed, is_mandatory: true, weight: 1 }],
     }));
     setSkillInput("");
   };
@@ -277,16 +327,38 @@ function AssessmentDetails({
             <div className="mt-3 flex flex-wrap gap-2">
               {formData.skills.map((skill) => (
                 <span
-                  key={skill}
-                  className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
+                  key={`${skill.name}-${skill.is_mandatory ? "m" : "o"}`}
+                  className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
                 >
-                  {skill}
+                  {skill.name}
+                  <select
+                    value={skill.is_mandatory ? "mandatory" : "optional"}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        skills: current.skills.map((s) =>
+                          s.name === skill.name
+                            ? {
+                                ...s,
+                                is_mandatory: event.target.value === "mandatory",
+                                weight: 1,
+                              }
+                            : s
+                        ),
+                      }))
+                    }
+                    className="rounded-md border border-violet-200 bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 outline-none"
+                    title="Skill type"
+                  >
+                    <option value="mandatory">Mandatory</option>
+                    <option value="optional">Optional</option>
+                  </select>
                   <button
                     type="button"
                     onClick={() =>
                       setFormData((current) => ({
                         ...current,
-                        skills: current.skills.filter((s) => s !== skill),
+                        skills: current.skills.filter((s) => s.name !== skill.name),
                       }))
                     }
                     className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-violet-400 hover:bg-violet-200 hover:text-violet-700 transition-colors"
@@ -311,6 +383,8 @@ function AssessmentDetails({
                   setFormData((current) => ({
                     ...current,
                     department: event.target.value,
+                    // Reset hiring manager when department changes
+                    hiringManager: "",
                   }))
                 }
                 className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
@@ -331,23 +405,35 @@ function AssessmentDetails({
               Hiring Manager
             </span>
             <div className="relative">
-              <select
-                value={formData.hiringManager}
-                onChange={(event) =>
-                  setFormData((current) => ({
-                    ...current,
-                    hiringManager: event.target.value,
-                  }))
-                }
-                className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
-              >
-                <option value="">Select manager</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.name}>
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-              </select>
+              {(() => {
+                const selectedDept = departments.find((d) => d.name === formData.department);
+                const filteredManagers = selectedDept
+                  ? members.filter((m) => m.department_id === selectedDept.id)
+                  : members;
+                return (
+                  <select
+                    value={formData.hiringManager}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        hiringManager: event.target.value,
+                      }))
+                    }
+                    className="h-10 w-full appearance-none rounded-[10px] border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">
+                      {selectedDept && filteredManagers.length === 0
+                        ? "No managers in this dept"
+                        : "Select manager"}
+                    </option>
+                    {filteredManagers.map((m) => (
+                      <option key={m.id} value={m.name}>
+                        {m.name} ({m.role})
+                      </option>
+                    ))}
+                  </select>
+                );
+              })()}
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             </div>
           </label>
@@ -422,35 +508,30 @@ function PreScreeningQuestions({
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
 }) {
-  const [adding, setAdding] = useState(false);
-  const [customQuestion, setCustomQuestion] = useState("");
-
-  const toggleQuestion = (id: string) => {
+  const updateQuestion = (id: string, updater: (q: Question) => Question) => {
     setQuestions((current) =>
-      current.map((question) =>
-        question.id === id
-          ? { ...question, checked: !question.checked }
-          : question,
-      ),
+      current.map((question) => (question.id === id ? updater(question) : question))
     );
   };
 
-  const addQuestion = () => {
-    const trimmed = customQuestion.trim();
-    if (!trimmed) {
-      return;
-    }
+  const removeQuestion = (id: string) => {
+    setQuestions((current) => current.filter((q) => q.id !== id));
+  };
 
+  const addQuestion = () => {
     setQuestions((current) => [
       ...current,
       {
         id: `custom-${Date.now()}`,
-        text: trimmed,
-        checked: true,
+        question_text: "",
+        answer_type: "text",
+        options: [],
+        is_mandatory: false,
+        expected_answer: "",
+        optional_weight: 1,
+        optional_score_map: null,
       },
     ]);
-    setCustomQuestion("");
-    setAdding(false);
   };
 
   return (
@@ -462,74 +543,242 @@ function PreScreeningQuestions({
         </h2>
       </div>
       <p className="app-meta-text">
-        Select questions to include in the assessment
+        Configure one-time pre-screening before candidates enter the pipeline
       </p>
 
-      <div className="mt-8 space-y-3">
-        {questions.map((question) => (
-          <button
+      <div className="mt-6 space-y-4">
+        {questions.map((question, index) => (
+          <div
             key={question.id}
-            type="button"
-            onClick={() => toggleQuestion(question.id)}
-            className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-gray-300"
+            className="rounded-xl border border-gray-200 bg-gray-50 p-4"
           >
-            <div
-              className={`flex h-5 w-5 items-center justify-center rounded-md text-white ${
-                question.checked ? "bg-violet-500" : "bg-gray-300"
-              }`}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-gray-700">
+                Question {index + 1}
+              </p>
+              <button
+                type="button"
+                onClick={() => removeQuestion(question.id)}
+                className="text-xs font-semibold text-red-500 hover:text-red-600"
+              >
+                Remove
+              </button>
             </div>
-            <span className="text-[16px] font-medium text-gray-700">
-              {question.text}
-            </span>
-          </button>
+
+            <input
+              value={question.question_text}
+              onChange={(event) =>
+                updateQuestion(question.id, (current) => ({
+                  ...current,
+                  question_text: event.target.value,
+                }))
+              }
+              placeholder="Enter question text"
+              className="w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  Answer Type
+                </span>
+                <select
+                  value={question.answer_type}
+                  onChange={(event) => {
+                    const nextType = event.target.value as PreScreeningAnswerType;
+                    updateQuestion(question.id, (current) => ({
+                      ...current,
+                      answer_type: nextType,
+                      options:
+                        nextType === "yes_no"
+                          ? ["Yes", "No"]
+                          : nextType === "mcq"
+                            ? current.options.length > 0
+                              ? current.options
+                              : ["Option 1", "Option 2"]
+                            : [],
+                      expected_answer:
+                        nextType === "yes_no" &&
+                        current.expected_answer !== "Yes" &&
+                        current.expected_answer !== "No"
+                          ? "Yes"
+                          : current.expected_answer,
+                    }));
+                  }}
+                  className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="yes_no">Yes / No</option>
+                  <option value="mcq">Multiple Choice</option>
+                  <option value="text">Custom Text</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  Mandatory
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateQuestion(question.id, (current) => ({
+                      ...current,
+                      is_mandatory: !current.is_mandatory,
+                      optional_weight: current.is_mandatory
+                        ? current.optional_weight ?? 1
+                        : null,
+                    }))
+                  }
+                  className={`h-10 w-full rounded-[10px] border px-3 text-[14px] font-medium transition ${
+                    question.is_mandatory
+                      ? "border-violet-300 bg-violet-50 text-violet-700"
+                      : "border-gray-200 bg-white text-gray-600"
+                  }`}
+                >
+                  {question.is_mandatory ? "Mandatory" : "Optional"}
+                </button>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  Expected Answer
+                </span>
+                {question.answer_type === "yes_no" ? (
+                  <select
+                    value={question.expected_answer || "Yes"}
+                    onChange={(event) =>
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        expected_answer: event.target.value,
+                      }))
+                    }
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                ) : question.answer_type === "mcq" ? (
+                  <select
+                    value={question.expected_answer}
+                    onChange={(event) =>
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        expected_answer: event.target.value,
+                      }))
+                    }
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">Select expected answer</option>
+                    {question.options.map((option, optionIndex) => (
+                      <option key={`${question.id}-expected-${optionIndex}`} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={question.expected_answer}
+                    onChange={(event) =>
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        expected_answer: event.target.value,
+                      }))
+                    }
+                    placeholder="Expected text (optional)"
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  />
+                )}
+              </label>
+            </div>
+
+            {question.answer_type === "mcq" ? (
+              <div className="mt-3">
+                <p className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  Options (comma separated)
+                </p>
+                <input
+                  value={question.options.join(", ")}
+                  onChange={(event) =>
+                    updateQuestion(question.id, (current) => ({
+                      ...current,
+                      options: event.target.value
+                        .split(",")
+                        .map((option) => option.trim())
+                        .filter(Boolean),
+                    }))
+                  }
+                  placeholder="Option 1, Option 2, Option 3"
+                  className="w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            ) : null}
+
+            {!question.is_mandatory ? (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                    Optional Weight
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    value={question.optional_weight ?? 1}
+                    onChange={(event) =>
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        optional_weight: Number(event.target.value),
+                      }))
+                    }
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                    Optional Score Map
+                  </span>
+                  <input
+                    value={Object.entries(question.optional_score_map || {})
+                      .map(([key, value]) => `${key}:${value}`)
+                      .join(", ")}
+                    onChange={(event) => {
+                      const pairs = event.target.value
+                        .split(",")
+                        .map((part) => part.trim())
+                        .filter(Boolean);
+                      const scoreMap: Record<string, number> = {};
+                      pairs.forEach((pair) => {
+                        const [k, v] = pair.split(":");
+                        const key = String(k || "").trim();
+                        const score = Number(v);
+                        if (key && Number.isFinite(score)) {
+                          scoreMap[key] = score;
+                        }
+                      });
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        optional_score_map:
+                          Object.keys(scoreMap).length > 0 ? scoreMap : null,
+                      }));
+                    }}
+                    placeholder="Yes:1, No:0"
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  />
+                </label>
+              </div>
+            ) : null}
+          </div>
         ))}
       </div>
 
-      {adding ? (
-        <div className="mt-4 flex gap-2">
-          <input
-            value={customQuestion}
-            onChange={(event) => setCustomQuestion(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                addQuestion();
-              }
-            }}
-            autoFocus
-            placeholder="Add a custom question"
-            className="flex-1 rounded-[10px] border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-gray-900 placeholder-gray-400 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
-          />
-          <button
-            type="button"
-            onClick={addQuestion}
-            className="rounded-[10px] bg-violet-600 px-4 py-2.5 text-[14px] text-white transition-colors hover:bg-violet-700"
-          >
-            Add
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAdding(false);
-              setCustomQuestion("");
-            }}
-            className="rounded-[10px] border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600 transition-colors hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="mt-4 flex items-center gap-2 text-[14px] font-medium text-violet-600 transition-colors hover:text-violet-700"
-        >
-          <CirclePlus className="h-4 w-4" />
-          Add Custom Question
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={addQuestion}
+        className="mt-4 flex items-center gap-2 text-[14px] font-medium text-violet-600 transition-colors hover:text-violet-700"
+      >
+        <CirclePlus className="h-4 w-4" />
+        Add Question
+      </button>
     </div>
   );
 }
@@ -550,7 +799,9 @@ function AssessmentSummary({
     { label: "AI Video Interview", enabled: options.aiInterview },
   ];
 
-  const selectedQuestionCount = questions.filter((question) => question.checked).length;
+  const validQuestionCount = questions.filter(
+    (question) => question.question_text.trim().length > 0
+  ).length;
 
   return (
     <div className={cardClassName}>
@@ -584,10 +835,10 @@ function AssessmentSummary({
           <div className="mt-1 flex flex-wrap gap-1.5">
             {formData.skills.map((skill) => (
               <span
-                key={skill}
+                key={`${skill.name}-${skill.is_mandatory ? "m" : "o"}`}
                 className="rounded-full bg-violet-50 px-2.5 py-0.5 text-[14px] font-medium text-violet-700"
               >
-                {skill}
+                {skill.name} {skill.is_mandatory ? "(Mandatory)" : "(Optional)"}
               </span>
             ))}
           </div>
@@ -623,7 +874,7 @@ function AssessmentSummary({
           Pre-Screening
         </p>
         <p className="app-field-label text-gray-900">
-          {selectedQuestionCount} questions selected
+          {validQuestionCount} questions configured
         </p>
       </div>
     </div>
@@ -748,13 +999,19 @@ export default function CreateAssessmentPage() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const defaultClosesAt = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().split("T")[0];
+  })();
+
   const [formData, setFormData] = useState<FormData>({
     roleTitle: "",
     experienceLevel: "",
     skills: [],
     timerMinutes: 30,
     headcount: 1,
-    closesAt: "",
+    closesAt: defaultClosesAt,
     department: "",
     hiringManager: "",
     interviewer: "",
@@ -803,23 +1060,36 @@ useEffect(() => {
 }, [location.search]);
 
 const applyAutopopulateData = (data: AutopopulateResponse) => {
-  setFormData({
+  const oneMonthOut = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().split("T")[0];
+  })();
+
+  setFormData((current) => ({
+    ...current,
     roleTitle: data.role_title || "",
     experienceLevel: data.experience_level || "",
-    skills: data.skills_required || [],
+    skills: (data.skills_required || []).map((name) => ({
+      name,
+      is_mandatory: true,
+      weight: 1,
+    })),
     timerMinutes: 30,
-    headcount: 1,
-    closesAt: "",
-    department: "",
-    hiringManager: "",
-    interviewer: "",
-  });
+    headcount: data.number_of_candidates ?? 1,
+    closesAt: current.closesAt || oneMonthOut,
+  }));
 
   const incomingQuestions: Question[] =
     (data.pre_screening_questions || []).map((text, index) => ({
       id: `api-${index}-${Date.now()}`,
-      text,
-      checked: true,
+      question_text: text,
+      answer_type: "text",
+      options: [],
+      is_mandatory: false,
+      expected_answer: "",
+      optional_weight: 1,
+      optional_score_map: null,
     }));
 
   setQuestions(
@@ -866,30 +1136,60 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
     }
     setSaving(true);
     try {
-      const selectedQ = questions.filter((q) => q.checked);
+      const configuredPreScreening = questions
+        .map((q, index) => ({
+          question_text: q.question_text.trim(),
+          answer_type: q.answer_type,
+          options: q.answer_type === "mcq" ? q.options : q.answer_type === "yes_no" ? ["Yes", "No"] : [],
+          is_mandatory: q.is_mandatory,
+          expected_answer: q.expected_answer.trim() || null,
+          optional_weight: q.is_mandatory ? null : q.optional_weight ?? 1,
+          optional_score_map: q.is_mandatory ? null : q.optional_score_map ?? null,
+          sort_order: index,
+        }))
+        .filter((q) => q.question_text.length > 0);
+
       if (editMode && selectedTemplateKey) {
+        const mandatorySkills = formData.skills
+          .filter((s) => s.is_mandatory)
+          .map((s) => s.name);
         await jobTemplateApi.update(selectedTemplateKey, {
           job_title: formData.roleTitle,
-          required_skills: formData.skills.join(", "),
+          required_skills: mandatorySkills.join(", "),
           number_of_candidates: String(formData.headcount),
-          survey_question_1: selectedQ[0]?.text || null,
+          survey_question_1: configuredPreScreening[0]?.question_text || null,
           survey_q1_expected_answer: null,
           time_limit_minutes: formData.timerMinutes,
+          pre_screening_questions: configuredPreScreening.map((q) => q.question_text),
         });
         alert("Template updated successfully!");
         navigate("/hr/templates");
       } else {
+        const mandatorySkills = formData.skills
+          .filter((s) => s.is_mandatory)
+          .map((s) => s.name);
+        const optionalSkills = formData.skills
+          .filter((s) => !s.is_mandatory)
+          .map((s) => s.name);
+        const skillWeights = Object.fromEntries(
+          formData.skills
+            .filter((s) => s.is_mandatory)
+            .map((s) => [s.name, s.weight || 1])
+        );
         const result = await assessmentApi.create({
           role_title: formData.roleTitle,
           experience_level: formData.experienceLevel || "Mid",
-          skills: formData.skills,
-          template_key: selectedTemplateKey || undefined,
-          questions: selectedQ.map((q, i) => ({
-            question_text: q.text,
-            is_default: !q.id.startsWith("custom-"),
-            is_selected: true,
-            sort_order: i,
+          skills: mandatorySkills,
+          optional_skills: optionalSkills,
+          skill_weights: skillWeights,
+          optional_skill_weight: DEFAULT_OPTIONAL_SKILL_WEIGHT,
+          skill_config: formData.skills.map((s) => ({
+            name: s.name,
+            is_mandatory: s.is_mandatory,
+            weight: s.weight,
           })),
+          template_key: selectedTemplateKey || undefined,
+          pre_screening_questions: configuredPreScreening,
           options: {
             generate_ai_questions: options.generateAI,
             include_coding: options.codingRound,
@@ -902,6 +1202,11 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
             video_time_limit: 15,
             coding_time_limit: 45,
           },
+          headcount: formData.headcount,
+          closes_at: formData.closesAt || undefined,
+          department: formData.department || undefined,
+          hiring_manager: formData.hiringManager || undefined,
+          interviewer: formData.interviewer || undefined,
         });
         alert(`Assessment created & pipeline triggered!\n\nJob ID: ${result.jid}\nRole: ${formData.roleTitle}\n\nThe AI pipeline is now screening resumes and generating MCQ questions.`);
         navigate("/hr/dashboard");

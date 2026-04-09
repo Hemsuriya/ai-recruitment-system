@@ -1,0 +1,79 @@
+{
+  "name": "MCQ Invite After Prescreen",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-mcq-invite-after-prescreen",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-mcq-after-prescreen",
+      "name": "Send MCQ Invite Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 220]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "name": "screening_id", "value": "={{$json.body.screening_id}}", "type": "string" },
+            { "name": "appBaseUrl", "value": "={{$json.body.appBaseUrl || 'http://localhost:5173'}}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "normalize-mcq-invite-payload",
+      "name": "Normalize Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 220]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT screening_id, name, email, COALESCE(job_title, 'Position') AS role_title\nFROM candidates_v2\nWHERE screening_id = $1\nLIMIT 1;",
+        "options": { "queryReplacement": "={{$json.screening_id}}" }
+      },
+      "id": "fetch-passed-candidate",
+      "name": "Fetch Passed Candidate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [700, 220],
+      "credentials": { "postgres": { "id": "DO36tAj1RCJwb9XJ", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nif (!rows.length) {\n  throw new Error('No passed candidate found for provided screening_id');\n}\nconst payload = $('Normalize Payload').first().json;\nconst appBaseUrl = (payload.appBaseUrl || 'http://localhost:5173').replace(/\\/$/, '');\nconst c = rows[0];\nconst link = `${appBaseUrl}/candidate-portal/assessment-instructions?id=${encodeURIComponent(c.screening_id)}`;\nconst html = `\n<div style=\"font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;\">\n  <div style=\"background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 32px 24px; text-align: center; border-radius: 8px 8px 0 0;\">\n    <h1 style=\"color: #ffffff; font-size: 24px; margin: 0;\">CBC Inc.</h1>\n    <p style=\"color: #bfdbfe; font-size: 13px; margin: 8px 0 0 0; letter-spacing: 1px;\">AI-POWERED CANDIDATE SCREENING</p>\n  </div>\n  <div style=\"padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none;\">\n    <h2 style=\"color: #1e293b; font-size: 20px; margin: 0 0 16px 0;\">Technical Assessment Invitation</h2>\n    <p style=\"color: #475569; font-size: 15px; line-height: 1.6;\">Dear <strong>${c.name}</strong>,</p>\n    <p style=\"color: #475569; font-size: 15px; line-height: 1.6;\">You have passed pre-screening for the <strong>${c.role_title}</strong> role. You can now start your MCQ assessment.</p>\n    <div style=\"text-align: center; margin: 28px 0;\">\n      <a href=\"${link}\" style=\"background: #2563eb; color: #ffffff; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; display: inline-block;\">Start Assessment</a>\n    </div>\n    <p style=\"color: #94a3b8; font-size: 12px; text-align: center;\">If the button doesn't work, copy and paste this link into your browser:<br/><a href=\"${link}\" style=\"color: #3b82f6; word-break: break-all;\">${link}</a></p>\n  </div>\n</div>`;\nreturn [{ json: { to: c.email, subject: `Technical Assessment Invitation - ${c.role_title}`, html } }];"
+      },
+      "id": "build-mcq-invite-email",
+      "name": "Build MCQ Invite Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 220]
+    },
+    {
+      "parameters": {
+        "toRecipients": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "bodyContent": "={{ $json.html }}",
+        "additionalFields": { "bodyContentType": "html" }
+      },
+      "id": "send-mcq-outlook",
+      "name": "Send a message",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [1180, 220],
+      "credentials": { "microsoftOutlookOAuth2Api": { "id": "PvjwAMwtGqIFHnu0", "name": "Microsoft Outlook account" } }
+    }
+  ],
+  "connections": {
+    "Send MCQ Invite Trigger": { "main": [[{ "node": "Normalize Payload", "type": "main", "index": 0 }]] },
+    "Normalize Payload": { "main": [[{ "node": "Fetch Passed Candidate", "type": "main", "index": 0 }]] },
+    "Fetch Passed Candidate": { "main": [[{ "node": "Build MCQ Invite Email", "type": "main", "index": 0 }]] },
+    "Build MCQ Invite Email": { "main": [[{ "node": "Send a message", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

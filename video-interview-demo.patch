@@ -1,0 +1,1683 @@
+diff --git a/backend/src/app.js b/backend/src/app.js
+index 23737fb..6e2dce6 100644
+--- a/backend/src/app.js
++++ b/backend/src/app.js
+@@ -17,6 +17,7 @@ const assessmentConfigRoutes = require("./routes/assessmentConfigRoutes");
+ const dashboardRoutes = require("./routes/dashboardRoutes");
+ const testRoutes = require("./routes/testRoutes");
+ const authRoutes = require("./routes/authRoutes");
++const videoInterviewRoutes = require("./routes/videoInterviewRoutes");
+ 
+ 
+ const app = express();
+@@ -56,6 +57,7 @@ app.use("/candidate", candidateRoutes);
+ app.use("/survey", surveyRoutes);
+ app.use("/validation", validationRoutes);
+ app.use("/assessment", assessmentRoutes);
++app.use("/assessment", videoInterviewRoutes);
+ 
+ // ─── HR Portal routes ─────────────────────────────────────────
+ app.use("/api/job-templates", jobTemplateRoutes);
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index bc0c2d3..c517d00 100644
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -15,7 +15,6 @@ import ResetPasswordPage from "./features/auth/ResetPasswordPage";
+ 
+ import AssessmentInstructions from "./features/candidate-portal/pages/AssessmentsInstructions";
+ import VideoInterviewPage from "./features/candidate-portal/pages/VideoInterviewPage";
+-import CandidateInterviewPage from "./features/candidate-portal/pages/CandidateInterviewPage";
+ import TechnicalAssessmentPage from "./features/candidate-portal/pages/TechnicalAssessmentPage";
+ import PreScreeningSurveyPage from "./features/candidate-portal/pages/PreScreeningSurveyPage";
+ 
+@@ -56,10 +55,6 @@ function App() {
+           path="/candidate-portal/technical-assessment"
+           element={<TechnicalAssessmentPage />}
+         />
+-        <Route
+-          path="/candidate-portal/interview"
+-          element={<CandidateInterviewPage />}
+-        />
+         <Route path="*" element={<Navigate to="/login" replace />} />
+       </Routes>
+     </BrowserRouter>
+diff --git a/frontend/src/features/candidate-portal/components/InterviewControls.tsx b/frontend/src/features/candidate-portal/components/InterviewControls.tsx
+index 82fea6b..b4e9415 100644
+--- a/frontend/src/features/candidate-portal/components/InterviewControls.tsx
++++ b/frontend/src/features/candidate-portal/components/InterviewControls.tsx
+@@ -6,13 +6,15 @@ export interface InterviewControlsProps {
+   isCameraOn: boolean;
+   toggleMute: () => void;
+   toggleCamera: () => void;
++  openSettings: () => void;
+ }
+ 
+ export const InterviewControls: React.FC<InterviewControlsProps> = ({
+   isMuted,
+   isCameraOn,
+   toggleMute,
+-  toggleCamera
++  toggleCamera,
++  openSettings,
+ }) => {
+   return (
+     <div className="flex flex-col items-center pb-16">
+@@ -42,7 +44,7 @@ export const InterviewControls: React.FC<InterviewControlsProps> = ({
+           </span>
+         </button>
+ 
+-        <button className="flex flex-col items-center gap-2 group">
++        <button type="button" onClick={openSettings} className="flex flex-col items-center gap-2 group">
+           <div className="w-14 h-14 bg-white shadow-sm border border-gray-100 text-gray-500 rounded-full flex items-center justify-center group-hover:bg-gray-50 transition-all">
+             <Settings className="w-5 h-5" />
+           </div>
+diff --git a/frontend/src/features/candidate-portal/components/VideoFeed.tsx b/frontend/src/features/candidate-portal/components/VideoFeed.tsx
+index 2d32952..2023256 100644
+--- a/frontend/src/features/candidate-portal/components/VideoFeed.tsx
++++ b/frontend/src/features/candidate-portal/components/VideoFeed.tsx
+@@ -1,57 +1,69 @@
+ import React, { useRef, useEffect } from 'react';
+ 
+ export interface VideoFeedProps {
++  stream: MediaStream | null;
+   isCameraOn: boolean;
+   recordingTime: string;
++  error: string | null;
+ }
+ 
+-export const VideoFeed: React.FC<VideoFeedProps> = ({ isCameraOn, recordingTime }) => {
++export const VideoFeed: React.FC<VideoFeedProps> = ({
++  stream,
++  isCameraOn,
++  recordingTime,
++  error,
++}) => {
+   const videoRef = useRef<HTMLVideoElement>(null);
+ 
+   useEffect(() => {
+-    let stream: MediaStream | null = null;
+-    
+-    if (isCameraOn) {
+-      navigator.mediaDevices.getUserMedia({ video: true })
+-        .then(s => {
+-          stream = s;
+-          if (videoRef.current) videoRef.current.srcObject = s;
+-        })
+-        .catch(console.error);
+-    } else if (videoRef.current?.srcObject) {
+-      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+-      videoRef.current.srcObject = null;
++    if (videoRef.current) {
++      videoRef.current.srcObject = isCameraOn && stream ? stream : null;
+     }
+-
+-    return () => stream?.getTracks().forEach(t => t.stop());
+-  }, [isCameraOn]);
++  }, [stream, isCameraOn]);
+ 
+   return (
+     <div className="relative w-full max-w-5xl mx-auto aspect-video bg-black rounded-xl overflow-hidden shadow-lg md:pb-8 flex flex-col">
+-       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-500 rounded-full z-10 shadow-[0_0_8px_rgba(239,68,68,1)]" />
+-       
+-       <div className="relative w-full flex-grow bg-gray-900 overflow-hidden sm:border-[16px] border-black sm:rounded-tl-2xl sm:rounded-tr-2xl sm:rounded-b-none">
+-         <video 
+-           ref={videoRef}
+-           autoPlay 
+-           playsInline 
+-           muted 
+-           className="w-full h-full object-cover -scale-x-100"
+-         />
+-         {!isCameraOn && (
+-           <div className="absolute inset-0 flex items-center justify-center text-white/50 font-medium text-lg bg-gray-900">
+-             Camera is off
+-           </div>
+-         )}
+-         
+-         <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-md flex items-center gap-2 text-sm font-semibold border border-white/10">
+-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_4px_rgba(239,68,68,0.8)]" />
+-            REC {recordingTime}
+-         </div>
+-       </div>
+-       
+-       <div className="hidden sm:block h-8 bg-[#111] w-full border-t border-[#333]" />
+-       <div className="hidden sm:block absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-gray-800 rounded-b-sm shadow-lg border border-gray-700" />
++      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-500 rounded-full z-10 shadow-[0_0_8px_rgba(239,68,68,1)]" />
++
++      <div className="relative w-full flex-grow bg-gray-900 overflow-hidden sm:border-[16px] border-black sm:rounded-tl-2xl sm:rounded-tr-2xl sm:rounded-b-none">
++        {error ? (
++          <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-gray-900 px-6">
++            <div className="text-red-400 font-semibold text-lg mb-2">
++              Camera / Microphone Error
++            </div>
++            <p className="text-white/60 text-sm text-center max-w-md">
++              {error}
++            </p>
++            <p className="text-white/40 text-xs mt-4 text-center">
++              Please allow camera and microphone access in your browser settings,
++              then reload the page.
++            </p>
++          </div>
++        ) : (
++          <>
++            <video
++              ref={videoRef}
++              autoPlay
++              playsInline
++              muted
++              className="w-full h-full object-cover -scale-x-100"
++            />
++            {!isCameraOn && (
++              <div className="absolute inset-0 flex items-center justify-center text-white/50 font-medium text-lg bg-gray-900">
++                Camera is off
++              </div>
++            )}
++          </>
++        )}
++
++        <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-md flex items-center gap-2 text-sm font-semibold border border-white/10">
++          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_4px_rgba(239,68,68,0.8)]" />
++          REC {recordingTime}
++        </div>
++      </div>
++
++      <div className="hidden sm:block h-8 bg-[#111] w-full border-t border-[#333]" />
++      <div className="hidden sm:block absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-gray-800 rounded-b-sm shadow-lg border border-gray-700" />
+     </div>
+   );
+ };
+diff --git a/frontend/src/features/candidate-portal/pages/CandidateInterviewPage.tsx b/frontend/src/features/candidate-portal/pages/CandidateInterviewPage.tsx
+deleted file mode 100644
+index b31d591..0000000
+--- a/frontend/src/features/candidate-portal/pages/CandidateInterviewPage.tsx
++++ /dev/null
+@@ -1,221 +0,0 @@
+-import {
+-  AudioLines,
+-  Camera,
+-  ChevronRight,
+-  Mic,
+-  MicOff,
+-  Settings,
+-  Shield,
+-  Square,
+-  UserRoundSearch,
+-} from "lucide-react";
+-
+-export default function CandidateInterviewPage() {
+-  return (
+-    <div className="min-h-screen bg-[#f5f7fb] px-6 py-7 text-slate-900">
+-      <div className="mx-auto max-w-[1220px] rounded-[30px] border border-[#dbe5ff] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
+-        <header className="flex items-center justify-between gap-6 border-b border-slate-100 px-6 py-4">
+-          <div className="flex items-center gap-4">
+-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+-              <UserRoundSearch className="h-6 w-6" />
+-            </div>
+-            <h1 className="text-[1.9rem] font-bold tracking-[-0.04em] text-slate-950">
+-              Candidate Interview
+-            </h1>
+-          </div>
+-
+-          <div className="flex items-center gap-4">
+-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-5 py-3 text-sm font-semibold text-blue-600">
+-              <AudioLines className="h-4 w-4" />
+-              45:00
+-            </div>
+-            <button
+-              type="button"
+-              className="rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-sm transition hover:bg-slate-50"
+-            >
+-              End Interview
+-            </button>
+-          </div>
+-        </header>
+-
+-        <div className="space-y-6 bg-[#fbfcff] px-6 py-6">
+-          <div className="grid gap-4 md:grid-cols-2">
+-            <TopStatusCard
+-              icon={<Mic className="h-5 w-5" />}
+-              eyebrow="MIC LEVEL"
+-              title="Active"
+-              accent="bg-blue-50 text-blue-600"
+-              detail={
+-                <div className="flex items-end gap-1">
+-                  <span className="h-3 w-1 rounded-full bg-blue-300" />
+-                  <span className="h-5 w-1 rounded-full bg-blue-500" />
+-                  <span className="h-4 w-1 rounded-full bg-blue-400" />
+-                </div>
+-              }
+-            />
+-            <TopStatusCard
+-              icon={<Shield className="h-5 w-5" />}
+-              eyebrow="LIVE PROCTORING"
+-              title="Secure"
+-              accent="bg-blue-50 text-blue-600"
+-            />
+-          </div>
+-
+-          <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.08)]">
+-            <div className="relative mx-5 mt-5 overflow-hidden rounded-[24px] bg-[radial-gradient(circle_at_center,_#ffffff_0%,_#dde4ed_28%,_#96918a_45%,_#e6e0d7_60%,_#212121_100%)] px-10 pb-2 pt-8">
+-              <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+-                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+-                REC 00:12:45
+-              </div>
+-
+-              <div className="mx-auto max-w-[760px] rounded-[26px] border-[14px] border-black bg-[#101418] p-4 shadow-[0_30px_50px_rgba(0,0,0,0.35)]">
+-                <div className="relative aspect-[16/9] overflow-hidden rounded-[14px] bg-[radial-gradient(circle_at_50%_20%,_#f2f5f7_0%,_#d4dde2_45%,_#bcc9d0_100%)]">
+-                  <div className="absolute bottom-0 left-0 right-0 h-[34%] bg-[linear-gradient(180deg,rgba(215,219,224,0)_0%,rgba(189,189,187,0.35)_20%,#d8d3ce_20%,#d8d3ce_100%)]" />
+-                  <div className="absolute bottom-[12%] left-[8%] h-[30%] w-[14%] rounded-t-full bg-[#2f6d43]" />
+-                  <div className="absolute bottom-[12%] left-[9%] h-[23%] w-[10%] rounded-full bg-[#345f35]" />
+-                  <div className="absolute bottom-[14%] right-[12%] h-[16%] w-[24%] rounded-t-[70px] bg-[#cbc7c2]" />
+-                  <div className="absolute left-1/2 top-[22%] h-[18%] w-[11%] -translate-x-1/2 rounded-full bg-[#f2d3bf]" />
+-                  <div className="absolute left-1/2 top-[18%] h-[9%] w-[12%] -translate-x-1/2 rounded-t-full bg-[#8d654f]" />
+-                  <div className="absolute left-1/2 top-[30%] h-[33%] w-[21%] -translate-x-1/2 rounded-t-[110px] bg-white" />
+-                  <div className="absolute left-[36%] top-[39%] h-[28%] w-[10%] -rotate-[10deg] rounded-[40px] bg-[#f4dbc9]" />
+-                  <div className="absolute right-[36%] top-[39%] h-[28%] w-[10%] rotate-[10deg] rounded-[40px] bg-[#f4dbc9]" />
+-                  <div className="absolute bottom-[10%] left-1/2 h-6 w-6 -translate-x-1/2 rounded-full bg-red-600 shadow-[0_0_0_6px_rgba(255,255,255,0.35)]" />
+-                </div>
+-              </div>
+-
+-              <div className="mx-auto h-10 w-20 rounded-b-[10px] bg-black shadow-[0_8px_0_rgba(0,0,0,0.25)]" />
+-            </div>
+-
+-            <div className="mx-5 my-5 rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+-              <div className="flex items-start justify-between gap-5">
+-                <div>
+-                  <div className="inline-flex rounded-full bg-blue-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+-                    Question 3 of 10
+-                  </div>
+-                  <h2 className="mt-5 max-w-[900px] text-[2rem] font-bold leading-[1.18] tracking-[-0.04em] text-slate-950">
+-                    Can you describe a time you handled a difficult situation with a coworker? How
+-                    did you approach the resolution?
+-                  </h2>
+-                </div>
+-                <p className="pt-1 text-sm font-medium text-slate-400">Remaining: 01:45</p>
+-              </div>
+-            </div>
+-
+-            <div className="flex items-center justify-center gap-5 border-t border-slate-100 bg-white px-6 py-5">
+-              <button
+-                type="button"
+-                className="inline-flex min-w-[180px] items-center justify-center gap-2 rounded-2xl bg-slate-50 px-6 py-4 text-base font-semibold text-slate-500 transition hover:bg-slate-100"
+-              >
+-                <Square className="h-4 w-4" />
+-                Skip
+-              </button>
+-              <button
+-                type="button"
+-                className="inline-flex min-w-[220px] items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-[0_12px_24px_rgba(37,99,235,0.28)] transition hover:bg-blue-700"
+-              >
+-                Next Question
+-                <ChevronRight className="h-5 w-5" />
+-              </button>
+-            </div>
+-          </section>
+-        </div>
+-
+-        <footer className="border-t border-slate-100 bg-white px-6 py-6">
+-          <div className="flex flex-col items-center justify-center gap-4">
+-            <div className="flex items-center gap-3 text-blue-500">
+-              <div className="flex items-end gap-1">
+-                <span className="h-3 w-1 rounded-full bg-blue-300" />
+-                <span className="h-6 w-1 rounded-full bg-blue-500" />
+-                <span className="h-4 w-1 rounded-full bg-blue-400" />
+-                <span className="h-8 w-1 rounded-full bg-blue-600" />
+-              </div>
+-              <p className="text-lg font-medium italic text-slate-500">
+-                Listening for your response...
+-              </p>
+-            </div>
+-
+-            <div className="flex items-center gap-8">
+-              <FooterControl
+-                icon={<MicOff className="h-5 w-5" />}
+-                label="MUTE"
+-                active={false}
+-              />
+-              <FooterControl
+-                icon={<Camera className="h-6 w-6" />}
+-                label="CAMERA ON"
+-                active
+-              />
+-              <FooterControl
+-                icon={<Settings className="h-5 w-5" />}
+-                label="SETTINGS"
+-                active={false}
+-              />
+-            </div>
+-          </div>
+-        </footer>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-function TopStatusCard({
+-  accent,
+-  detail,
+-  eyebrow,
+-  icon,
+-  title,
+-}: {
+-  accent: string;
+-  detail?: React.ReactNode;
+-  eyebrow: string;
+-  icon: React.ReactNode;
+-  title: string;
+-}) {
+-  return (
+-    <div className="flex items-center justify-between rounded-[22px] border border-slate-200 bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+-      <div className="flex items-center gap-4">
+-        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${accent}`}>
+-          {icon}
+-        </div>
+-        <div>
+-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{eyebrow}</p>
+-          <p className="mt-1 text-[1.7rem] font-bold leading-none tracking-[-0.04em] text-slate-950">
+-            {title}
+-          </p>
+-        </div>
+-      </div>
+-      {detail ? <div className="text-blue-500">{detail}</div> : null}
+-    </div>
+-  );
+-}
+-
+-function FooterControl({
+-  active,
+-  icon,
+-  label,
+-}: {
+-  active: boolean;
+-  icon: React.ReactNode;
+-  label: string;
+-}) {
+-  return (
+-    <button type="button" className="flex flex-col items-center gap-2">
+-      <span
+-        className={`flex h-16 w-16 items-center justify-center rounded-full ${
+-          active
+-            ? "bg-blue-600 text-white shadow-[0_12px_26px_rgba(37,99,235,0.28)]"
+-            : "bg-slate-50 text-slate-500"
+-        }`}
+-      >
+-        {icon}
+-      </span>
+-      <span
+-        className={`text-xs font-semibold tracking-[0.08em] ${
+-          active ? "text-blue-600" : "text-slate-400"
+-        }`}
+-      >
+-        {label}
+-      </span>
+-    </button>
+-  );
+-}
+diff --git a/frontend/src/features/candidate-portal/pages/SubmissionPage.tsx b/frontend/src/features/candidate-portal/pages/SubmissionPage.tsx
+index 4669900..559edba 100644
+--- a/frontend/src/features/candidate-portal/pages/SubmissionPage.tsx
++++ b/frontend/src/features/candidate-portal/pages/SubmissionPage.tsx
+@@ -1,34 +1,135 @@
+-import React from 'react';
+-import { Check } from 'lucide-react';
++import React, { useState, useEffect, useCallback } from 'react';
+ import { useNavigate } from 'react-router-dom';
++import { Check, AlertTriangle, Loader2, RotateCcw } from 'lucide-react';
++import { videoInterviewApi, type VideoQuestion } from '../../../services/api';
+ 
+-export const SubmissionPage: React.FC = () => {
++export interface SubmissionPageProps {
++  blobs: Map<number, Blob>;
++  videoAssessmentId: string;
++  questions: VideoQuestion[];
++}
++
++type UploadStatus = 'uploading' | 'success' | 'error';
++
++export const SubmissionPage: React.FC<SubmissionPageProps> = ({
++  blobs,
++  videoAssessmentId,
++  questions,
++}) => {
+   const navigate = useNavigate();
++  const [status, setStatus] = useState<UploadStatus>('uploading');
++  const [errorMsg, setErrorMsg] = useState('');
+ 
+-  return (
+-    <div className="flex h-screen items-center justify-center bg-gray-50 font-sans p-6">
+-       <div className="bg-white p-10 md:p-12 rounded-3xl shadow-sm text-center max-w-lg w-full border border-gray-100 transition-shadow">
+-          
+-          <div className="mx-auto mb-8 w-24 h-24 flex items-center justify-center relative animate-in fade-in zoom-in duration-500">
+-             <div className="absolute inset-0 bg-green-100 rounded-full animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-75"></div>
+-             <div className="relative w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-sm">
+-                <Check className="w-10 h-10" strokeWidth={3} />
+-             </div>
++  const upload = useCallback(async () => {
++    setStatus('uploading');
++    setErrorMsg('');
++    try {
++      const metadata = questions.map((q, idx) => ({
++        question_id: q.id,
++        question_index: idx,
++        duration: q.time_limit,
++      }));
++      await videoInterviewApi.submitVideos(videoAssessmentId, blobs, metadata);
++      setStatus('success');
++    } catch (err) {
++      setErrorMsg(err instanceof Error ? err.message : 'Upload failed. Please try again.');
++      setStatus('error');
++    }
++  }, [blobs, videoAssessmentId, questions]);
++
++  // Start upload on mount
++  useEffect(() => {
++    upload();
++  }, [upload]);
++
++  // Warn before navigating away during upload
++  useEffect(() => {
++    if (status !== 'uploading') return;
++    const handler = (e: BeforeUnloadEvent) => {
++      e.preventDefault();
++    };
++    window.addEventListener('beforeunload', handler);
++    return () => window.removeEventListener('beforeunload', handler);
++  }, [status]);
++
++  // ── Uploading state ──────────────────────────────────────
++  if (status === 'uploading') {
++    return (
++      <div className="flex h-screen items-center justify-center bg-gray-50 font-sans p-6">
++        <div className="bg-white p-10 md:p-12 rounded-3xl shadow-sm text-center max-w-lg w-full border border-gray-100">
++          <div className="mx-auto mb-8 w-24 h-24 flex items-center justify-center">
++            <Loader2 className="w-14 h-14 text-blue-500 animate-spin" />
++          </div>
++          <h1 className="text-2xl font-extrabold text-slate-900 mb-4 tracking-tight">
++            Uploading Your Responses...
++          </h1>
++          <p className="text-slate-500 text-base leading-relaxed px-4">
++            Please don't close this page. Your recorded answers are being securely
++            uploaded ({blobs.size} video{blobs.size !== 1 ? 's' : ''}).
++          </p>
++        </div>
++      </div>
++    );
++  }
++
++  // ── Error state ──────────────────────────────────────────
++  if (status === 'error') {
++    return (
++      <div className="flex h-screen items-center justify-center bg-gray-50 font-sans p-6">
++        <div className="bg-white p-10 md:p-12 rounded-3xl shadow-sm text-center max-w-lg w-full border border-gray-100">
++          <div className="mx-auto mb-8 w-24 h-24 flex items-center justify-center">
++            <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center shadow-sm">
++              <AlertTriangle className="w-10 h-10" strokeWidth={2.5} />
++            </div>
+           </div>
+-          
+-          <h1 className="text-3xl font-extrabold text-slate-900 mb-4 tracking-tight">Interview Submitted!</h1>
+-          
+-          <p className="text-slate-500 mb-10 text-base leading-relaxed px-4">
+-            Thank you for completing your interview. Our team will review your responses and be in touch shortly.
++          <h1 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight">
++            Upload Failed
++          </h1>
++          <p className="text-slate-500 text-sm mb-2 leading-relaxed px-4">
++            {errorMsg}
++          </p>
++          <p className="text-slate-400 text-xs mb-8">
++            Your recordings are still saved locally. Click retry to try again.
+           </p>
+-          
+-          <button 
+-            onClick={() => navigate('/')}
+-            className="w-full bg-blue-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm focus:ring-4 focus:ring-blue-100"
++          <button
++            onClick={upload}
++            className="w-full bg-blue-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm focus:ring-4 focus:ring-blue-100 flex items-center justify-center gap-2"
+           >
+-            Return to Dashboard
++            <RotateCcw className="w-5 h-5" />
++            Retry Upload
+           </button>
+-       </div>
++        </div>
++      </div>
++    );
++  }
++
++  // ── Success state ────────────────────────────────────────
++  return (
++    <div className="flex h-screen items-center justify-center bg-gray-50 font-sans p-6">
++      <div className="bg-white p-10 md:p-12 rounded-3xl shadow-sm text-center max-w-lg w-full border border-gray-100 transition-shadow">
++        <div className="mx-auto mb-8 w-24 h-24 flex items-center justify-center relative animate-in fade-in zoom-in duration-500">
++          <div className="absolute inset-0 bg-green-100 rounded-full animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-75" />
++          <div className="relative w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-sm">
++            <Check className="w-10 h-10" strokeWidth={3} />
++          </div>
++        </div>
++
++        <h1 className="text-3xl font-extrabold text-slate-900 mb-4 tracking-tight">
++          Interview Submitted!
++        </h1>
++
++        <p className="text-slate-500 mb-10 text-base leading-relaxed px-4">
++          Thank you for completing your interview. Our team will review your
++          responses and be in touch shortly.
++        </p>
++
++        <button
++          onClick={() => navigate('/')}
++          className="w-full bg-blue-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm focus:ring-4 focus:ring-blue-100"
++        >
++          Return to Dashboard
++        </button>
++      </div>
+     </div>
+   );
+ };
+diff --git a/frontend/src/features/candidate-portal/pages/VideoInterviewPage.tsx b/frontend/src/features/candidate-portal/pages/VideoInterviewPage.tsx
+index 155c472..0213855 100644
+--- a/frontend/src/features/candidate-portal/pages/VideoInterviewPage.tsx
++++ b/frontend/src/features/candidate-portal/pages/VideoInterviewPage.tsx
+@@ -1,84 +1,467 @@
+-import React, { useState, useEffect } from 'react';
+-import { User } from 'lucide-react';
++import React, { useState, useEffect, useRef, useCallback } from 'react';
++import { useSearchParams, useNavigate } from 'react-router-dom';
++import { User, AlertTriangle, Loader2, CheckCircle, X } from 'lucide-react';
+ import { InterviewTimer } from '../components/InterviewTimer';
+ import { ProctoringBadge } from '../components/ProctoringBadge';
+ import { VideoFeed } from '../components/VideoFeed';
+ import { QuestionCard } from '../components/QuestionCard';
+ import { InterviewControls } from '../components/InterviewControls';
+-import { mockQuestions, TOTAL_INTERVIEW_TIME_SECONDS } from '../../../mock/interviewData';
+ import SubmissionPage from './SubmissionPage';
++import {
++  videoInterviewApi,
++  type VideoQuestion,
++} from '../../../services/api';
++
++interface DeviceOption {
++  deviceId: string;
++  label: string;
++}
+ 
+ const formatRecordingTime = (totalSeconds: number) => {
+-  const hours = Math.floor(totalSeconds / 3600);
++  const h = Math.floor(totalSeconds / 3600);
+   const m = Math.floor((totalSeconds % 3600) / 60);
+   const s = totalSeconds % 60;
+-  return `${String(hours).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
++  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+ };
+ 
++function getSupportedMimeType(): string {
++  const types = [
++    'video/webm;codecs=vp8,opus',
++    'video/webm;codecs=vp9,opus',
++    'video/webm',
++    'video/mp4',
++  ];
++  for (const t of types) {
++    if (MediaRecorder.isTypeSupported(t)) return t;
++  }
++  return '';
++}
++
+ const VideoInterviewPage: React.FC = () => {
++  const [searchParams] = useSearchParams();
++  const navigate = useNavigate();
++  const videoAssessmentId = searchParams.get('id') || '';
++
++  // ── Data fetching state ──────────────────────────────────
++  const [questions, setQuestions] = useState<VideoQuestion[]>([]);
++  const [totalDuration, setTotalDuration] = useState(0);
++  const [loading, setLoading] = useState(true);
++  const [fetchError, setFetchError] = useState<string | null>(null);
++  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
++
++  // ── Interview progress ───────────────────────────────────
+   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
++  const [questionTimeLeft, setQuestionTimeLeft] = useState(0);
++  const [totalTimeLeft, setTotalTimeLeft] = useState(0);
++  const [isComplete, setIsComplete] = useState(false);
++  const currentQIdxRef = useRef(0);
++
++  // ── Media state ──────────────────────────────────────────
++  const [stream, setStream] = useState<MediaStream | null>(null);
++  const [streamError, setStreamError] = useState<string | null>(null);
+   const [isMuted, setIsMuted] = useState(false);
+   const [isCameraOn, setIsCameraOn] = useState(true);
+-  
+-  const currentQuestion = mockQuestions[currentQuestionIndex];
+-  const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.durationSeconds ?? 0);
+-  const [totalTimeLeft, setTotalTimeLeft] = useState(TOTAL_INTERVIEW_TIME_SECONDS);
+-  const [isComplete, setIsComplete] = useState(false);
++  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
++  const [videoDevices, setVideoDevices] = useState<DeviceOption[]>([]);
++  const [audioDevices, setAudioDevices] = useState<DeviceOption[]>([]);
++  const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState('');
++  const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState('');
++  const [settingsError, setSettingsError] = useState<string | null>(null);
++  const [isApplyingDevices, setIsApplyingDevices] = useState(false);
++
++  // ── Recording state ──────────────────────────────────────
++  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
++  const chunksRef = useRef<Blob[]>([]);
++  const recordedBlobsRef = useRef<Map<number, Blob>>(new Map());
++  const advancingRef = useRef(false);
++  const submittingRef = useRef(false);
++  const interviewStartedRef = useRef(false);
++
++  // ── Missing assessment ID ────────────────────────────────
++  if (!videoAssessmentId) {
++    return (
++      <div className="flex h-screen items-center justify-center bg-gray-50 p-6">
++        <div className="bg-white p-10 rounded-2xl shadow-sm text-center max-w-md border border-gray-100">
++          <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
++          <h1 className="text-xl font-bold text-gray-900 mb-2">Missing Assessment ID</h1>
++          <p className="text-gray-500 text-sm">
++            Please use the link from your invitation email to access the video interview.
++          </p>
++        </div>
++      </div>
++    );
++  }
+ 
++  // ── Fetch questions from backend ─────────────────────────
+   useEffect(() => {
+-    setQuestionTimeLeft(mockQuestions[currentQuestionIndex]?.durationSeconds ?? 0);
+-  }, [currentQuestionIndex]);
++    let cancelled = false;
++    (async () => {
++      try {
++        setLoading(true);
++        const data = await videoInterviewApi.getQuestions(videoAssessmentId);
++        if (cancelled) return;
++        if (data.questions.length === 0) {
++          setFetchError('No interview questions are available yet. Please try again later.');
++          return;
++        }
++        setQuestions(data.questions);
++        setTotalDuration(data.total_duration);
++        setTotalTimeLeft(data.total_duration);
++        setQuestionTimeLeft(data.questions[0].time_limit);
++      } catch (err) {
++        if (!cancelled) {
++          const msg = err instanceof Error ? err.message : 'Failed to load interview questions';
++          if (msg.toLowerCase().includes('already completed')) {
++            setAlreadyCompleted(true);
++          } else {
++            setFetchError(msg);
++          }
++        }
++      } finally {
++        if (!cancelled) setLoading(false);
++      }
++    })();
++    return () => { cancelled = true; };
++  }, [videoAssessmentId]);
+ 
++  // ── Acquire camera + mic stream ──────────────────────────
+   useEffect(() => {
+-    if (isComplete) return;
+-    
+-    const interval = setInterval(() => {
+-      setTotalTimeLeft((prev) => Math.max(0, prev - 1));
+-      
+-      setQuestionTimeLeft((prev) => {
+-        if (prev <= 1) {
+-          setCurrentQuestionIndex((idx) => {
+-            if (idx < mockQuestions.length - 1) return idx + 1;
+-            setIsComplete(true);
+-            return idx;
+-          });
+-          return 0; 
++    let acquired: MediaStream | null = null;
++    navigator.mediaDevices
++      .getUserMedia({ video: true, audio: true })
++      .then((s) => {
++        acquired = s;
++        setStream(s);
++      })
++      .catch((err) => {
++        let msg = 'Could not access camera or microphone.';
++        if (err.name === 'NotAllowedError') {
++          msg = 'Camera and microphone permissions were denied.';
++        } else if (err.name === 'NotFoundError') {
++          msg = 'No camera or microphone found on this device.';
+         }
+-        return prev - 1;
++        setStreamError(msg);
+       });
+-    }, 1000);
+ 
+-    return () => clearInterval(interval);
+-  }, [isComplete]);
++    return () => {
++      acquired?.getTracks().forEach((t) => t.stop());
++    };
++  }, []);
++
++  const refreshDeviceOptions = useCallback(async () => {
++    try {
++      const devices = await navigator.mediaDevices.enumerateDevices();
++
++      const nextVideo = devices
++        .filter((d) => d.kind === 'videoinput')
++        .map((d, idx) => ({
++          deviceId: d.deviceId,
++          label: d.label || `Camera ${idx + 1}`,
++        }));
++
++      const nextAudio = devices
++        .filter((d) => d.kind === 'audioinput')
++        .map((d, idx) => ({
++          deviceId: d.deviceId,
++          label: d.label || `Microphone ${idx + 1}`,
++        }));
++
++      setVideoDevices(nextVideo);
++      setAudioDevices(nextAudio);
++
++      if (!selectedVideoDeviceId && nextVideo.length > 0) {
++        setSelectedVideoDeviceId(nextVideo[0].deviceId);
++      }
++      if (!selectedAudioDeviceId && nextAudio.length > 0) {
++        setSelectedAudioDeviceId(nextAudio[0].deviceId);
++      }
++    } catch {
++      setSettingsError('Unable to read media devices. Check browser permissions and try again.');
++    }
++  }, [selectedAudioDeviceId, selectedVideoDeviceId]);
++
++  useEffect(() => {
++    if (!stream) return;
++
++    const currentVideo = stream.getVideoTracks()[0]?.getSettings()?.deviceId;
++    const currentAudio = stream.getAudioTracks()[0]?.getSettings()?.deviceId;
++
++    if (currentVideo) setSelectedVideoDeviceId(currentVideo);
++    if (currentAudio) setSelectedAudioDeviceId(currentAudio);
++  }, [stream]);
++
++  const openSettings = useCallback(async () => {
++    setSettingsError(null);
++    setIsSettingsOpen(true);
++    await refreshDeviceOptions();
++  }, [refreshDeviceOptions]);
++
++  const applySelectedDevices = useCallback(async () => {
++    setSettingsError(null);
++    setIsApplyingDevices(true);
++
++    try {
++      const nextStream = await navigator.mediaDevices.getUserMedia({
++        video: selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : true,
++        audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true,
++      });
+ 
+-  const advanceQuestion = () => {
+-    if (currentQuestionIndex < mockQuestions.length - 1) {
+-      setCurrentQuestionIndex((prev) => prev + 1);
++      nextStream.getAudioTracks().forEach((track) => {
++        track.enabled = !isMuted;
++      });
++      nextStream.getVideoTracks().forEach((track) => {
++        track.enabled = isCameraOn;
++      });
++
++      setStream((prev) => {
++        prev?.getTracks().forEach((t) => t.stop());
++        return nextStream;
++      });
++
++      setIsSettingsOpen(false);
++    } catch {
++      setSettingsError('Could not apply selected devices. Verify permissions and selected hardware.');
++    } finally {
++      setIsApplyingDevices(false);
++    }
++  }, [selectedVideoDeviceId, selectedAudioDeviceId, isMuted, isCameraOn]);
++
++  // ── Recording helpers ────────────────────────────────────
++  const startRecording = useCallback(() => {
++    if (!stream) return;
++    chunksRef.current = [];
++    const mimeType = getSupportedMimeType();
++    if (!mimeType) return;
++
++    try {
++      const recorder = new MediaRecorder(stream, { mimeType });
++      recorder.ondataavailable = (e) => {
++        if (e.data.size > 0) chunksRef.current.push(e.data);
++      };
++      recorder.start(1000);
++      mediaRecorderRef.current = recorder;
++    } catch (err) {
++      console.error('MediaRecorder start failed:', err);
++    }
++  }, [stream]);
++
++  const stopRecording = useCallback((): Promise<Blob | null> => {
++    return new Promise((resolve) => {
++      const recorder = mediaRecorderRef.current;
++      if (!recorder || recorder.state === 'inactive') {
++        resolve(null);
++        return;
++      }
++      recorder.onstop = () => {
++        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
++        chunksRef.current = [];
++        mediaRecorderRef.current = null;
++        resolve(blob.size > 0 ? blob : null);
++      };
++      recorder.stop();
++    });
++  }, []);
++
++  // ── Start recording when both stream + questions are ready
++  useEffect(() => {
++    if (stream && questions.length > 0 && !interviewStartedRef.current && !isComplete) {
++      interviewStartedRef.current = true;
++      startRecording();
++    }
++  }, [stream, questions, isComplete, startRecording]);
++
++  // ── Advance to next question ─────────────────────────────
++  const advanceQuestion = useCallback(async () => {
++    if (advancingRef.current || isComplete) return;
++    advancingRef.current = true;
++
++    const blob = await stopRecording();
++    if (blob) recordedBlobsRef.current.set(currentQIdxRef.current, blob);
++
++    const nextIdx = currentQIdxRef.current + 1;
++    if (nextIdx < questions.length) {
++      currentQIdxRef.current = nextIdx;
++      setCurrentQuestionIndex(nextIdx);
++      startRecording();
+     } else {
+       setIsComplete(true);
+     }
+-  };
+ 
++    advancingRef.current = false;
++  }, [questions.length, stopRecording, startRecording, isComplete]);
++
++  // ── End interview manually ───────────────────────────────
++  const endInterview = useCallback(async () => {
++    if (submittingRef.current || advancingRef.current) return;
++    submittingRef.current = true;
++    const blob = await stopRecording();
++    if (blob) recordedBlobsRef.current.set(currentQIdxRef.current, blob);
++    setIsComplete(true);
++  }, [stopRecording]);
++
++  // ── Timer ────────────────────────────────────────────────
++  useEffect(() => {
++    if (isComplete || loading || questions.length === 0) return;
++
++    const interval = setInterval(() => {
++      setTotalTimeLeft((prev) => Math.max(0, prev - 1));
++      setQuestionTimeLeft((prev) => Math.max(0, prev - 1));
++    }, 1000);
++
++    return () => clearInterval(interval);
++  }, [isComplete, loading, questions.length]);
++
++  // Auto-advance when question timer expires
++  useEffect(() => {
++    if (questionTimeLeft === 0 && questions.length > 0 && !isComplete && interviewStartedRef.current) {
++      advanceQuestion();
++    }
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [questionTimeLeft]);
++
++  // Force-finish when total timer expires
++  useEffect(() => {
++    if (totalTimeLeft === 0 && questions.length > 0 && !isComplete && interviewStartedRef.current) {
++      endInterview();
++    }
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [totalTimeLeft]);
++
++  // Reset question timer on question change
++  useEffect(() => {
++    if (questions.length > 0 && currentQuestionIndex < questions.length) {
++      setQuestionTimeLeft(questions[currentQuestionIndex].time_limit);
++    }
++  }, [currentQuestionIndex, questions]);
++
++  // ── Proctoring: tab visibility listeners ─────────────────
++  useEffect(() => {
++    if (!videoAssessmentId || isComplete || questions.length === 0) return;
++
++    const handleVisibilityChange = () => {
++      const eventType = document.hidden ? 'tab_blur' : 'tab_focus';
++      videoInterviewApi.logProctoringEvent(
++        videoAssessmentId,
++        eventType,
++        currentQIdxRef.current
++      );
++    };
++
++    document.addEventListener('visibilitychange', handleVisibilityChange);
++    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
++  }, [videoAssessmentId, isComplete, questions.length]);
++
++  // ── Media controls (real stream track toggling) ──────────
++  const toggleMute = useCallback(() => {
++    if (stream) {
++      stream.getAudioTracks().forEach((t) => {
++        t.enabled = !t.enabled;
++      });
++    }
++    setIsMuted((prev) => !prev);
++  }, [stream]);
++
++  const toggleCamera = useCallback(() => {
++    if (stream) {
++      stream.getVideoTracks().forEach((t) => {
++        t.enabled = !t.enabled;
++      });
++    }
++    setIsCameraOn((prev) => !prev);
++  }, [stream]);
++
++  // ── Cleanup stream on interview complete ─────────────────
++  useEffect(() => {
++    if (isComplete && stream) {
++      stream.getTracks().forEach((t) => t.stop());
++    }
++  }, [isComplete, stream]);
++
++  // ── Render: Submission ───────────────────────────────────
+   if (isComplete) {
+-     return <SubmissionPage />;
++    return (
++      <SubmissionPage
++        blobs={recordedBlobsRef.current}
++        videoAssessmentId={videoAssessmentId}
++        questions={questions}
++      />
++    );
++  }
++
++  // ── Render: Already completed ─────────────────────────────
++  if (alreadyCompleted) {
++    return (
++      <div className="flex h-screen items-center justify-center bg-gray-50 p-6">
++        <div className="bg-white p-10 rounded-2xl shadow-sm text-center max-w-md border border-gray-100">
++          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
++          <h1 className="text-xl font-bold text-gray-900 mb-2">
++            This interview has already been submitted.
++          </h1>
++          <p className="text-gray-500 text-sm mb-6">
++            Your responses were received. Our team will review them and be in touch shortly.
++          </p>
++          <button
++            onClick={() => navigate('/')}
++            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
++          >
++            Return to Dashboard
++          </button>
++        </div>
++      </div>
++    );
++  }
++
++  // ── Render: Loading ──────────────────────────────────────
++  if (loading) {
++    return (
++      <div className="flex h-screen items-center justify-center bg-gray-50">
++        <div className="flex flex-col items-center gap-3">
++          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
++          <p className="text-gray-500 font-medium">Loading interview questions...</p>
++        </div>
++      </div>
++    );
++  }
++
++  // ── Render: Fetch error ──────────────────────────────────
++  if (fetchError) {
++    return (
++      <div className="flex h-screen items-center justify-center bg-gray-50 p-6">
++        <div className="bg-white p-10 rounded-2xl shadow-sm text-center max-w-md border border-gray-100">
++          <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
++          <h1 className="text-xl font-bold text-gray-900 mb-2">Unable to Load Interview</h1>
++          <p className="text-gray-500 text-sm mb-6">{fetchError}</p>
++          <button
++            onClick={() => window.location.reload()}
++            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
++          >
++            Retry
++          </button>
++        </div>
++      </div>
++    );
+   }
+ 
++  // ── Render: Interview ────────────────────────────────────
++  const currentQuestion = questions[currentQuestionIndex];
++  const elapsed = totalDuration - totalTimeLeft;
++
+   return (
+     <div className="min-h-screen bg-gray-50 font-sans">
+       <header className="bg-white border-b border-gray-100 flex items-center justify-between px-6 py-4 sticky top-0 z-10 w-full mb-8 shadow-sm">
+         <div className="flex items-center gap-3">
+           <div className="bg-blue-50 text-blue-600 p-2.5 rounded-lg flex items-center justify-center">
+-             <User className="w-5 h-5" />
++            <User className="w-5 h-5" />
+           </div>
+           <h1 className="text-base font-bold text-gray-900">Candidate Interview</h1>
+         </div>
+-        
++
+         <div className="hidden md:flex absolute left-1/2 -translate-x-1/2">
+           <InterviewTimer timeLeftInSeconds={totalTimeLeft} />
+         </div>
+ 
+-        <button 
+-          onClick={() => setIsComplete(true)}
++        <button
++          onClick={endInterview}
+           className="px-5 py-2 border border-blue-200 text-blue-600 text-sm font-bold rounded-lg hover:bg-blue-50 transition-colors"
+         >
+           End Interview
+@@ -87,31 +470,115 @@ const VideoInterviewPage: React.FC = () => {
+ 
+       <main className="px-6 max-w-5xl mx-auto space-y-8">
+         <ProctoringBadge isMicActive={!isMuted} />
+-        
+-        <VideoFeed 
+-          isCameraOn={isCameraOn} 
+-          recordingTime={formatRecordingTime(TOTAL_INTERVIEW_TIME_SECONDS - totalTimeLeft)} 
++
++        <VideoFeed
++          stream={stream}
++          isCameraOn={isCameraOn}
++          recordingTime={formatRecordingTime(elapsed)}
++          error={streamError}
+         />
+ 
+         {currentQuestion && (
+           <QuestionCard
+             questionNumber={currentQuestionIndex + 1}
+-            totalQuestions={mockQuestions.length}
++            totalQuestions={questions.length}
+             questionText={currentQuestion.text}
+             timeLeftSeconds={questionTimeLeft}
+             onSkip={advanceQuestion}
+             onNext={advanceQuestion}
+-            isLastQuestion={currentQuestionIndex === mockQuestions.length - 1}
++            isLastQuestion={currentQuestionIndex === questions.length - 1}
+           />
+         )}
+ 
+         <InterviewControls
+-           isMuted={isMuted}
+-           isCameraOn={isCameraOn}
+-           toggleMute={() => setIsMuted(!isMuted)}
+-           toggleCamera={() => setIsCameraOn(!isCameraOn)}
++          isMuted={isMuted}
++          isCameraOn={isCameraOn}
++          toggleMute={toggleMute}
++          toggleCamera={toggleCamera}
++          openSettings={openSettings}
+         />
+       </main>
++
++      {isSettingsOpen && (
++        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/45 px-4">
++          <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white shadow-xl">
++            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
++              <h2 className="text-lg font-bold text-gray-900">Interview Settings</h2>
++              <button
++                type="button"
++                onClick={() => setIsSettingsOpen(false)}
++                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
++              >
++                <X className="h-5 w-5" />
++              </button>
++            </div>
++
++            <div className="space-y-5 px-6 py-5">
++              <div>
++                <label className="mb-2 block text-sm font-semibold text-gray-700">Camera</label>
++                <select
++                  value={selectedVideoDeviceId}
++                  onChange={(e) => setSelectedVideoDeviceId(e.target.value)}
++                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
++                >
++                  {videoDevices.length === 0 ? (
++                    <option value="">No camera devices found</option>
++                  ) : (
++                    videoDevices.map((device) => (
++                      <option key={device.deviceId} value={device.deviceId}>
++                        {device.label}
++                      </option>
++                    ))
++                  )}
++                </select>
++              </div>
++
++              <div>
++                <label className="mb-2 block text-sm font-semibold text-gray-700">Microphone</label>
++                <select
++                  value={selectedAudioDeviceId}
++                  onChange={(e) => setSelectedAudioDeviceId(e.target.value)}
++                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
++                >
++                  {audioDevices.length === 0 ? (
++                    <option value="">No microphone devices found</option>
++                  ) : (
++                    audioDevices.map((device) => (
++                      <option key={device.deviceId} value={device.deviceId}>
++                        {device.label}
++                      </option>
++                    ))
++                  )}
++                </select>
++              </div>
++
++              {settingsError && (
++                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
++                  {settingsError}
++                </p>
++              )}
++            </div>
++
++            <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
++              <button
++                type="button"
++                onClick={() => setIsSettingsOpen(false)}
++                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
++              >
++                Cancel
++              </button>
++              <button
++                type="button"
++                onClick={applySelectedDevices}
++                disabled={isApplyingDevices}
++                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
++              >
++                {isApplyingDevices ? 'Applying...' : 'Apply Settings'}
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
+     </div>
+   );
+ };
+diff --git a/frontend/src/mock/interviewData.ts b/frontend/src/mock/interviewData.ts
+deleted file mode 100644
+index 11d0151..0000000
+--- a/frontend/src/mock/interviewData.ts
++++ /dev/null
+@@ -1,60 +0,0 @@
+-export interface InterviewQuestion {
+-  id: string;
+-  text: string;
+-  durationSeconds: number;
+-}
+-
+-export const TOTAL_INTERVIEW_TIME_SECONDS = 45 * 60; // 45 minutes
+-
+-export const mockQuestions: InterviewQuestion[] = [
+-  { 
+-    id: '1', 
+-    text: "Can you tell us about your background and experience?", 
+-    durationSeconds: 120 
+-  },
+-  { 
+-    id: '2', 
+-    text: "What are your greatest strengths and weaknesses?", 
+-    durationSeconds: 120 
+-  },
+-  { 
+-    id: '3', 
+-    text: "Can you describe a time you handled a difficult situation with a coworker? How did you approach the resolution?", 
+-    durationSeconds: 105 
+-  },
+-  { 
+-    id: '4', 
+-    text: "Where do you see yourself in 5 years?", 
+-    durationSeconds: 60 
+-  },
+-  { 
+-    id: '5', 
+-    text: "Why do you want to work for our company?", 
+-    durationSeconds: 90 
+-  },
+-  { 
+-    id: '6', 
+-    text: "Describe a successful project you led.", 
+-    durationSeconds: 150 
+-  },
+-  { 
+-    id: '7', 
+-    text: "How do you handle tight deadlines?", 
+-    durationSeconds: 90 
+-  },
+-  { 
+-    id: '8', 
+-    text: "What is your approach to learning new technologies?", 
+-    durationSeconds: 90 
+-  },
+-  { 
+-    id: '9', 
+-    text: "Tell us about a time you failed and what you learned.", 
+-    durationSeconds: 120 
+-  },
+-  { 
+-    id: '10', 
+-    text: "Do you have any questions for us?", 
+-    durationSeconds: 60 
+-  },
+-];
+diff --git a/frontend/src/services/api.ts b/frontend/src/services/api.ts
+index f546594..ea5499b 100644
+--- a/frontend/src/services/api.ts
++++ b/frontend/src/services/api.ts
+@@ -432,6 +432,89 @@ export const settingsApi = {
+     request<void>(`/api/settings/members/${id}`, { method: "DELETE" }),
+ };
+ 
++// ── Video Interview ─────────────────────────────────────────
++
++export interface VideoQuestion {
++  id: number;
++  text: string;
++  type: string;
++  category: string | null;
++  difficulty: string | null;
++  time_limit: number;
++}
++
++export interface VideoQuestionsResponse {
++  candidate: {
++    video_assessment_id: string;
++    name: string;
++    email: string;
++  };
++  questions: VideoQuestion[];
++  total_duration: number;
++  total_questions: number;
++}
++
++export const videoInterviewApi = {
++  getQuestions: (assessmentId: string) =>
++    request<VideoQuestionsResponse>(
++      `/assessment/video-questions/${encodeURIComponent(assessmentId)}`
++    ),
++
++  logProctoringEvent: async (
++    videoAssessmentId: string,
++    eventType: string,
++    questionIndex?: number,
++    metadata?: Record<string, unknown>
++  ): Promise<void> => {
++    const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
++    await fetch(`${base}/assessment/proctor-event`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({
++        video_assessment_id: videoAssessmentId,
++        event_type: eventType,
++        question_index: questionIndex,
++        metadata: metadata ?? {},
++      }),
++    }).catch(() => {
++      // Best-effort — never block the interview on a logging failure
++    });
++  },
++
++  submitVideos: async (
++    videoAssessmentId: string,
++    blobs: Map<number, Blob>,
++    metadata: Array<{
++      question_id: number;
++      question_index: number;
++      duration: number;
++    }>
++  ): Promise<{ success: boolean; data: { video_assessment_id: string; files_uploaded: number } }> => {
++    const formData = new FormData();
++    formData.append("video_assessment_id", videoAssessmentId);
++    formData.append("metadata", JSON.stringify(metadata));
++
++    blobs.forEach((blob, index) => {
++      formData.append("videos", blob, `question_${index}.webm`);
++    });
++
++    const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
++    const res = await fetch(`${base}/assessment/video-submit`, {
++      method: "POST",
++      body: formData,
++    });
++
++    if (!res.ok) {
++      const body = await res.json().catch(() => ({}));
++      throw new Error(
++        body.message || body.error || `Upload failed (${res.status})`
++      );
++    }
++
++    return res.json();
++  },
++};
++
+ // ── Dashboard ───────────────────────────────────────────────
+ 
+ export interface DashboardSummary {
+diff --git a/backend/src/controllers/videoInterviewController.js b/backend/src/controllers/videoInterviewController.js
+new file mode 100644
+index 0000000..25cc73d
+--- /dev/null
++++ b/backend/src/controllers/videoInterviewController.js
+@@ -0,0 +1,280 @@
++const db = require("../config/db");
++const multer = require("multer");
++const path = require("path");
++const fs = require("fs");
++const { v4: uuidv4 } = require("uuid");
++
++// Ensure upload directory exists
++const UPLOAD_DIR = path.join(__dirname, "../../uploads/videos");
++fs.mkdirSync(UPLOAD_DIR, { recursive: true });
++
++// Multer disk storage
++const storage = multer.diskStorage({
++  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
++  filename: (_req, file, cb) => {
++    const ext = path.extname(file.originalname) || ".webm";
++    cb(null, `${uuidv4()}${ext}`);
++  },
++});
++
++const upload = multer({
++  storage,
++  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB per file
++  fileFilter: (_req, file, cb) => {
++    const allowed = [
++      "video/webm",
++      "video/mp4",
++      "video/ogg",
++      "video/x-matroska",
++      "application/octet-stream",
++    ];
++    cb(null, allowed.includes(file.mimetype));
++  },
++});
++
++exports.uploadMiddleware = upload.array("videos", 20);
++
++// ── GET /assessment/video-questions/:assessmentId ───────────
++exports.getVideoQuestions = async (req, res) => {
++  try {
++    const { assessmentId } = req.params;
++
++    const candidate = await db.query(
++      `SELECT video_assessment_id, name, email, status, interview_started, interview_completed
++       FROM video_interview_candidates
++       WHERE video_assessment_id = $1`,
++      [assessmentId]
++    );
++
++    if (candidate.rows.length === 0) {
++      return res
++        .status(404)
++        .json({ success: false, message: "Candidate not found" });
++    }
++
++    if (candidate.rows[0].interview_completed) {
++      return res
++        .status(400)
++        .json({ success: false, message: "Interview already completed" });
++    }
++
++    const questions = await db.query(
++      `SELECT question_id, question_text, question_type, category, difficulty, time_limit,
++              evaluation_criteria, key_points
++       FROM video_interview_questions
++       WHERE video_assessment_id = $1
++       ORDER BY question_id`,
++      [assessmentId]
++    );
++
++    const jobReqs = await db.query(
++      `SELECT job_title, total_duration, time_per_question, question_count
++       FROM video_job_requirements
++       WHERE video_assessment_id = $1
++       LIMIT 1`,
++      [assessmentId]
++    );
++
++    // Mark interview as started (idempotent) and record start time
++    await db.query(
++      `UPDATE video_interview_candidates
++       SET interview_started = true, status = 'in_progress', interview_started_at = NOW()
++       WHERE video_assessment_id = $1 AND interview_started = false`,
++      [assessmentId]
++    );
++
++    const reqs = jobReqs.rows[0];
++    const totalDuration =
++      reqs?.total_duration ||
++      questions.rows.reduce((sum, q) => sum + (q.time_limit || 120), 0);
++
++    res.status(200).json({
++      success: true,
++      data: {
++        candidate: {
++          video_assessment_id: candidate.rows[0].video_assessment_id,
++          name: candidate.rows[0].name,
++          email: candidate.rows[0].email,
++        },
++        questions: questions.rows.map((q) => ({
++          id: q.question_id,
++          text: q.question_text,
++          type: q.question_type,
++          category: q.category,
++          difficulty: q.difficulty,
++          time_limit: q.time_limit || 120,
++        })),
++        total_duration: totalDuration,
++        total_questions: questions.rows.length,
++      },
++    });
++  } catch (error) {
++    console.error("Error fetching video questions:", error.message);
++    res
++      .status(500)
++      .json({ success: false, message: "Failed to fetch video questions" });
++  }
++};
++
++// ── POST /assessment/proctor-event ──────────────────────────
++exports.logProctoringEvent = async (req, res) => {
++  try {
++    const { video_assessment_id, event_type, question_index, metadata } = req.body;
++
++    if (!video_assessment_id || !event_type) {
++      return res
++        .status(400)
++        .json({ success: false, message: "video_assessment_id and event_type are required" });
++    }
++
++    const allowed = [
++      "tab_blur", "tab_focus", "camera_off", "camera_on",
++      "mic_off", "mic_on", "fullscreen_exit", "fullscreen_enter",
++      "multiple_faces", "no_face", "devtools_open",
++    ];
++    if (!allowed.includes(event_type)) {
++      return res
++        .status(400)
++        .json({ success: false, message: `Unknown event_type: ${event_type}` });
++    }
++
++    await db.query(
++      `INSERT INTO proctoring_events
++         (video_assessment_id, event_type, question_index, metadata)
++       VALUES ($1, $2, $3, $4)`,
++      [
++        video_assessment_id,
++        event_type,
++        question_index ?? null,
++        metadata ? JSON.stringify(metadata) : "{}",
++      ]
++    );
++
++    res.status(201).json({ success: true });
++  } catch (error) {
++    console.error("Error logging proctoring event:", error.message);
++    res
++      .status(500)
++      .json({ success: false, message: "Failed to log proctoring event" });
++  }
++};
++
++// ── POST /assessment/video-submit ───────────────────────────
++exports.submitVideoResponse = async (req, res) => {
++  try {
++    const { video_assessment_id, metadata } = req.body;
++    const files = req.files || [];
++
++    if (!video_assessment_id) {
++      return res
++        .status(400)
++        .json({ success: false, message: "video_assessment_id is required" });
++    }
++
++    // Verify candidate exists
++    const candidate = await db.query(
++      `SELECT video_assessment_id, name, email, interview_completed, interview_started_at
++       FROM video_interview_candidates
++       WHERE video_assessment_id = $1`,
++      [video_assessment_id]
++    );
++
++    if (candidate.rows.length === 0) {
++      return res
++        .status(404)
++        .json({ success: false, message: "Candidate not found" });
++    }
++
++    // Duplicate prevention
++    if (candidate.rows[0].interview_completed) {
++      return res
++        .status(409)
++        .json({ success: false, message: "Interview already submitted" });
++    }
++
++    // Timing validation
++    const { interview_started_at } = candidate.rows[0];
++    if (!interview_started_at) {
++      return res
++        .status(400)
++        .json({ success: false, message: "Interview was not started" });
++    }
++
++    // Compute allowed duration: job_requirements total_duration, else sum of question time_limits
++    const durationResult = await db.query(
++      `SELECT COALESCE(
++         (SELECT total_duration FROM video_job_requirements WHERE video_assessment_id = $1 LIMIT 1),
++         (SELECT SUM(COALESCE(time_limit, 120)) FROM video_interview_questions WHERE video_assessment_id = $1)
++       ) AS allowed_seconds`,
++      [video_assessment_id]
++    );
++    const allowedSeconds = parseInt(durationResult.rows[0]?.allowed_seconds, 10) || 0;
++    const gracePeriod = 60; // 1 minute grace
++    const deadline = new Date(interview_started_at.getTime() + (allowedSeconds + gracePeriod) * 1000);
++
++    if (new Date() > deadline) {
++      return res
++        .status(400)
++        .json({ success: false, message: "Submission window has expired" });
++    }
++
++    let questionMeta = [];
++    try {
++      questionMeta = metadata ? JSON.parse(metadata) : [];
++    } catch (_) {
++      /* ignore parse error */
++    }
++
++    const videoFiles = files.map((file, idx) => ({
++      question_id: questionMeta[idx]?.question_id ?? idx + 1,
++      question_index: questionMeta[idx]?.question_index ?? idx,
++      file_path: `/uploads/videos/${file.filename}`,
++      size: file.size,
++      mimetype: file.mimetype,
++    }));
++
++    const totalDuration = questionMeta.reduce(
++      (sum, m) => sum + (m.duration || 0),
++      0
++    );
++
++    // Insert response row
++    await db.query(
++      `INSERT INTO video_interview_responses
++         (video_assessment_id, candidate_name, candidate_email, video_url, video_duration)
++       VALUES ($1, $2, $3, $4, $5)`,
++      [
++        video_assessment_id,
++        candidate.rows[0].name,
++        candidate.rows[0].email,
++        JSON.stringify({ question_videos: videoFiles }),
++        totalDuration || null,
++      ]
++    );
++
++    // Mark candidate interview as completed
++    await db.query(
++      `UPDATE video_interview_candidates
++       SET interview_completed = true,
++           videos_uploaded = true,
++           status = 'completed',
++           updated_at = NOW()
++       WHERE video_assessment_id = $1`,
++      [video_assessment_id]
++    );
++
++    res.status(200).json({
++      success: true,
++      data: {
++        video_assessment_id,
++        files_uploaded: videoFiles.length,
++        total_duration: totalDuration,
++      },
++    });
++  } catch (error) {
++    console.error("Error submitting video response:", error.message);
++    res
++      .status(500)
++      .json({ success: false, message: "Failed to submit video response" });
++  }
++};
+diff --git a/backend/src/routes/videoInterviewRoutes.js b/backend/src/routes/videoInterviewRoutes.js
+new file mode 100644
+index 0000000..77c33e5
+--- /dev/null
++++ b/backend/src/routes/videoInterviewRoutes.js
+@@ -0,0 +1,18 @@
++const express = require("express");
++const router = express.Router();
++const controller = require("../controllers/videoInterviewController");
++
++router.get(
++  "/video-questions/:assessmentId",
++  controller.getVideoQuestions
++);
++
++router.post("/proctor-event", controller.logProctoringEvent);
++
++router.post(
++  "/video-submit",
++  controller.uploadMiddleware,
++  controller.submitVideoResponse
++);
++
++module.exports = router;

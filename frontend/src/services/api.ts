@@ -9,6 +9,35 @@ type CacheEntry = {
 const inflightGetRequests = new Map<string, Promise<unknown>>();
 const resolvedGetCache = new Map<string, CacheEntry>();
 
+async function parseResponseBody(res: Response): Promise<unknown> {
+  // 204/205 intentionally return no response body.
+  if (res.status === 204 || res.status === 205) {
+    return undefined;
+  }
+
+  const text = await res.text();
+  if (!text) {
+    return undefined;
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  const looksLikeJson = contentType.includes("application/json");
+
+  if (looksLikeJson) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return undefined;
+    }
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const method = options?.method?.toUpperCase() || "GET";
   const cacheKey = `${method}:${path}`;
@@ -26,16 +55,31 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   const fetchPromise = (async () => {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `API error ${res.status}`);
-  }
-  const json = await res.json();
-    const value = json.data ?? json;
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+
+    const body = await parseResponseBody(res);
+
+    if (!res.ok) {
+      const apiError =
+        typeof body === "object" && body !== null
+          ? (typeof (body as { message?: unknown }).message === "string"
+              ? (body as { message: string }).message
+              : typeof (body as { error?: unknown }).error === "string"
+                ? (body as { error: string }).error
+                : undefined)
+          : undefined;
+      throw new Error(apiError || `API error ${res.status}`);
+    }
+
+    const value =
+      typeof body === "object" &&
+      body !== null &&
+      "data" in body
+        ? (body as { data: unknown }).data
+        : body;
 
     if (method === "GET") {
       resolvedGetCache.set(cacheKey, {
@@ -69,6 +113,19 @@ export interface AssessmentQuestion {
   sort_order: number;
 }
 
+export type PreScreeningAnswerType = "yes_no" | "mcq" | "text";
+
+export interface PreScreeningQuestionPayload {
+  question_text: string;
+  answer_type: PreScreeningAnswerType;
+  options: string[];
+  is_mandatory: boolean;
+  expected_answer: string | null;
+  optional_weight?: number | null;
+  optional_score_map?: Record<string, number> | null;
+  sort_order: number;
+}
+
 export interface AssessmentTimeLimits {
   mcq_time_limit: number;
   video_time_limit: number;
@@ -87,11 +144,25 @@ export interface CreateAssessmentPayload {
   role_title: string;
   experience_level: string;
   skills: string[];
+  optional_skills?: string[];
+  skill_weights?: Record<string, number>;
+  optional_skill_weight?: number;
+  skill_config?: Array<{
+    name: string;
+    is_mandatory: boolean;
+    weight: number;
+  }>;
   template_key?: string;
-  questions: AssessmentQuestion[];
+  questions?: AssessmentQuestion[];
+  pre_screening_questions: PreScreeningQuestionPayload[];
   options: AssessmentOptions;
   time_limits: AssessmentTimeLimits;
   job_description?: string;
+  headcount?: number;
+  closes_at?: string;
+  department?: string;
+  hiring_manager?: string;
+  interviewer?: string;
 }
 
 export interface AssessmentRecord {
@@ -101,6 +172,16 @@ export interface AssessmentRecord {
   role_title: string;
   experience_level: string;
   skills: string[];
+  mandatory_skills?: string[];
+  optional_skills?: string[];
+  skill_weights?: Record<string, number>;
+  optional_skill_weight?: number;
+  skill_config?: Array<{
+    name: string;
+    is_mandatory: boolean;
+    weight: number;
+    sort_order?: number;
+  }>;
   job_description: string | null;
   ai_generated_jd: boolean;
   mcq_time_limit: number;
@@ -143,6 +224,23 @@ export const assessmentApi = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+
+  getPreScreeningQuestions: (id: number) =>
+    request<PreScreeningQuestionPayload[]>(
+      `/api/hr/assessments/${id}/pre-screening-questions`
+    ),
+
+  updatePreScreeningQuestions: (
+    id: number,
+    pre_screening_questions: PreScreeningQuestionPayload[]
+  ) =>
+    request<PreScreeningQuestionPayload[]>(
+      `/api/hr/assessments/${id}/pre-screening-questions`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ pre_screening_questions }),
+      }
+    ),
 
   remove: (id: number) =>
     request<void>(`/api/hr/assessments/${id}`, { method: "DELETE" }),
@@ -302,6 +400,7 @@ export interface ApiJobTemplate {
   survey_question_1: string | null;
   survey_q1_expected_answer: string | null;
   time_limit_minutes: number | null;
+  pre_screening_questions: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -406,6 +505,7 @@ export interface HrMember {
   name: string;
   email: string | null;
   role: string;
+  department_id: number | null;
 }
 
 export const settingsApi = {
@@ -422,7 +522,7 @@ export const settingsApi = {
 
   getMembers: () => request<HrMember[]>("/api/settings/members"),
 
-  createMember: (data: { name: string; email?: string; role?: string }) =>
+  createMember: (data: { name: string; email?: string; role?: string; department_id?: number | null }) =>
     request<HrMember>("/api/settings/members", {
       method: "POST",
       body: JSON.stringify(data),
@@ -430,6 +530,89 @@ export const settingsApi = {
 
   deleteMember: (id: number) =>
     request<void>(`/api/settings/members/${id}`, { method: "DELETE" }),
+};
+
+// ── Video Interview ─────────────────────────────────────────
+
+export interface VideoQuestion {
+  id: number;
+  text: string;
+  type: string;
+  category: string | null;
+  difficulty: string | null;
+  time_limit: number;
+}
+
+export interface VideoQuestionsResponse {
+  candidate: {
+    video_assessment_id: string;
+    name: string;
+    email: string;
+  };
+  questions: VideoQuestion[];
+  total_duration: number;
+  total_questions: number;
+}
+
+export const videoInterviewApi = {
+  getQuestions: (assessmentId: string) =>
+    request<VideoQuestionsResponse>(
+      `/assessment/video-questions/${encodeURIComponent(assessmentId)}`
+    ),
+
+  logProctoringEvent: async (
+    videoAssessmentId: string,
+    eventType: string,
+    questionIndex?: number,
+    metadata?: Record<string, unknown>
+  ): Promise<void> => {
+    const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    await fetch(`${base}/assessment/proctor-event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        video_assessment_id: videoAssessmentId,
+        event_type: eventType,
+        question_index: questionIndex,
+        metadata: metadata ?? {},
+      }),
+    }).catch(() => {
+      // Best-effort — never block the interview on a logging failure
+    });
+  },
+
+  submitVideos: async (
+    videoAssessmentId: string,
+    blobs: Map<number, Blob>,
+    metadata: Array<{
+      question_id: number;
+      question_index: number;
+      duration: number;
+    }>
+  ): Promise<{ success: boolean; data: { video_assessment_id: string; files_uploaded: number } }> => {
+    const formData = new FormData();
+    formData.append("video_assessment_id", videoAssessmentId);
+    formData.append("metadata", JSON.stringify(metadata));
+
+    blobs.forEach((blob, index) => {
+      formData.append("videos", blob, `question_${index}.webm`);
+    });
+
+    const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    const res = await fetch(`${base}/assessment/video-submit`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(
+        body.message || body.error || `Upload failed (${res.status})`
+      );
+    }
+
+    return res.json();
+  },
 };
 
 // ── Dashboard ───────────────────────────────────────────────

@@ -53,7 +53,8 @@ exports.getAssessmentTemplateByCode = async (templateCode) => {
        survey_question_1,
        survey_q1_expected_answer,
        number_of_candidates,
-       time_limit_minutes
+       time_limit_minutes,
+       pre_screening_questions
      FROM job_templates
      WHERE template_key = $1`,
     [templateCode]
@@ -67,7 +68,7 @@ exports.createTemplate = async (data) => {
     template_key, job_title, job_description,
     required_skills, number_of_candidates,
     survey_question_1, survey_q1_expected_answer,
-    time_limit_minutes
+    time_limit_minutes, pre_screening_questions
   } = data;
 
   // Check duplicate key
@@ -85,15 +86,16 @@ exports.createTemplate = async (data) => {
     `INSERT INTO job_templates
       (template_key, job_title, job_description, required_skills,
        number_of_candidates, survey_question_1, survey_q1_expected_answer,
-       time_limit_minutes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       time_limit_minutes, pre_screening_questions)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
     [
       template_key, job_title,
       job_description || null, required_skills || null,
       number_of_candidates || null,
       survey_question_1 || null, survey_q1_expected_answer || null,
-      time_limit_minutes || 30
+      time_limit_minutes || 30,
+      pre_screening_questions || null
     ]
   );
   return result.rows[0];
@@ -103,7 +105,7 @@ exports.updateTemplate = async (templateKey, data) => {
   const {
     job_title, job_description, required_skills,
     number_of_candidates, survey_question_1, survey_q1_expected_answer,
-    time_limit_minutes
+    time_limit_minutes, pre_screening_questions
   } = data;
 
   const result = await db.query(
@@ -111,13 +113,15 @@ exports.updateTemplate = async (templateKey, data) => {
      SET job_title = $1, job_description = $2, required_skills = $3,
          number_of_candidates = $4, survey_question_1 = $5,
          survey_q1_expected_answer = $6, time_limit_minutes = $7,
+         pre_screening_questions = COALESCE($8, pre_screening_questions),
          updated_at = CURRENT_TIMESTAMP
-     WHERE template_key = $8
+     WHERE template_key = $9
      RETURNING *`,
     [
       job_title, job_description || null, required_skills || null,
       number_of_candidates || null, survey_question_1 || null,
       survey_q1_expected_answer || null, time_limit_minutes || 30,
+      pre_screening_questions || null,
       templateKey
     ]
   );

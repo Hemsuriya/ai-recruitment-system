@@ -1,4 +1,4 @@
-import { Search, ArrowUpDown, Briefcase } from "lucide-react";
+﻿import { Search, ArrowUpDown, Briefcase } from "lucide-react";
 import type { JobPostingDropdownItem } from "@/services/api";
 
 const ALL_VERDICTS = ["All Verdicts", "Strong Hire", "Hire", "Maybe", "Reject"];
@@ -51,7 +51,7 @@ export default function CandidateFilters({
           <input
             className="input"
             style={{ paddingLeft: 30, height: 34 }}
-            placeholder="Search name, email…"
+            placeholder="Search name, email..."
             value={search}
             onChange={(e) => onSearch(e.target.value)}
           />
@@ -59,7 +59,6 @@ export default function CandidateFilters({
 
         {/* Job Title Filter */}
         <select className="select" value={roleFilter} onChange={(e) => onRole(e.target.value)}>
-          <option value="All Roles">All Job Titles</option>
           {roles.map((r) => (
             <option key={r} value={r}>{r}</option>
           ))}
@@ -69,10 +68,9 @@ export default function CandidateFilters({
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Briefcase size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
           <select className="select" value={jidFilter} onChange={(e) => onJid(e.target.value)}>
-            <option value="All Jobs">All Jobs</option>
             {jobPostings.map((jp) => (
               <option key={jp.jid} value={jp.jid}>
-                {jp.jid} — {jp.job_title} ({jp.status})
+                {jp.jid} - {jp.job_title} ({jp.status})
               </option>
             ))}
           </select>
@@ -103,3 +101,4 @@ export default function CandidateFilters({
     </div>
   );
 }
+

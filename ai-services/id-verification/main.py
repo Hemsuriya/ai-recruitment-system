@@ -212,7 +212,7 @@ async def upload_id(payload: UploadIDRequest):
 async def verify_selfie(payload: VerifySelfieRequest):
     """
     Verify a candidate selfie against their stored ID image using DeepFace.
-    Deletes the stored ID image after verification.
+    Keep the stored ID image for retries and delete it only after a successful match.
     """
     if not payload.assessmentId or not payload.assessmentId.strip():
         raise HTTPException(status_code=400, detail="assessmentId is required")
@@ -227,6 +227,7 @@ async def verify_selfie(payload: VerifySelfieRequest):
     id_path = _save_bytes_to_temp_file(id_raw, suffix=".jpg")
     selfie_path = _save_bytes_to_temp_file(selfie_raw, suffix=".jpg")
 
+    verified = False
     try:
         print(f"🔍 Running DeepFace verification for assessmentId: {assessment_id}")
         result = DeepFace.verify(
@@ -271,8 +272,9 @@ async def verify_selfie(payload: VerifySelfieRequest):
             except Exception:
                 pass
 
-        # Always delete stored ID image after attempt (success or failure)
-        _delete_id_image(assessment_id)
+        # Allow retakes: delete only after a successful verification
+        if verified:
+            _delete_id_image(assessment_id)
 
 
 @app.get("/health")

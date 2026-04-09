@@ -2,18 +2,36 @@ const db = require("../config/db");
 
 exports.getAllCandidates = async (filters = {}) => {
   const params = [];
-  const videoConditions = ["c.interview_completed = true"];
-  const mcqConditions = ["cv.status = 'completed'"];
+  const videoConditions = [];
+  const mcqConditions = ["1=1"];
 
   if (filters.jid) {
     params.push(filters.jid);
-    videoConditions.push(`c.jid = $${params.length}`);
+    videoConditions.push(`(
+      c.jid = $${params.length}
+      OR (
+        c.jid IS NULL AND EXISTS (
+          SELECT 1
+          FROM candidates_v2 cvx
+          WHERE cvx.email = c.email AND cvx.jid = $${params.length}
+        )
+      )
+    )`);
     mcqConditions.push(`cv.jid = $${params.length}`);
   }
 
   if (filters.job_title) {
     params.push(filters.job_title);
-    videoConditions.push(`c.job_title = $${params.length}`);
+    videoConditions.push(`(
+      c.job_title = $${params.length}
+      OR (
+        c.job_title IS NULL AND EXISTS (
+          SELECT 1
+          FROM candidates_v2 cvx
+          WHERE cvx.email = c.email AND cvx.job_title = $${params.length}
+        )
+      )
+    )`);
     mcqConditions.push(`cv.job_title = $${params.length}`);
   }
 
@@ -34,7 +52,14 @@ exports.getAllCandidates = async (filters = {}) => {
     FROM video_interview_candidates c
     LEFT JOIN video_interview_evaluations e  ON c.video_assessment_id = e.video_assessment_id
     LEFT JOIN video_analysis_results ar      ON c.video_assessment_id = ar.video_assessment_id
-    LEFT JOIN candidates_v2 cv2              ON c.email = cv2.email
+    LEFT JOIN LATERAL (
+      SELECT cvx.screening_id, cvx.match_score
+      FROM candidates_v2 cvx
+      WHERE cvx.email = c.email
+        AND (c.jid IS NULL OR cvx.jid = c.jid)
+      ORDER BY cvx.created_at DESC
+      LIMIT 1
+    ) cv2 ON TRUE
     LEFT JOIN assessment_results_v2 asr      ON cv2.screening_id = asr.screening_id
     ${videoWhere}
 
@@ -54,7 +79,9 @@ exports.getAllCandidates = async (filters = {}) => {
       'mcq' AS source
     FROM candidates_v2 cv
     INNER JOIN assessment_results_v2 asr ON cv.screening_id = asr.screening_id
-    LEFT JOIN video_interview_candidates vic ON cv.email = vic.email
+    LEFT JOIN video_interview_candidates vic
+      ON cv.email = vic.email
+     AND (vic.jid = cv.jid OR (vic.jid IS NULL AND cv.jid IS NULL))
     ${mcqWhere} AND vic.id IS NULL
 
     ORDER BY created_at DESC

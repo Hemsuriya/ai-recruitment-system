@@ -132,27 +132,58 @@ export function useCandidatesList(): CandidatesListState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilterRaw] = useState(() => sessionStorage.getItem("dashboard_role") || "All Roles");
-  const [jidFilter, setJidFilter] = useState(() => sessionStorage.getItem("dashboard_jid") || "All Jobs");
+  const [roleFilter, setRoleFilterRaw] = useState(() => sessionStorage.getItem("dashboard_role") || "");
+  const [jidFilter, setJidFilter] = useState(() => sessionStorage.getItem("dashboard_jid") || "");
   const [verdictFilter, setVerdictFilter] = useState("All Verdicts");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [sortBy, setSortBy] = useState<SortKey>("highest");
   const [fetchKey, setFetchKey] = useState(0);
 
-  // Fetch roles once
+  // Fetch roles once -> dashboard-like default selection (no "All Roles")
   useEffect(() => {
-    jobPostingApi.getRoles().then(setRoles).catch(() => {});
+    jobPostingApi
+      .getRoles()
+      .then((data) => {
+        setRoles(data);
+        const storedRole = sessionStorage.getItem("dashboard_role");
+        if (storedRole && data.includes(storedRole)) {
+          setRoleFilterRaw(storedRole);
+          return;
+        }
+        if (data.length > 0) {
+          setRoleFilterRaw(data[0]);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  // When role changes, reset JID and re-fetch JID dropdown
+  // When role changes, reset JID and re-fetch JID dropdown (dashboard-like, no "All Jobs")
   const setRoleFilter = (v: string) => {
     setRoleFilterRaw(v);
-    setJidFilter("All Jobs");
+    setJidFilter("");
+    sessionStorage.setItem("dashboard_role", v);
   };
 
   useEffect(() => {
-    const role = roleFilter !== "All Roles" ? roleFilter : undefined;
-    jobPostingApi.getDropdown(role).then(setJobPostings).catch(() => {});
+    if (!roleFilter) return;
+    jobPostingApi
+      .getDropdown(roleFilter)
+      .then((data) => {
+        setJobPostings(data);
+        const storedJid = sessionStorage.getItem("dashboard_jid");
+        if (storedJid && data.some((posting) => posting.jid === storedJid)) {
+          setJidFilter(storedJid);
+          return;
+        }
+        if (data.length > 0) {
+          setJidFilter(data[0].jid);
+          sessionStorage.setItem("dashboard_jid", data[0].jid);
+        } else {
+          setJidFilter("");
+          sessionStorage.removeItem("dashboard_jid");
+        }
+      })
+      .catch(() => {});
   }, [roleFilter]);
 
   // Handle template_id URL param (from Templates "Use" button)
@@ -164,6 +195,8 @@ export function useCandidatesList(): CandidatesListState {
         if (postings.length > 0) {
           setRoleFilterRaw(postings[0].job_title);
           setJidFilter(postings[0].jid);
+          sessionStorage.setItem("dashboard_role", postings[0].job_title);
+          sessionStorage.setItem("dashboard_jid", postings[0].jid);
         }
       }).catch(() => {});
       // Clean URL
@@ -175,8 +208,8 @@ export function useCandidatesList(): CandidatesListState {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const jid = jidFilter !== "All Jobs" ? jidFilter : undefined;
-    const jobTitle = roleFilter !== "All Roles" ? roleFilter : undefined;
+    const jid = jidFilter || undefined;
+    const jobTitle = roleFilter || undefined;
     candidateApi
       .getAll(jid, jobTitle)
       .then((data) => {
@@ -193,6 +226,12 @@ export function useCandidatesList(): CandidatesListState {
       });
     return () => { cancelled = true; };
   }, [jidFilter, roleFilter, fetchKey]);
+
+  useEffect(() => {
+    if (jidFilter) {
+      sessionStorage.setItem("dashboard_jid", jidFilter);
+    }
+  }, [jidFilter]);
 
   const filtered = useMemo(() => {
     let result = [...rows];

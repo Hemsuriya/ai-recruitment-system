@@ -63,6 +63,8 @@ export default function SelfieVerificationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const screeningId = searchParams.get("id");
+  const flow = searchParams.get("flow");
+  const flowQuery = flow ? `&flow=${encodeURIComponent(flow)}` : "";
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -80,28 +82,44 @@ export default function SelfieVerificationPage() {
     confidence_same_person_percent: number | null;
   } | null>(null);
 
+  /* ── attach stream to video element ── */
+  const attachStream = useCallback((stream: MediaStream) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = stream;
+    // If metadata already loaded (re-attach after retake), play immediately
+    if (video.readyState >= 1) {
+      video.play().catch(() => {});
+      setCameraReady(true);
+    } else {
+      video.onloadedmetadata = () => {
+        video.play().catch(() => {});
+        setCameraReady(true);
+      };
+    }
+  }, []);
+
   /* ── start camera ── */
   const initCamera = useCallback(async () => {
     try {
       setCameraError(null);
+      // Re-use existing live stream if available
+      if (streamRef.current?.active) {
+        attachStream(streamRef.current);
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
-          setCameraReady(true);
-        };
-      }
+      attachStream(stream);
     } catch {
       setCameraError(
         "Unable to access camera. Please allow camera permissions and try again."
       );
     }
-  }, []);
+  }, [attachStream]);
 
   useEffect(() => {
     initCamera();
@@ -110,41 +128,67 @@ export default function SelfieVerificationPage() {
     };
   }, [initCamera]);
 
+  /* ── re-attach stream whenever the video element re-mounts (e.g. after retake) ── */
+  useEffect(() => {
+    if (
+      (stage === "ready" || stage === "countdown" || stage === "capturing") &&
+      !cameraReady &&
+      streamRef.current?.active
+    ) {
+      attachStream(streamRef.current);
+    }
+  }, [stage, cameraReady, attachStream]);
+
   /* ── countdown logic ── */
+  const captureSnapshotRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (stage !== "countdown") return;
     if (countdown <= 0) {
-      captureSnapshot();
+      captureSnapshotRef.current();
       return;
     }
     const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, countdown]);
 
   /* ── capture snapshot from video ── */
-  const captureSnapshot = () => {
-    setStage("capturing");
+  const captureSnapshot = useCallback((): void => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Guard: video must have real dimensions (stream fully started)
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) {
+      setCameraError("Camera stream not ready. Please wait a moment and try again.");
+      return;
+    }
+
+    setStage("capturing");
+
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // mirror the image (selfie camera is mirrored)
-    ctx.translate(canvas.width, 0);
+    // mirror the image (selfie camera is mirrored in CSS)
+    ctx.save();
+    ctx.translate(w, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, w, h);
+    ctx.restore();
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
     setCapturedImage(dataUrl);
 
     // brief "flash" effect then show preview
     setTimeout(() => setStage("preview"), 400);
-  };
+  }, []);
+
+  // Keep ref in sync so countdown useEffect can call it without stale closure
+  useEffect(() => { captureSnapshotRef.current = captureSnapshot; }, [captureSnapshot]);
 
   /* ── start countdown ── */
   const startCountdown = () => {
@@ -153,18 +197,27 @@ export default function SelfieVerificationPage() {
   };
 
   /* ── manual capture (instant) ── */
-  const manualCapture = () => {
+  const manualCapture = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) {
+      setCameraError("Camera not ready yet. Please wait a moment.");
+      return;
+    }
     captureSnapshot();
-  };
+  }, [captureSnapshot]);
 
-  /* ── retake ── */
-  const retake = () => {
+  /* ── retake — reset state and re-attach existing stream ── */
+  const retake = useCallback(() => {
     setCapturedImage(null);
-    setStage("ready");
+    setVerifyError(null);
     setVerifying(false);
-  };
+    setCameraReady(false);  // triggers the re-attach useEffect
+    setStage("ready");
+  }, []);
 
   /* ── confirm & continue ── */
+  const CONFIDENCE_THRESHOLD = 30;
+
   const confirmAndContinue = async () => {
     if (!capturedImage) return;
     setVerifying(true);
@@ -181,11 +234,18 @@ export default function SelfieVerificationPage() {
       });
       const data = await res.json();
 
-      if (data.verified) {
-        setVerifyResult({
-          verified: true,
-          confidence_same_person_percent: data.confidence_same_person_percent,
-        });
+      if (!res.ok) {
+        const detail = typeof data?.detail === "string" ? data.detail : "Selfie verification failed.";
+        setVerifyError(detail);
+        setStage("preview");
+        return;
+      }
+
+      const confidence: number | null = data.confidence_same_person_percent ?? null;
+      const meetsThreshold = confidence !== null && confidence >= CONFIDENCE_THRESHOLD;
+
+      if (data.verified && meetsThreshold) {
+        setVerifyResult({ verified: true, confidence_same_person_percent: confidence });
         setStage("verified");
 
         // Persist identity_verified to backend DB
@@ -196,12 +256,17 @@ export default function SelfieVerificationPage() {
             body: JSON.stringify({ screening_id: screeningId, verified: true }),
           });
         } catch {
-          // Non-blocking — verification result is already shown to user
+          // Non-blocking
         }
       } else {
-        setVerifyError(
-          `Face verification failed${data.confidence_same_person_percent != null ? ` (${data.confidence_same_person_percent.toFixed(1)}% match)` : ""}. Please retake your selfie and ensure it matches your ID.`
-        );
+        let msg: string;
+        if (!data.verified) {
+          msg = `Face not recognised${confidence !== null ? ` (${confidence.toFixed(1)}% match)` : ""}. Please retake your selfie and ensure it clearly matches your ID photo.`;
+        } else {
+          // verified but below threshold
+          msg = `Match confidence too low: ${confidence?.toFixed(1)}% (minimum ${CONFIDENCE_THRESHOLD}% required). Please retake in better lighting or move closer to the camera.`;
+        }
+        setVerifyError(msg);
         setStage("preview");
       }
     } catch {
@@ -455,7 +520,7 @@ export default function SelfieVerificationPage() {
               </p>
               <button
                 type="button"
-                onClick={() => navigate(`/candidate/verification-confirm${screeningId ? `?id=${screeningId}` : ""}`)}
+                onClick={() => navigate(`/candidate/verification-confirm${screeningId ? `?id=${screeningId}${flowQuery}` : ""}`)}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3 text-[14px] font-medium text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
               >
                 Continue to Confirmation
