@@ -23,6 +23,7 @@ import {
   type AutopopulateResponse,
   type Department,
   type HrMember,
+  type PreScreeningAnswerType,
 } from "@/services/api";
 
 type FormData = {
@@ -39,8 +40,11 @@ type FormData = {
 
 type Question = {
   id: string;
-  text: string;
-  checked: boolean;
+  question_text: string;
+  answer_type: PreScreeningAnswerType;
+  options: string[];
+  is_mandatory: boolean;
+  expected_answer: string;
 };
 
 type Options = {
@@ -57,18 +61,45 @@ const cardClassName =
 // templateOptions removed — now fetched from API
 
 const defaultQuestions: Question[] = [
-  { id: "relocate", text: "Are you willing to relocate?", checked: true },
+  {
+    id: "relocate",
+    question_text: "Are you willing to relocate?",
+    answer_type: "yes_no",
+    options: ["Yes", "No"],
+    is_mandatory: true,
+    expected_answer: "Yes",
+  },
   {
     id: "auth",
-    text: "Are you a US Citizen or authorized to work in the US?",
-    checked: true,
+    question_text: "Are you a US Citizen or authorized to work in the US?",
+    answer_type: "yes_no",
+    options: ["Yes", "No"],
+    is_mandatory: true,
+    expected_answer: "Yes",
   },
-  { id: "visa", text: "What is your current visa status?", checked: true },
-  { id: "salary", text: "What is your expected salary range?", checked: true },
+  {
+    id: "visa",
+    question_text: "What is your current visa status?",
+    answer_type: "text",
+    options: [],
+    is_mandatory: false,
+    expected_answer: "",
+  },
+  {
+    id: "salary",
+    question_text: "What is your expected salary range?",
+    answer_type: "text",
+    options: [],
+    is_mandatory: false,
+    expected_answer: "",
+  },
   {
     id: "start-date",
-    text: "Are you available to start within 30 days?",
-    checked: true,
+    question_text: "Are you available to start within 30 days?",
+    answer_type: "yes_no",
+    options: ["Yes", "No"],
+    is_mandatory: true,
+    expected_answer: "Yes",
   },
 ];
 
@@ -436,35 +467,28 @@ function PreScreeningQuestions({
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
 }) {
-  const [adding, setAdding] = useState(false);
-  const [customQuestion, setCustomQuestion] = useState("");
-
-  const toggleQuestion = (id: string) => {
+  const updateQuestion = (id: string, updater: (q: Question) => Question) => {
     setQuestions((current) =>
-      current.map((question) =>
-        question.id === id
-          ? { ...question, checked: !question.checked }
-          : question,
-      ),
+      current.map((question) => (question.id === id ? updater(question) : question))
     );
   };
 
-  const addQuestion = () => {
-    const trimmed = customQuestion.trim();
-    if (!trimmed) {
-      return;
-    }
+  const removeQuestion = (id: string) => {
+    setQuestions((current) => current.filter((q) => q.id !== id));
+  };
 
+  const addQuestion = () => {
     setQuestions((current) => [
       ...current,
       {
         id: `custom-${Date.now()}`,
-        text: trimmed,
-        checked: true,
+        question_text: "",
+        answer_type: "text",
+        options: [],
+        is_mandatory: false,
+        expected_answer: "",
       },
     ]);
-    setCustomQuestion("");
-    setAdding(false);
   };
 
   return (
@@ -476,74 +500,183 @@ function PreScreeningQuestions({
         </h2>
       </div>
       <p className="app-meta-text">
-        Select questions to include in the assessment
+        Configure one-time pre-screening before candidates enter the pipeline
       </p>
 
-      <div className="mt-8 space-y-3">
-        {questions.map((question) => (
-          <button
+      <div className="mt-6 space-y-4">
+        {questions.map((question, index) => (
+          <div
             key={question.id}
-            type="button"
-            onClick={() => toggleQuestion(question.id)}
-            className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-gray-300"
+            className="rounded-xl border border-gray-200 bg-gray-50 p-4"
           >
-            <div
-              className={`flex h-5 w-5 items-center justify-center rounded-md text-white ${
-                question.checked ? "bg-violet-500" : "bg-gray-300"
-              }`}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-gray-700">
+                Question {index + 1}
+              </p>
+              <button
+                type="button"
+                onClick={() => removeQuestion(question.id)}
+                className="text-xs font-semibold text-red-500 hover:text-red-600"
+              >
+                Remove
+              </button>
             </div>
-            <span className="text-[16px] font-medium text-gray-700">
-              {question.text}
-            </span>
-          </button>
+
+            <input
+              value={question.question_text}
+              onChange={(event) =>
+                updateQuestion(question.id, (current) => ({
+                  ...current,
+                  question_text: event.target.value,
+                }))
+              }
+              placeholder="Enter question text"
+              className="w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+            />
+
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  Answer Type
+                </span>
+                <select
+                  value={question.answer_type}
+                  onChange={(event) => {
+                    const nextType = event.target.value as PreScreeningAnswerType;
+                    updateQuestion(question.id, (current) => ({
+                      ...current,
+                      answer_type: nextType,
+                      options:
+                        nextType === "yes_no"
+                          ? ["Yes", "No"]
+                          : nextType === "mcq"
+                            ? current.options.length > 0
+                              ? current.options
+                              : ["Option 1", "Option 2"]
+                            : [],
+                      expected_answer:
+                        nextType === "yes_no" &&
+                        current.expected_answer !== "Yes" &&
+                        current.expected_answer !== "No"
+                          ? "Yes"
+                          : current.expected_answer,
+                    }));
+                  }}
+                  className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="yes_no">Yes / No</option>
+                  <option value="mcq">Multiple Choice</option>
+                  <option value="text">Custom Text</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  Mandatory
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateQuestion(question.id, (current) => ({
+                      ...current,
+                      is_mandatory: !current.is_mandatory,
+                    }))
+                  }
+                  className={`h-10 w-full rounded-[10px] border px-3 text-[14px] font-medium transition ${
+                    question.is_mandatory
+                      ? "border-violet-300 bg-violet-50 text-violet-700"
+                      : "border-gray-200 bg-white text-gray-600"
+                  }`}
+                >
+                  {question.is_mandatory ? "Mandatory" : "Optional"}
+                </button>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  Expected Answer
+                </span>
+                {question.answer_type === "yes_no" ? (
+                  <select
+                    value={question.expected_answer || "Yes"}
+                    onChange={(event) =>
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        expected_answer: event.target.value,
+                      }))
+                    }
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                ) : question.answer_type === "mcq" ? (
+                  <select
+                    value={question.expected_answer}
+                    onChange={(event) =>
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        expected_answer: event.target.value,
+                      }))
+                    }
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">Select expected answer</option>
+                    {question.options.map((option, optionIndex) => (
+                      <option key={`${question.id}-expected-${optionIndex}`} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={question.expected_answer}
+                    onChange={(event) =>
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        expected_answer: event.target.value,
+                      }))
+                    }
+                    placeholder="Expected text (optional)"
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  />
+                )}
+              </label>
+            </div>
+
+            {question.answer_type === "mcq" ? (
+              <div className="mt-3">
+                <p className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  Options (comma separated)
+                </p>
+                <input
+                  value={question.options.join(", ")}
+                  onChange={(event) =>
+                    updateQuestion(question.id, (current) => ({
+                      ...current,
+                      options: event.target.value
+                        .split(",")
+                        .map((option) => option.trim())
+                        .filter(Boolean),
+                    }))
+                  }
+                  placeholder="Option 1, Option 2, Option 3"
+                  className="w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2 text-[14px] text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            ) : null}
+          </div>
         ))}
       </div>
 
-      {adding ? (
-        <div className="mt-4 flex gap-2">
-          <input
-            value={customQuestion}
-            onChange={(event) => setCustomQuestion(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                addQuestion();
-              }
-            }}
-            autoFocus
-            placeholder="Add a custom question"
-            className="flex-1 rounded-[10px] border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-gray-900 placeholder-gray-400 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
-          />
-          <button
-            type="button"
-            onClick={addQuestion}
-            className="rounded-[10px] bg-violet-600 px-4 py-2.5 text-[14px] text-white transition-colors hover:bg-violet-700"
-          >
-            Add
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAdding(false);
-              setCustomQuestion("");
-            }}
-            className="rounded-[10px] border border-gray-200 px-4 py-2.5 text-[14px] text-gray-600 transition-colors hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="mt-4 flex items-center gap-2 text-[14px] font-medium text-violet-600 transition-colors hover:text-violet-700"
-        >
-          <CirclePlus className="h-4 w-4" />
-          Add Custom Question
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={addQuestion}
+        className="mt-4 flex items-center gap-2 text-[14px] font-medium text-violet-600 transition-colors hover:text-violet-700"
+      >
+        <CirclePlus className="h-4 w-4" />
+        Add Question
+      </button>
     </div>
   );
 }
@@ -564,7 +697,9 @@ function AssessmentSummary({
     { label: "AI Video Interview", enabled: options.aiInterview },
   ];
 
-  const selectedQuestionCount = questions.filter((question) => question.checked).length;
+  const validQuestionCount = questions.filter(
+    (question) => question.question_text.trim().length > 0
+  ).length;
 
   return (
     <div className={cardClassName}>
@@ -637,7 +772,7 @@ function AssessmentSummary({
           Pre-Screening
         </p>
         <p className="app-field-label text-gray-900">
-          {selectedQuestionCount} questions selected
+          {validQuestionCount} questions configured
         </p>
       </div>
     </div>
@@ -842,8 +977,11 @@ const applyAutopopulateData = (data: AutopopulateResponse) => {
   const incomingQuestions: Question[] =
     (data.pre_screening_questions || []).map((text, index) => ({
       id: `api-${index}-${Date.now()}`,
-      text,
-      checked: true,
+      question_text: text,
+      answer_type: "text",
+      options: [],
+      is_mandatory: false,
+      expected_answer: "",
     }));
 
   setQuestions(
@@ -890,16 +1028,26 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
     }
     setSaving(true);
     try {
-      const selectedQ = questions.filter((q) => q.checked);
+      const configuredPreScreening = questions
+        .map((q, index) => ({
+          question_text: q.question_text.trim(),
+          answer_type: q.answer_type,
+          options: q.answer_type === "mcq" ? q.options : q.answer_type === "yes_no" ? ["Yes", "No"] : [],
+          is_mandatory: q.is_mandatory,
+          expected_answer: q.expected_answer.trim() || null,
+          sort_order: index,
+        }))
+        .filter((q) => q.question_text.length > 0);
+
       if (editMode && selectedTemplateKey) {
         await jobTemplateApi.update(selectedTemplateKey, {
           job_title: formData.roleTitle,
           required_skills: formData.skills.join(", "),
           number_of_candidates: String(formData.headcount),
-          survey_question_1: selectedQ[0]?.text || null,
+          survey_question_1: configuredPreScreening[0]?.question_text || null,
           survey_q1_expected_answer: null,
           time_limit_minutes: formData.timerMinutes,
-          pre_screening_questions: selectedQ.map((q) => q.text),
+          pre_screening_questions: configuredPreScreening.map((q) => q.question_text),
         });
         alert("Template updated successfully!");
         navigate("/hr/templates");
@@ -909,12 +1057,7 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
           experience_level: formData.experienceLevel || "Mid",
           skills: formData.skills,
           template_key: selectedTemplateKey || undefined,
-          questions: selectedQ.map((q, i) => ({
-            question_text: q.text,
-            is_default: !q.id.startsWith("custom-"),
-            is_selected: true,
-            sort_order: i,
-          })),
+          pre_screening_questions: configuredPreScreening,
           options: {
             generate_ai_questions: options.generateAI,
             include_coding: options.codingRound,

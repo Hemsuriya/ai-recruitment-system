@@ -19,6 +19,20 @@ exports.getAssessmentQuestions = async (req, res) => {
       });
     }
 
+    if (!candidate.rows[0].technical_assessment_unlocked) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Pre-screening is required before starting the technical assessment.",
+        data: {
+          screening_id: candidate.rows[0].screening_id,
+          survey_validation_status: candidate.rows[0].survey_validation_status,
+          technical_assessment_unlocked:
+            candidate.rows[0].technical_assessment_unlocked,
+        },
+      });
+    }
+
     // Fetch MCQ questions from assessment_questions_v2
     const questions = await db.query(
       "SELECT question_id, question_text, options, category, difficulty, time_limit FROM assessment_questions_v2 WHERE screening_id = $1 ORDER BY question_id",

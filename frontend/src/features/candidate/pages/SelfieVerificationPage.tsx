@@ -234,6 +234,13 @@ export default function SelfieVerificationPage() {
       });
       const data = await res.json();
 
+      if (!res.ok) {
+        const detail = typeof data?.detail === "string" ? data.detail : "Selfie verification failed.";
+        setVerifyError(detail);
+        setStage("preview");
+        return;
+      }
+
       const confidence: number | null = data.confidence_same_person_percent ?? null;
       const meetsThreshold = confidence !== null && confidence >= CONFIDENCE_THRESHOLD;
 

@@ -113,6 +113,17 @@ export interface AssessmentQuestion {
   sort_order: number;
 }
 
+export type PreScreeningAnswerType = "yes_no" | "mcq" | "text";
+
+export interface PreScreeningQuestionPayload {
+  question_text: string;
+  answer_type: PreScreeningAnswerType;
+  options: string[];
+  is_mandatory: boolean;
+  expected_answer: string | null;
+  sort_order: number;
+}
+
 export interface AssessmentTimeLimits {
   mcq_time_limit: number;
   video_time_limit: number;
@@ -132,7 +143,8 @@ export interface CreateAssessmentPayload {
   experience_level: string;
   skills: string[];
   template_key?: string;
-  questions: AssessmentQuestion[];
+  questions?: AssessmentQuestion[];
+  pre_screening_questions: PreScreeningQuestionPayload[];
   options: AssessmentOptions;
   time_limits: AssessmentTimeLimits;
   job_description?: string;
@@ -192,6 +204,23 @@ export const assessmentApi = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+
+  getPreScreeningQuestions: (id: number) =>
+    request<PreScreeningQuestionPayload[]>(
+      `/api/hr/assessments/${id}/pre-screening-questions`
+    ),
+
+  updatePreScreeningQuestions: (
+    id: number,
+    pre_screening_questions: PreScreeningQuestionPayload[]
+  ) =>
+    request<PreScreeningQuestionPayload[]>(
+      `/api/hr/assessments/${id}/pre-screening-questions`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ pre_screening_questions }),
+      }
+    ),
 
   remove: (id: number) =>
     request<void>(`/api/hr/assessments/${id}`, { method: "DELETE" }),

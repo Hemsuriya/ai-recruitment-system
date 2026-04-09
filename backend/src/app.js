@@ -134,6 +134,28 @@ app.use((err, req, res, next) => {
         ADD COLUMN IF NOT EXISTS department_id integer
           REFERENCES departments(id) ON DELETE SET NULL;
     `);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS hr_pre_screening_questions (
+        id SERIAL PRIMARY KEY,
+        assessment_id INTEGER NOT NULL REFERENCES hr_assessments(id) ON DELETE CASCADE,
+        question_text TEXT NOT NULL,
+        answer_type VARCHAR(20) NOT NULL
+          CHECK (answer_type IN ('yes_no', 'mcq', 'text')),
+        options JSONB,
+        is_mandatory BOOLEAN DEFAULT false,
+        expected_answer TEXT,
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await db.query(`
+      ALTER TABLE survey_responses
+        ADD COLUMN IF NOT EXISTS candidate_id VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS assessment_id INTEGER REFERENCES hr_assessments(id),
+        ADD COLUMN IF NOT EXISTS jid VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS matched_expected BOOLEAN;
+    `);
     console.log("✅ Startup migrations applied");
 
     // ─── Seed departments + members (only if tables are empty) ───

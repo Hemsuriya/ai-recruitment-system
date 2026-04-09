@@ -1,0 +1,335 @@
+﻿{
+    "name":  "Pre Screening Assessment Gateway",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "generate-assessment",
+                                         "responseMode":  "responseNode"
+                                     },
+                      "id":  "webhook-generate-assessment",
+                      "name":  "Generate Assessment Trigger",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       240,
+                                       180
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "name":  "assessment_id",
+                                                                                     "value":  "={{$json.body.assessment_id}}",
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "name":  "jid",
+                                                                                     "value":  "={{$json.body.jid}}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "name":  "role_title",
+                                                                                     "value":  "={{$json.body.role_title}}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "name":  "pre_screening_questions",
+                                                                                     "value":  "={{$json.body.pre_screening_questions}}",
+                                                                                     "type":  "array"
+                                                                                 }
+                                                                             ]
+                                                         }
+                                     },
+                      "id":  "normalize-assessment-payload",
+                      "name":  "Normalize Assessment Payload",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       480,
+                                       180
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "http://n8n:5678/webhook/send-pre-screening-email",
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ $(\u0027Normalize Assessment Payload\u0027).first().json }}",
+                                         "options":  {
+                                                         "timeout":  120000
+                                                     },
+                                         "method":  "POST"
+                                     },
+                      "id":  "send-pre-screening-email",
+                      "name":  "Send Survey Email",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       720,
+                                       180
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={\"success\":true,\"message\":\"Assessment created. Pre-screening email workflow triggered.\"}"
+                                     },
+                      "id":  "respond-generate-assessment",
+                      "name":  "Respond Generate Assessment",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.4,
+                      "position":  [
+                                       980,
+                                       180
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "pre-screening-submission",
+                                         "responseMode":  "responseNode"
+                                     },
+                      "id":  "webhook-pre-screening-submission",
+                      "name":  "Pre Screening Submission",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       240,
+                                       480
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "name":  "screening_id",
+                                                                                     "value":  "={{$json.body.screening_id}}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "name":  "validation_status",
+                                                                                     "value":  "={{$json.body.validation_status}}",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         }
+                                     },
+                      "id":  "normalize-submission",
+                      "name":  "Normalize Submission",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       480,
+                                       480
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "leftValue":  "={{$json.validation_status}}",
+                                                                                   "rightValue":  "passed",
+                                                                                   "operator":  {
+                                                                                                    "type":  "string",
+                                                                                                    "operation":  "equals"
+                                                                                                }
+                                                                               }
+                                                                           ]
+                                                        }
+                                     },
+                      "id":  "if-passed",
+                      "name":  "If Passed",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       720,
+                                       480
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "http://n8n:5678/webhook/send-mcq-invite-after-prescreen",
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{$json}}",
+                                         "method":  "POST"
+                                     },
+                      "id":  "trigger-pipeline-1",
+                      "name":  "Trigger Pipeline 1 (MCQ)",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       980,
+                                       420
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "http://n8n:5678/webhook/mark-candidate-hold",
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{$json}}",
+                                         "method":  "POST"
+                                     },
+                      "id":  "hold-candidate",
+                      "name":  "Hold Candidate",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       980,
+                                       560
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={\"success\":true,\"message\":\"Pre-screening submission processed. Candidate status updated.\"}"
+                                     },
+                      "id":  "respond-submission",
+                      "name":  "Respond Submission",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.4,
+                      "position":  [
+                                       1220,
+                                       480
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "http://n8n:5678/webhook/trigger-mcq-pipeline",
+                                         "method":  "POST",
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ { assessment_id: $json.assessment_id, jid: $json.jid, role_title: $json.role_title, mode: \"seed_only\" } }}",
+                                         "options":  {
+                                                         "timeout":  120000
+                                                     }
+                                     },
+                      "id":  "seed-candidates-before-prescreen",
+                      "name":  "Seed Candidates (No MCQ Email)",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       600,
+                                       180
+                                   ]
+                  }
+              ],
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "connections":  {
+                        "Generate Assessment Trigger":  {
+                                                            "main":  [
+                                                                         [
+                                                                             {
+                                                                                 "node":  "Normalize Assessment Payload",
+                                                                                 "type":  "main",
+                                                                                 "index":  0
+                                                                             }
+                                                                         ]
+                                                                     ]
+                                                        },
+                        "Normalize Assessment Payload":  {
+                                                             "main":  [
+                                                                          [
+                                                                              {
+                                                                                  "node":  "Seed Candidates (No MCQ Email)",
+                                                                                  "type":  "main",
+                                                                                  "index":  0
+                                                                              }
+                                                                          ]
+                                                                      ]
+                                                         },
+                        "Seed Candidates (No MCQ Email)":  {
+                                                               "main":  [
+                                                                            [
+                                                                                {
+                                                                                    "node":  "Respond Generate Assessment",
+                                                                                    "type":  "main",
+                                                                                    "index":  0
+                                                                                }
+                                                                            ]
+                                                                        ]
+                                                           },
+                        "Send Survey Email":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Respond Generate Assessment",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Pre Screening Submission":  {
+                                                         "main":  [
+                                                                      [
+                                                                          {
+                                                                              "node":  "Normalize Submission",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ]
+                                                                  ]
+                                                     },
+                        "Normalize Submission":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "If Passed",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "If Passed":  {
+                                          "main":  [
+                                                       [
+                                                           {
+                                                               "node":  "Trigger Pipeline 1 (MCQ)",
+                                                               "type":  "main",
+                                                               "index":  0
+                                                           }
+                                                       ],
+                                                       [
+                                                           {
+                                                               "node":  "Hold Candidate",
+                                                               "type":  "main",
+                                                               "index":  0
+                                                           }
+                                                       ]
+                                                   ]
+                                      },
+                        "Hold Candidate":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Respond Submission",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Trigger Pipeline 1 (MCQ)":  {
+                                                         "main":  [
+                                                                      [
+                                                                          {
+                                                                              "node":  "Respond Submission",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ]
+                                                                  ]
+                                                     }
+                    }
+}

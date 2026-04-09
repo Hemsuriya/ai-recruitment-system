@@ -49,6 +49,44 @@ exports.updateAssessment = async (req, res) => {
   }
 };
 
+exports.getPreScreeningQuestions = async (req, res) => {
+  try {
+    const questions =
+      await assessmentConfigService.getAssessmentPreScreeningQuestions(
+        req.params.id
+      );
+    res.json({ success: true, data: questions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.updatePreScreeningQuestions = async (req, res) => {
+  try {
+    const payload = req.body?.pre_screening_questions;
+    if (!Array.isArray(payload)) {
+      return res.status(400).json({
+        success: false,
+        error: "pre_screening_questions must be an array",
+      });
+    }
+
+    const updated =
+      await assessmentConfigService.updateAssessmentPreScreeningQuestions(
+        req.params.id,
+        payload
+      );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, error: "Assessment not found" });
+    }
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 exports.deleteAssessment = async (req, res) => {
   try {
     const deleted = await assessmentConfigService.deleteAssessment(req.params.id);

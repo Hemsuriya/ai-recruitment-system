@@ -1,0 +1,173 @@
+﻿{
+    "name":  "Pre Screening Email Sender",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "send-pre-screening-email",
+                                         "responseMode":  "onReceived",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "webhook-send-prescreen-email",
+                      "name":  "Send Pre Screening Email Trigger",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       220,
+                                       220
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "name":  "jid",
+                                                                                     "value":  "={{$json.body.jid}}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "name":  "role_title",
+                                                                                     "value":  "={{$json.body.role_title || \u0027Position\u0027}}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "name":  "assessment_id",
+                                                                                     "value":  "={{$json.body.assessment_id}}",
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "name":  "appBaseUrl",
+                                                                                     "value":  "={{$json.body.appBaseUrl || \u0027http://localhost:5173\u0027}}",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "normalize-prescreen-email-payload",
+                      "name":  "Normalize Payload",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       460,
+                                       220
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "SELECT screening_id, name, email\nFROM candidates_v2\nWHERE jid = $1\nORDER BY created_at DESC;",
+                                         "options":  {
+                                                         "queryReplacement":  "={{$json.jid}}"
+                                                     }
+                                     },
+                      "id":  "fetch-candidates-by-jid",
+                      "name":  "Fetch Candidates",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       700,
+                                       220
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "id":  "DO36tAj1RCJwb9XJ",
+                                                           "name":  "Postgres account"
+                                                       }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const rows = $input.all().map(i =\u003e i.json);\nlet roleTitle = \u0027Position\u0027;\nlet appBaseUrl = \u0027http://localhost:5173\u0027;\nlet jid = \u0027\u0027;\n\ntry {\n  const payload = $(\u0027Normalize Payload\u0027).first().json;\n  roleTitle = payload.role_title || roleTitle;\n  appBaseUrl = (payload.appBaseUrl || appBaseUrl).replace(/\\/$/, \u0027\u0027);\n  jid = payload.jid || \u0027\u0027;\n} catch (e) {}\n\nif (!rows.length) {\n  throw new Error(`No candidates found for jid=${jid}. Candidate seeding did not create rows in candidates_v2.`);\n}\n\nreturn rows.map((candidate) =\u003e {\n  const link = `${appBaseUrl}/candidate-portal/assessment-instructions?id=${encodeURIComponent(candidate.screening_id)}`;\n  const html = `\n\u003cdiv style=\"font-family: \u0027Segoe UI\u0027, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;\"\u003e\n  \u003cdiv style=\"background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 32px 24px; text-align: center; border-radius: 8px 8px 0 0;\"\u003e\n    \u003ch1 style=\"color: #ffffff; font-size: 24px; margin: 0;\"\u003eCBC Inc.\u003c/h1\u003e\n    \u003cp style=\"color: #bfdbfe; font-size: 13px; margin: 8px 0 0 0; letter-spacing: 1px;\"\u003eAI-POWERED CANDIDATE SCREENING\u003c/p\u003e\n  \u003c/div\u003e\n  \u003cdiv style=\"padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none;\"\u003e\n    \u003ch2 style=\"color: #1e293b; font-size: 20px; margin: 0 0 16px 0;\"\u003ePre-Screening Assessment Invitation\u003c/h2\u003e\n    \u003cp style=\"color: #475569; font-size: 15px; line-height: 1.6;\"\u003eDear \u003cstrong\u003e${candidate.name || \u0027Candidate\u0027}\u003c/strong\u003e,\u003c/p\u003e\n    \u003cp style=\"color: #475569; font-size: 15px; line-height: 1.6;\"\u003eThank you for your interest in the \u003cstrong\u003e${roleTitle}\u003c/strong\u003e role at CBC Inc. Please complete your pre-screening and verification steps to unlock the assessment pipeline.\u003c/p\u003e\n    \u003cdiv style=\"background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;\"\u003e\n      \u003ctable style=\"width: 100%; font-size: 14px; color: #475569;\"\u003e\n        \u003ctr\u003e\u003ctd style=\"padding: 6px 0; font-weight: 600;\"\u003ePosition\u003c/td\u003e\u003ctd style=\"padding: 6px 0;\"\u003e${roleTitle}\u003c/td\u003e\u003c/tr\u003e\n        \u003ctr\u003e\u003ctd style=\"padding: 6px 0; font-weight: 600;\"\u003eAssessment Stage\u003c/td\u003e\u003ctd style=\"padding: 6px 0;\"\u003ePre-Screening + Verification\u003c/td\u003e\u003c/tr\u003e\n        \u003ctr\u003e\u003ctd style=\"padding: 6px 0; font-weight: 600;\"\u003eCandidate ID\u003c/td\u003e\u003ctd style=\"padding: 6px 0;\"\u003e${candidate.screening_id}\u003c/td\u003e\u003c/tr\u003e\n      \u003c/table\u003e\n    \u003c/div\u003e\n    \u003cdiv style=\"background: #eff6ff; border-left: 4px solid #3b82f6; padding: 14px 16px; margin: 20px 0; border-radius: 0 6px 6px 0;\"\u003e\n      \u003cp style=\"margin: 0; font-size: 14px; color: #1e40af;\"\u003e\u003cstrong\u003eWhat to expect:\u003c/strong\u003e\u003c/p\u003e\n      \u003cul style=\"margin: 8px 0 0 0; padding-left: 18px; font-size: 13px; color: #334155; line-height: 1.8;\"\u003e\n        \u003cli\u003eIdentity verification (camera required)\u003c/li\u003e\n        \u003cli\u003ePre-screening questions (mandatory criteria)\u003c/li\u003e\n        \u003cli\u003eMCQ round unlocks after successful pre-screening\u003c/li\u003e\n        \u003cli\u003eUse a stable internet connection\u003c/li\u003e\n      \u003c/ul\u003e\n    \u003c/div\u003e\n    \u003cdiv style=\"text-align: center; margin: 28px 0;\"\u003e\n      \u003ca href=\"${link}\" style=\"background: #2563eb; color: #ffffff; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; display: inline-block;\"\u003eStart Assessment\u003c/a\u003e\n    \u003c/div\u003e\n    \u003cp style=\"color: #94a3b8; font-size: 12px; text-align: center;\"\u003eIf the button doesn\u0027t work, copy and paste this link into your browser:\u003cbr/\u003e\u003ca href=\"${link}\" style=\"color: #3b82f6; word-break: break-all;\"\u003e${link}\u003c/a\u003e\u003c/p\u003e\n  \u003c/div\u003e\n  \u003cdiv style=\"background: #f8fafc; padding: 16px 24px; text-align: center; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;\"\u003e\n    \u003cp style=\"color: #94a3b8; font-size: 11px; margin: 0;\"\u003eThis is an automated message from CBC Inc. Hiring Platform. Please do not reply to this email.\u003c/p\u003e\n  \u003c/div\u003e\n\u003c/div\u003e`;\n\n  return {\n    json: {\n      to: candidate.email,\n      subject: `Pre-Screening Assessment Invitation - ${roleTitle}`,\n      html\n    }\n  };\n});"
+                                     },
+                      "id":  "build-pre-screen-email-body",
+                      "name":  "Build Pre Screen Email",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       940,
+                                       220
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "toRecipients":  "={{ $json.to }}",
+                                         "subject":  "={{ $json.subject }}",
+                                         "bodyContent":  "={{ $json.html }}",
+                                         "additionalFields":  {
+                                                                  "bodyContentType":  "html"
+                                                              }
+                                     },
+                      "id":  "send-pre-screen-email-outlook",
+                      "name":  "Send a message",
+                      "type":  "n8n-nodes-base.microsoftOutlook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1180,
+                                       220
+                                   ],
+                      "credentials":  {
+                                          "microsoftOutlookOAuth2Api":  {
+                                                                            "id":  "PvjwAMwtGqIFHnu0",
+                                                                            "name":  "Microsoft Outlook account"
+                                                                        }
+                                      }
+                  }
+              ],
+    "connections":  {
+                        "Send Pre Screening Email Trigger":  {
+                                                                 "main":  [
+                                                                              [
+                                                                                  {
+                                                                                      "node":  "Normalize Payload",
+                                                                                      "type":  "main",
+                                                                                      "index":  0
+                                                                                  }
+                                                                              ]
+                                                                          ]
+                                                             },
+                        "Normalize Payload":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Fetch Candidates",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Fetch Candidates":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Build Pre Screen Email",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "Build Pre Screen Email":  {
+                                                       "main":  [
+                                                                    [
+                                                                        {
+                                                                            "node":  "Send a message",
+                                                                            "type":  "main",
+                                                                            "index":  0
+                                                                        }
+                                                                    ]
+                                                                ]
+                                                   }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1"
+                 }
+}
+
