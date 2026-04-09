@@ -121,6 +121,8 @@ export interface PreScreeningQuestionPayload {
   options: string[];
   is_mandatory: boolean;
   expected_answer: string | null;
+  optional_weight?: number | null;
+  optional_score_map?: Record<string, number> | null;
   sort_order: number;
 }
 
@@ -142,6 +144,14 @@ export interface CreateAssessmentPayload {
   role_title: string;
   experience_level: string;
   skills: string[];
+  optional_skills?: string[];
+  skill_weights?: Record<string, number>;
+  optional_skill_weight?: number;
+  skill_config?: Array<{
+    name: string;
+    is_mandatory: boolean;
+    weight: number;
+  }>;
   template_key?: string;
   questions?: AssessmentQuestion[];
   pre_screening_questions: PreScreeningQuestionPayload[];
@@ -162,6 +172,16 @@ export interface AssessmentRecord {
   role_title: string;
   experience_level: string;
   skills: string[];
+  mandatory_skills?: string[];
+  optional_skills?: string[];
+  skill_weights?: Record<string, number>;
+  optional_skill_weight?: number;
+  skill_config?: Array<{
+    name: string;
+    is_mandatory: boolean;
+    weight: number;
+    sort_order?: number;
+  }>;
   job_description: string | null;
   ai_generated_jd: boolean;
   mcq_time_limit: number;

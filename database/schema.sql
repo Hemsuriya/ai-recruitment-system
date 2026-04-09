@@ -139,6 +139,8 @@ CREATE TABLE public.hr_pre_screening_questions (
     options         jsonb,
     is_mandatory    boolean DEFAULT false,
     expected_answer text,
+    optional_weight numeric(6,2),
+    optional_score_map jsonb,
     sort_order      integer DEFAULT 0,
     created_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
@@ -149,6 +151,21 @@ CREATE TABLE public.hr_pre_screening_questions (
 
 CREATE INDEX idx_hr_prescreen_assessment_id ON public.hr_pre_screening_questions USING btree (assessment_id);
 CREATE INDEX idx_hr_prescreen_sort_order ON public.hr_pre_screening_questions USING btree (assessment_id, sort_order);
+
+CREATE TABLE public.hr_assessment_skill_mappings (
+    id              serial PRIMARY KEY,
+    assessment_id   integer NOT NULL REFERENCES public.hr_assessments(id) ON DELETE CASCADE,
+    skill_name      text NOT NULL,
+    is_mandatory    boolean NOT NULL DEFAULT true,
+    weight          numeric(8,2) NOT NULL DEFAULT 1,
+    sort_order      integer NOT NULL DEFAULT 0,
+    created_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at      timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT hr_assessment_skill_mappings_unique UNIQUE (assessment_id, skill_name)
+);
+
+CREATE INDEX idx_hr_assessment_skill_mappings_assessment
+    ON public.hr_assessment_skill_mappings USING btree (assessment_id, sort_order);
 
 
 CREATE TABLE public.survey_responses (

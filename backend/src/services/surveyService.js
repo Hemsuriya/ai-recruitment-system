@@ -4,6 +4,32 @@ function normalizeAnswer(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function parseOptionalScoreMap(value) {
+  if (!value) return null;
+  const source =
+    typeof value === "string"
+      ? (() => {
+          try {
+            return JSON.parse(value);
+          } catch {
+            return null;
+          }
+        })()
+      : value;
+
+  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+
+  const normalized = {};
+  for (const [key, rawScore] of Object.entries(source)) {
+    const answerKey = String(key || "").trim();
+    const score = Number(rawScore);
+    if (!answerKey || !Number.isFinite(score)) continue;
+    normalized[answerKey] = score;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
 function extractCandidateAnswer(answerMap, questionId) {
   return answerMap[questionId] ?? answerMap[String(questionId)] ?? "";
 }
@@ -32,7 +58,9 @@ async function getPreScreeningQuestionsByAssessment(assessmentId) {
        options,
        is_mandatory,
        expected_answer,
-       CASE WHEN expected_answer IS NULL THEN 'informational' ELSE 'qualifying' END AS question_category
+       optional_weight,
+       optional_score_map,
+       CASE WHEN is_mandatory THEN 'mandatory' ELSE 'optional' END AS question_category
      FROM hr_pre_screening_questions
      WHERE assessment_id = $1
      ORDER BY sort_order, id`,
@@ -41,6 +69,7 @@ async function getPreScreeningQuestionsByAssessment(assessmentId) {
   return result.rows.map((row) => ({
     ...row,
     options: Array.isArray(row.options) ? row.options : [],
+    optional_score_map: parseOptionalScoreMap(row.optional_score_map),
   }));
 }
 
@@ -104,33 +133,82 @@ exports.submitSurveyAnswers = async (screeningId, answers) => {
   });
 
   const mandatoryUnanswered = [];
-  const failedQuestions = [];
+  const mandatoryFailures = [];
   let correctCount = 0;
   let qualifyingTotal = 0;
+  let optionalWeightedScore = 0;
+  let optionalWeightedMax = 0;
+  const optionalBreakdown = [];
 
   for (const q of configuredQuestions) {
     const rawAnswer = extractCandidateAnswer(answerMap, q.question_id);
     const answer = String(rawAnswer || "").trim();
+    const isMandatory = Boolean(q.is_mandatory);
+    const expected = String(q.expected_answer || "").trim();
 
-    if (q.is_mandatory && !answer) {
+    if (isMandatory && !answer) {
       mandatoryUnanswered.push({
         question_id: q.question_id,
         question_text: q.question_text,
+        reason: "mandatory_unanswered",
       });
       continue;
     }
 
-    const expected = String(q.expected_answer || "").trim();
     if (expected) {
-      qualifyingTotal++;
       const matched = normalizeAnswer(answer) === normalizeAnswer(expected);
-      if (matched) {
-        correctCount++;
+      if (isMandatory) {
+        qualifyingTotal++;
+        if (matched) {
+          correctCount++;
+        } else {
+          mandatoryFailures.push({
+            question_id: q.question_id,
+            question_text: q.question_text,
+            expected: q.expected_answer,
+            given: answer,
+            reason: "mandatory_expected_mismatch",
+          });
+        }
       } else {
-        failedQuestions.push({
+        const weight =
+          Number.isFinite(Number(q.optional_weight)) && Number(q.optional_weight) >= 0
+            ? Number(q.optional_weight)
+            : 1;
+        const earned = matched ? 1 : 0;
+        optionalWeightedScore += weight * earned;
+        optionalWeightedMax += weight;
+        optionalBreakdown.push({
           question_id: q.question_id,
           question_text: q.question_text,
+          weight,
+          matched_expected: matched,
+          given: answer,
           expected: q.expected_answer,
+        });
+      }
+      continue;
+    }
+
+    if (!isMandatory) {
+      const parsedMap = parseOptionalScoreMap(q.optional_score_map);
+      if (parsedMap) {
+        const mappedScore = Number(parsedMap[answer] ?? parsedMap[normalizeAnswer(answer)] ?? 0);
+        const maxMappedScore = Math.max(...Object.values(parsedMap));
+        const weight =
+          Number.isFinite(Number(q.optional_weight)) && Number(q.optional_weight) >= 0
+            ? Number(q.optional_weight)
+            : 1;
+        const earnedRatio =
+          maxMappedScore > 0 ? Math.max(0, mappedScore) / maxMappedScore : 0;
+        optionalWeightedScore += weight * earnedRatio;
+        optionalWeightedMax += weight;
+        optionalBreakdown.push({
+          question_id: q.question_id,
+          question_text: q.question_text,
+          weight,
+          mapped_score: mappedScore,
+          mapped_max: maxMappedScore,
           given: answer,
         });
       }
@@ -138,7 +216,7 @@ exports.submitSurveyAnswers = async (screeningId, answers) => {
   }
 
   if (mandatoryUnanswered.length > 0) {
-    failedQuestions.push(
+    mandatoryFailures.push(
       ...mandatoryUnanswered.map((q) => ({
         ...q,
         expected: "required answer",
@@ -147,8 +225,13 @@ exports.submitSurveyAnswers = async (screeningId, answers) => {
     );
   }
 
-  const validationStatus = failedQuestions.length > 0 ? "failed" : "passed";
+  // Mandatory gate first: optional score does not block progression.
+  const validationStatus = mandatoryFailures.length > 0 ? "failed" : "passed";
   const unlockAssessment = validationStatus === "passed";
+  const optionalScorePercent =
+    optionalWeightedMax > 0
+      ? Number(((optionalWeightedScore / optionalWeightedMax) * 100).toFixed(2))
+      : null;
 
   // Re-submission safe: replace responses for this screening id.
   await db.query(`DELETE FROM survey_responses WHERE screening_id = $1`, [screeningId]);
@@ -176,6 +259,31 @@ exports.submitSurveyAnswers = async (screeningId, answers) => {
     );
   }
 
+  await db.query(`DELETE FROM survey_validation_results WHERE screening_id = $1`, [
+    screeningId,
+  ]);
+  await db.query(
+    `INSERT INTO survey_validation_results
+     (screening_id, validation_status, qualifying_questions_count, correct_answers_count, failed_questions, all_survey_responses, validation_details)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      screeningId,
+      validationStatus,
+      qualifyingTotal,
+      correctCount,
+      JSON.stringify(mandatoryFailures),
+      JSON.stringify(answers),
+      JSON.stringify({
+        gate_type: "mandatory_first",
+        mandatory_failed_count: mandatoryFailures.length,
+        optional_weighted_score: optionalWeightedScore,
+        optional_weighted_max: optionalWeightedMax,
+        optional_score_percent: optionalScorePercent,
+        optional_breakdown: optionalBreakdown,
+      }),
+    ]
+  );
+
   await db.query(
     `UPDATE candidates_v2
      SET survey_validation_status = $1,
@@ -190,7 +298,12 @@ exports.submitSurveyAnswers = async (screeningId, answers) => {
     validation_status: validationStatus,
     qualifying_total: qualifyingTotal,
     qualifying_passed: correctCount,
-    failed_questions: failedQuestions,
+    failed_questions: mandatoryFailures,
+    optional_score_percent: optionalScorePercent,
     decision: unlockAssessment ? "pipeline_1_mcq" : "hold_or_reject",
+    gate_reason:
+      validationStatus === "passed"
+        ? "mandatory_gate_passed"
+        : "mandatory_gate_failed",
   };
 };

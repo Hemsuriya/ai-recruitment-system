@@ -144,10 +144,41 @@ app.use((err, req, res, next) => {
         options JSONB,
         is_mandatory BOOLEAN DEFAULT false,
         expected_answer TEXT,
+        optional_weight NUMERIC(6,2),
+        optional_score_map JSONB,
         sort_order INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+    await db.query(`
+      ALTER TABLE hr_assessments
+        ADD COLUMN IF NOT EXISTS mandatory_skills TEXT[],
+        ADD COLUMN IF NOT EXISTS optional_skills TEXT[],
+        ADD COLUMN IF NOT EXISTS skill_weights JSONB,
+        ADD COLUMN IF NOT EXISTS optional_skill_weight NUMERIC(6,2) DEFAULT 0.5;
+    `);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS hr_assessment_skill_mappings (
+        id SERIAL PRIMARY KEY,
+        assessment_id INTEGER NOT NULL REFERENCES hr_assessments(id) ON DELETE CASCADE,
+        skill_name TEXT NOT NULL,
+        is_mandatory BOOLEAN NOT NULL DEFAULT true,
+        weight NUMERIC(8,2) NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (assessment_id, skill_name)
+      );
+    `);
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_hr_assessment_skill_mappings_assessment
+        ON hr_assessment_skill_mappings (assessment_id, sort_order);
+    `);
+    await db.query(`
+      ALTER TABLE hr_pre_screening_questions
+        ADD COLUMN IF NOT EXISTS optional_weight NUMERIC(6,2),
+        ADD COLUMN IF NOT EXISTS optional_score_map JSONB;
     `);
     await db.query(`
       ALTER TABLE survey_responses
@@ -155,6 +186,35 @@ app.use((err, req, res, next) => {
         ADD COLUMN IF NOT EXISTS assessment_id INTEGER REFERENCES hr_assessments(id),
         ADD COLUMN IF NOT EXISTS jid VARCHAR(20),
         ADD COLUMN IF NOT EXISTS matched_expected BOOLEAN;
+    `);
+    await db.query(`
+      INSERT INTO hr_assessment_skill_mappings
+      (assessment_id, skill_name, is_mandatory, weight, sort_order)
+      SELECT
+        ha.id AS assessment_id,
+        ms.skill_name,
+        ms.is_mandatory,
+        ms.weight,
+        ms.sort_order
+      FROM hr_assessments ha
+      JOIN LATERAL (
+        SELECT
+          skill_name,
+          true AS is_mandatory,
+          COALESCE((ha.skill_weights ->> skill_name)::numeric, 1) AS weight,
+          row_number() OVER () - 1 AS sort_order
+        FROM unnest(COALESCE(ha.mandatory_skills, ha.skills, ARRAY[]::TEXT[])) AS skill_name
+
+        UNION ALL
+
+        SELECT
+          skill_name,
+          false AS is_mandatory,
+          COALESCE(ha.optional_skill_weight, 0.5) AS weight,
+          1000 + row_number() OVER () - 1 AS sort_order
+        FROM unnest(COALESCE(ha.optional_skills, ARRAY[]::TEXT[])) AS skill_name
+      ) ms ON true
+      ON CONFLICT (assessment_id, skill_name) DO NOTHING;
     `);
     console.log("✅ Startup migrations applied");
 

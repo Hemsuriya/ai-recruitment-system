@@ -29,13 +29,19 @@ import {
 type FormData = {
   roleTitle: string;
   experienceLevel: string;
-  skills: string[];
+  skills: SkillEntry[];
   timerMinutes: number;
   headcount: number;
   closesAt: string;
   department: string;
   hiringManager: string;
   interviewer: string;
+};
+
+type SkillEntry = {
+  name: string;
+  is_mandatory: boolean;
+  weight: number;
 };
 
 type Question = {
@@ -45,6 +51,8 @@ type Question = {
   options: string[];
   is_mandatory: boolean;
   expected_answer: string;
+  optional_weight?: number | null;
+  optional_score_map?: Record<string, number> | null;
 };
 
 type Options = {
@@ -68,6 +76,8 @@ const defaultQuestions: Question[] = [
     options: ["Yes", "No"],
     is_mandatory: true,
     expected_answer: "Yes",
+    optional_weight: null,
+    optional_score_map: null,
   },
   {
     id: "auth",
@@ -76,6 +86,8 @@ const defaultQuestions: Question[] = [
     options: ["Yes", "No"],
     is_mandatory: true,
     expected_answer: "Yes",
+    optional_weight: null,
+    optional_score_map: null,
   },
   {
     id: "visa",
@@ -84,6 +96,8 @@ const defaultQuestions: Question[] = [
     options: [],
     is_mandatory: false,
     expected_answer: "",
+    optional_weight: 1,
+    optional_score_map: null,
   },
   {
     id: "salary",
@@ -92,6 +106,8 @@ const defaultQuestions: Question[] = [
     options: [],
     is_mandatory: false,
     expected_answer: "",
+    optional_weight: 1,
+    optional_score_map: null,
   },
   {
     id: "start-date",
@@ -100,10 +116,13 @@ const defaultQuestions: Question[] = [
     options: ["Yes", "No"],
     is_mandatory: true,
     expected_answer: "Yes",
+    optional_weight: null,
+    optional_score_map: null,
   },
 ];
 
 const experienceLevels = ["Select level", "Junior", "Mid", "Senior", "Lead"];
+const DEFAULT_OPTIONAL_SKILL_WEIGHT = 0.5;
 
 
 const optionConfig: Array<{
@@ -221,9 +240,9 @@ function AssessmentDetails({
 
     setFormData((current) => ({
       ...current,
-      skills: current.skills.includes(trimmed)
+      skills: current.skills.some((s) => s.name.toLowerCase() === trimmed.toLowerCase())
         ? current.skills
-        : [...current.skills, trimmed],
+        : [...current.skills, { name: trimmed, is_mandatory: true, weight: 1 }],
     }));
     setSkillInput("");
   };
@@ -308,16 +327,38 @@ function AssessmentDetails({
             <div className="mt-3 flex flex-wrap gap-2">
               {formData.skills.map((skill) => (
                 <span
-                  key={skill}
-                  className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
+                  key={`${skill.name}-${skill.is_mandatory ? "m" : "o"}`}
+                  className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-2.5 py-1 text-[14px] font-medium text-violet-700"
                 >
-                  {skill}
+                  {skill.name}
+                  <select
+                    value={skill.is_mandatory ? "mandatory" : "optional"}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        skills: current.skills.map((s) =>
+                          s.name === skill.name
+                            ? {
+                                ...s,
+                                is_mandatory: event.target.value === "mandatory",
+                                weight: 1,
+                              }
+                            : s
+                        ),
+                      }))
+                    }
+                    className="rounded-md border border-violet-200 bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 outline-none"
+                    title="Skill type"
+                  >
+                    <option value="mandatory">Mandatory</option>
+                    <option value="optional">Optional</option>
+                  </select>
                   <button
                     type="button"
                     onClick={() =>
                       setFormData((current) => ({
                         ...current,
-                        skills: current.skills.filter((s) => s !== skill),
+                        skills: current.skills.filter((s) => s.name !== skill.name),
                       }))
                     }
                     className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-violet-400 hover:bg-violet-200 hover:text-violet-700 transition-colors"
@@ -487,6 +528,8 @@ function PreScreeningQuestions({
         options: [],
         is_mandatory: false,
         expected_answer: "",
+        optional_weight: 1,
+        optional_score_map: null,
       },
     ]);
   };
@@ -580,6 +623,9 @@ function PreScreeningQuestions({
                     updateQuestion(question.id, (current) => ({
                       ...current,
                       is_mandatory: !current.is_mandatory,
+                      optional_weight: current.is_mandatory
+                        ? current.optional_weight ?? 1
+                        : null,
                     }))
                   }
                   className={`h-10 w-full rounded-[10px] border px-3 text-[14px] font-medium transition ${
@@ -665,6 +711,62 @@ function PreScreeningQuestions({
                 />
               </div>
             ) : null}
+
+            {!question.is_mandatory ? (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                    Optional Weight
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    value={question.optional_weight ?? 1}
+                    onChange={(event) =>
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        optional_weight: Number(event.target.value),
+                      }))
+                    }
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                    Optional Score Map
+                  </span>
+                  <input
+                    value={Object.entries(question.optional_score_map || {})
+                      .map(([key, value]) => `${key}:${value}`)
+                      .join(", ")}
+                    onChange={(event) => {
+                      const pairs = event.target.value
+                        .split(",")
+                        .map((part) => part.trim())
+                        .filter(Boolean);
+                      const scoreMap: Record<string, number> = {};
+                      pairs.forEach((pair) => {
+                        const [k, v] = pair.split(":");
+                        const key = String(k || "").trim();
+                        const score = Number(v);
+                        if (key && Number.isFinite(score)) {
+                          scoreMap[key] = score;
+                        }
+                      });
+                      updateQuestion(question.id, (current) => ({
+                        ...current,
+                        optional_score_map:
+                          Object.keys(scoreMap).length > 0 ? scoreMap : null,
+                      }));
+                    }}
+                    placeholder="Yes:1, No:0"
+                    className="h-10 w-full rounded-[10px] border border-gray-200 bg-white px-3 text-[14px] text-gray-700 outline-none transition focus:border-transparent focus:ring-2 focus:ring-violet-500"
+                  />
+                </label>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
@@ -733,10 +835,10 @@ function AssessmentSummary({
           <div className="mt-1 flex flex-wrap gap-1.5">
             {formData.skills.map((skill) => (
               <span
-                key={skill}
+                key={`${skill.name}-${skill.is_mandatory ? "m" : "o"}`}
                 className="rounded-full bg-violet-50 px-2.5 py-0.5 text-[14px] font-medium text-violet-700"
               >
-                {skill}
+                {skill.name} {skill.is_mandatory ? "(Mandatory)" : "(Optional)"}
               </span>
             ))}
           </div>
@@ -968,7 +1070,11 @@ const applyAutopopulateData = (data: AutopopulateResponse) => {
     ...current,
     roleTitle: data.role_title || "",
     experienceLevel: data.experience_level || "",
-    skills: data.skills_required || [],
+    skills: (data.skills_required || []).map((name) => ({
+      name,
+      is_mandatory: true,
+      weight: 1,
+    })),
     timerMinutes: 30,
     headcount: data.number_of_candidates ?? 1,
     closesAt: current.closesAt || oneMonthOut,
@@ -982,6 +1088,8 @@ const applyAutopopulateData = (data: AutopopulateResponse) => {
       options: [],
       is_mandatory: false,
       expected_answer: "",
+      optional_weight: 1,
+      optional_score_map: null,
     }));
 
   setQuestions(
@@ -1035,14 +1143,19 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
           options: q.answer_type === "mcq" ? q.options : q.answer_type === "yes_no" ? ["Yes", "No"] : [],
           is_mandatory: q.is_mandatory,
           expected_answer: q.expected_answer.trim() || null,
+          optional_weight: q.is_mandatory ? null : q.optional_weight ?? 1,
+          optional_score_map: q.is_mandatory ? null : q.optional_score_map ?? null,
           sort_order: index,
         }))
         .filter((q) => q.question_text.length > 0);
 
       if (editMode && selectedTemplateKey) {
+        const mandatorySkills = formData.skills
+          .filter((s) => s.is_mandatory)
+          .map((s) => s.name);
         await jobTemplateApi.update(selectedTemplateKey, {
           job_title: formData.roleTitle,
-          required_skills: formData.skills.join(", "),
+          required_skills: mandatorySkills.join(", "),
           number_of_candidates: String(formData.headcount),
           survey_question_1: configuredPreScreening[0]?.question_text || null,
           survey_q1_expected_answer: null,
@@ -1052,10 +1165,29 @@ const fetchAutopopulatedTemplate = async (templateCode: string) => {
         alert("Template updated successfully!");
         navigate("/hr/templates");
       } else {
+        const mandatorySkills = formData.skills
+          .filter((s) => s.is_mandatory)
+          .map((s) => s.name);
+        const optionalSkills = formData.skills
+          .filter((s) => !s.is_mandatory)
+          .map((s) => s.name);
+        const skillWeights = Object.fromEntries(
+          formData.skills
+            .filter((s) => s.is_mandatory)
+            .map((s) => [s.name, s.weight || 1])
+        );
         const result = await assessmentApi.create({
           role_title: formData.roleTitle,
           experience_level: formData.experienceLevel || "Mid",
-          skills: formData.skills,
+          skills: mandatorySkills,
+          optional_skills: optionalSkills,
+          skill_weights: skillWeights,
+          optional_skill_weight: DEFAULT_OPTIONAL_SKILL_WEIGHT,
+          skill_config: formData.skills.map((s) => ({
+            name: s.name,
+            is_mandatory: s.is_mandatory,
+            weight: s.weight,
+          })),
           template_key: selectedTemplateKey || undefined,
           pre_screening_questions: configuredPreScreening,
           options: {

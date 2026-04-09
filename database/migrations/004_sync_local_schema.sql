@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS public.hr_assessments (
     role_title VARCHAR(150) NOT NULL,
     experience_level VARCHAR(50),
     skills TEXT[],
+    mandatory_skills TEXT[],
+    optional_skills TEXT[],
+    skill_weights JSONB,
+    optional_skill_weight NUMERIC(6,2) DEFAULT 0.5,
     job_description TEXT,
     ai_generated_jd BOOLEAN DEFAULT FALSE,
     mcq_time_limit INTEGER DEFAULT 30,
@@ -82,6 +86,21 @@ CREATE TABLE IF NOT EXISTS public.hr_assessments (
 CREATE INDEX IF NOT EXISTS idx_hr_assessments_jid ON public.hr_assessments(jid);
 CREATE INDEX IF NOT EXISTS idx_hr_assessments_status ON public.hr_assessments(status);
 CREATE INDEX IF NOT EXISTS idx_hr_assessments_created ON public.hr_assessments(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.hr_assessment_skill_mappings (
+    id SERIAL PRIMARY KEY,
+    assessment_id INTEGER NOT NULL REFERENCES public.hr_assessments(id) ON DELETE CASCADE,
+    skill_name TEXT NOT NULL,
+    is_mandatory BOOLEAN NOT NULL DEFAULT TRUE,
+    weight NUMERIC(8,2) NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (assessment_id, skill_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_hr_assessment_skill_mappings_assessment
+  ON public.hr_assessment_skill_mappings(assessment_id, sort_order);
 
 CREATE TRIGGER update_hr_assessments_updated_at
     BEFORE UPDATE ON public.hr_assessments
